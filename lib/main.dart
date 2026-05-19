@@ -6,6 +6,10 @@ import 'features/auth/service/auth_service.dart';
 const _kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
 
 void main() {
+  assert(
+    _kakaoNativeAppKey.isNotEmpty,
+    '--dart-define=KAKAO_NATIVE_APP_KEY 가 설정되지 않았습니다.',
+  );
   KakaoSdk.init(nativeAppKey: _kakaoNativeAppKey);
   runApp(const TogetherTripApp());
 }
