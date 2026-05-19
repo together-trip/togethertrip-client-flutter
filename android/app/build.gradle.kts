@@ -25,7 +25,17 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["kakaoNativeAppKey"] = System.getenv("KAKAO_NATIVE_APP_KEY") ?: ""
+
+        // --dart-define=KAKAO_NATIVE_APP_KEY=xxx 값을 Android Manifest에 주입
+        val dartDefines = (project.findProperty("dart-defines") as? String)
+            ?.split(",")
+            ?.associate { encoded ->
+                val decoded = String(java.util.Base64.getDecoder().decode(encoded))
+                val idx = decoded.indexOf('=')
+                decoded.substring(0, idx) to decoded.substring(idx + 1)
+            } ?: emptyMap()
+        manifestPlaceholders["kakaoNativeAppKey"] =
+            dartDefines["KAKAO_NATIVE_APP_KEY"] ?: System.getenv("KAKAO_NATIVE_APP_KEY") ?: ""
     }
 
     buildTypes {

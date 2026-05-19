@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 로컬 환경 설정 (앱 키 등 민감 정보)
+ios/Flutter/LocalConfig.xcconfig
