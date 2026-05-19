@@ -8,25 +8,35 @@ class ApiClient {
 
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
-  Future<Map<String, dynamic>> post(
+  Future<Map<String, dynamic>?> post(
     String path,
-    Map<String, dynamic> body,
-  ) async {
+    Map<String, dynamic> body, {
+    String? accessToken,
+  }) async {
     final url = Uri.parse('$_baseUrl$path');
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (accessToken != null) {
+      headers['Authorization'] = 'Bearer $accessToken';
+    }
+
     final response = await _client.post(
       url,
-      headers: {'Content-Type': 'application/json'},
+      headers: headers,
       body: jsonEncode(body),
     );
 
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
         statusCode: response.statusCode,
         message: decoded['message']?.toString() ?? '서버 오류가 발생했습니다.',
       );
     }
-    return decoded;
+
+    final data = decoded['data'];
+    if (data is Map<String, dynamic>) return data;
+    return null;
   }
 }
 

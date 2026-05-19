@@ -14,22 +14,40 @@ class AuthService {
 
   Future<void> loginWithKakao() async {
     final kakaoToken = await _getKakaoToken();
-    final response = await _apiClient.post(
+    final data = await _apiClient.post(
       '/api/auth/oauth/kakao',
       {'accessToken': kakaoToken},
     );
     await _tokenStorage.save(
-      accessToken: response['accessToken'] as String,
-      refreshToken: response['refreshToken'] as String,
+      accessToken: data!['accessToken'] as String,
+      refreshToken: data['refreshToken'] as String,
+    );
+  }
+
+  Future<void> refreshToken() async {
+    final refreshToken = await _tokenStorage.getRefreshToken();
+    if (refreshToken == null) throw ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
+
+    final data = await _apiClient.post(
+      '/api/auth/refresh',
+      {'refreshToken': refreshToken},
+    );
+    await _tokenStorage.save(
+      accessToken: data!['accessToken'] as String,
+      refreshToken: data['refreshToken'] as String,
     );
   }
 
   Future<void> logout() async {
+    final accessToken = await _tokenStorage.getAccessToken();
+    try {
+      if (accessToken != null) {
+        await _apiClient.post('/api/auth/logout', {}, accessToken: accessToken);
+      }
+    } catch (_) {}
     try {
       await UserApi.instance.logout();
-    } catch (_) {
-      // 카카오 로그아웃 실패해도 로컬 토큰은 삭제
-    }
+    } catch (_) {}
     await _tokenStorage.clear();
   }
 

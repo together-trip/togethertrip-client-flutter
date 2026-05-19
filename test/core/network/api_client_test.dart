@@ -4,12 +4,24 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:togethertrip/core/network/api_client.dart';
 
+Map<String, dynamic> _apiResponse(dynamic data) => {
+      'success': true,
+      'data': data,
+      'message': null,
+    };
+
+Map<String, dynamic> _apiError(String message) => {
+      'success': false,
+      'code': 'ERROR',
+      'message': message,
+    };
+
 void main() {
   group('ApiClient', () {
-    test('post 성공 시 응답 맵을 반환한다', () async {
+    test('post 성공 시 data 필드를 반환한다', () async {
       final mockClient = MockClient((request) async {
         return http.Response(
-          jsonEncode({'accessToken': 'at', 'refreshToken': 'rt'}),
+          jsonEncode(_apiResponse({'accessToken': 'at', 'refreshToken': 'rt'})),
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -20,14 +32,31 @@ void main() {
         'accessToken': 'kakao_token',
       });
 
-      expect(result['accessToken'], 'at');
+      expect(result!['accessToken'], 'at');
       expect(result['refreshToken'], 'rt');
+    });
+
+    test('accessToken 전달 시 Authorization 헤더가 포함된다', () async {
+      String? capturedAuth;
+      final mockClient = MockClient((request) async {
+        capturedAuth = request.headers['Authorization'];
+        return http.Response(
+          jsonEncode(_apiResponse(null)),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      await apiClient.post('/api/auth/logout', {}, accessToken: 'my_token');
+
+      expect(capturedAuth, 'Bearer my_token');
     });
 
     test('서버 오류 시 ApiException을 던진다', () async {
       final mockClient = MockClient((request) async {
         return http.Response(
-          jsonEncode({'message': '서버 오류'}),
+          jsonEncode(_apiError('서버 오류')),
           500,
           headers: {'content-type': 'application/json'},
         );
@@ -43,7 +72,7 @@ void main() {
     test('ApiException은 statusCode와 message를 가진다', () async {
       final mockClient = MockClient((request) async {
         return http.Response(
-          jsonEncode({'message': '인증 실패'}),
+          jsonEncode(_apiError('인증 실패')),
           401,
           headers: {'content-type': 'application/json'},
         );
@@ -57,6 +86,20 @@ void main() {
         expect(e.statusCode, 401);
         expect(e.message, '인증 실패');
       }
+    });
+
+    test('data가 null이면 null을 반환한다', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode(_apiResponse(null)),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      final result = await apiClient.post('/api/auth/logout', {});
+      expect(result, isNull);
     });
   });
 }
