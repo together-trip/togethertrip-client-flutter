@@ -15,7 +15,7 @@
 ## 아키텍처 원칙
 
 - feature-first Flutter 구조를 기본으로 한다.
-- presentation, application, domain, data 책임을 분리한다.
+- 현재 코드처럼 `feature/*/screen`, `feature/*/service`, `core/network`, `core/storage` 중심의 단순 구조를 따른다.
 - UI는 기획의 1차 MVP 범위를 우선한다.
 - 앱 내 검색, 신고/차단, 사진 확대/저장, 외부 공유, 다크 모드는 1차 범위가 아니다.
 - API 호출은 gateway를 외부 진입점으로 본다.
@@ -32,4 +32,3 @@
 - 정산 시작 이후 소비 금액 관련 수정/삭제는 불가하다.
 - 자기 자신이 발생시킨 행동에는 알림을 보내지 않는다.
 - 동행자, 방장, 탈퇴/퇴장 사용자 표시 정책을 UI에서 혼동하지 않는다.
-
