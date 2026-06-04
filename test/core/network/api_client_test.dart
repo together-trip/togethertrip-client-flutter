@@ -68,12 +68,12 @@ void main() {
 
       final apiClient = ApiClient(client: mockClient);
       final result = await apiClient.get(
-        '/api/users/search/nickname',
+        '/api/users/nicknames/availability',
         queryParameters: {'nickname': '여행자'},
         accessToken: 'my_token',
       );
 
-      expect(capturedUrl!.path, '/api/users/search/nickname');
+      expect(capturedUrl!.path, '/api/users/nicknames/availability');
       expect(capturedUrl!.queryParameters['nickname'], '여행자');
       expect(capturedAuth, 'Bearer my_token');
       expect(result!['available'], true);

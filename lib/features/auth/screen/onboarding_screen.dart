@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../main/screen/main_placeholder_screen.dart';
+import '../../main/screen/main_shell_screen.dart';
 import '../service/auth_service.dart';
 import 'sign_up_profile_screen.dart';
 
@@ -33,9 +33,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       if (result.isAuthenticated) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(
-            builder: (_) => const MainPlaceholderScreen(),
-          ),
+          MaterialPageRoute<void>(builder: (_) => const MainShellScreen()),
         );
         return;
       }

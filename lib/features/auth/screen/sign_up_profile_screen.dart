@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../main/screen/main_placeholder_screen.dart';
+import '../../main/screen/main_shell_screen.dart';
 import '../service/auth_service.dart';
 
 enum _Gender {
@@ -21,10 +21,15 @@ class SignUpProfileScreen extends StatefulWidget {
   final AuthService authService;
   final String? temporaryToken;
 
+  /// 값이 있으면 "개인정보 수정" 모드로 동작하며 기존 내용을 프리필한다.
+  /// null이면 회원가입 프로필 설정 모드.
+  final UserProfile? initialProfile;
+
   const SignUpProfileScreen({
     super.key,
     required this.authService,
     required this.temporaryToken,
+    this.initialProfile,
   });
 
   @override
@@ -53,6 +58,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
 
   bool get _isCodeRequested => _remainingSeconds > 0;
   bool get _requiresPhoneVerification => widget.temporaryToken != null;
+  bool get _isEditMode => widget.initialProfile != null;
   bool get _isNicknameConfirmed {
     return _isNicknameAvailable == true &&
         _checkedNickname == _nicknameController.text.trim();
@@ -62,8 +68,31 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
   void initState() {
     super.initState();
     _isPhoneVerified = !_requiresPhoneVerification;
+    _prefillFromInitialProfile();
     _nicknameController.addListener(_resetNicknameCheckIfChanged);
     _phoneController.addListener(_resetVerificationIfPhoneChanged);
+  }
+
+  void _prefillFromInitialProfile() {
+    final profile = widget.initialProfile;
+    if (profile == null) return;
+
+    _nicknameController.text = profile.nickname;
+    // 기존 닉네임은 본인 것이므로 중복확인 없이 확인된 상태로 간주한다.
+    // (공개 중복확인 API는 본인 닉네임도 "사용중"으로 보기 때문)
+    _checkedNickname = profile.nickname;
+    _isNicknameAvailable = true;
+
+    if (profile.gender == _Gender.female.apiValue) {
+      _gender = _Gender.female;
+    } else if (profile.gender == _Gender.male.apiValue) {
+      _gender = _Gender.male;
+    }
+
+    final birthDate = profile.birthDate;
+    if (birthDate != null && birthDate.isNotEmpty) {
+      _birthDateController.text = _toDisplayBirthDate(birthDate);
+    }
   }
 
   @override
@@ -133,12 +162,21 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     });
 
     try {
-      await widget.authService.confirmPhoneVerification(
+      final result = await widget.authService.confirmPhoneVerification(
         temporaryToken: temporaryToken,
         phoneNumber: _requestedPhoneNumber!,
         code: code,
       );
       if (!mounted) return;
+
+      if (result.isAuthenticated) {
+        _timer?.cancel();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute<void>(builder: (_) => const MainShellScreen()),
+          (_) => false,
+        );
+        return;
+      }
 
       _timer?.cancel();
       setState(() {
@@ -213,11 +251,18 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
         nickname: nickname,
         gender: _gender.apiValue,
         birthDate: _toApiBirthDate(_birthDateController.text),
+        profileImageUrl: widget.initialProfile?.profileImageUrl,
       );
       if (!mounted) return;
 
+      if (_isEditMode) {
+        // 수정 모드: 호출한 화면(마이페이지)으로 결과를 전달하며 닫는다.
+        Navigator.of(context).pop(true);
+        return;
+      }
+
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const MainPlaceholderScreen()),
+        MaterialPageRoute<void>(builder: (_) => const MainShellScreen()),
         (_) => false,
       );
     } on ApiException catch (e) {
@@ -289,7 +334,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const _Header(title: '프로필 설정'),
+            _Header(title: _isEditMode ? '개인정보 수정' : '프로필 설정'),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
@@ -540,7 +585,11 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                             ),
                           ),
                           child: Text(
-                            _isSubmitting ? '저장중' : '완료',
+                            _isSubmitting
+                                ? '저장중'
+                                : _isEditMode
+                                ? '저장'
+                                : '완료',
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
@@ -679,6 +728,12 @@ String _toApiBirthDate(String value) {
   final digits = _digitsOnly(value);
   if (digits.length != 8) return value.trim().replaceAll('.', '-');
   return '${digits.substring(0, 4)}-${digits.substring(4, 6)}-${digits.substring(6, 8)}';
+}
+
+String _toDisplayBirthDate(String value) {
+  final digits = _digitsOnly(value);
+  if (digits.length != 8) return value.trim().replaceAll('-', '.');
+  return '${digits.substring(0, 4)}.${digits.substring(4, 6)}.${digits.substring(6, 8)}';
 }
 
 String _toApiPhoneNumber(String value) {

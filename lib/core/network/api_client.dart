@@ -96,6 +96,36 @@ class ApiClient {
     if (data is Map<String, dynamic>) return data;
     return null;
   }
+
+  Future<Map<String, dynamic>?> delete(
+    String path, {
+    required String accessToken,
+  }) async {
+    final url = Uri.parse('$_baseUrl$path');
+    final response = await _client.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = response.body.isEmpty
+          ? '서버 오류가 발생했습니다.'
+          : (jsonDecode(response.body) as Map<String, dynamic>)['message']
+                    ?.toString() ??
+                '서버 오류가 발생했습니다.';
+      throw ApiException(statusCode: response.statusCode, message: message);
+    }
+
+    if (response.body.isEmpty) return null;
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = decoded['data'];
+    if (data is Map<String, dynamic>) return data;
+    return null;
+  }
 }
 
 class ApiException implements Exception {
