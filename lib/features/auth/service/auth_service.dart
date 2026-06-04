@@ -99,6 +99,37 @@ class AuthService {
     }, accessToken: accessToken);
   }
 
+  Future<UserProfile> getMe() async {
+    final accessToken = await _tokenStorage.getAccessToken();
+    if (accessToken == null) {
+      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
+    }
+
+    final data = await _apiClient.get(
+      '/api/users/me',
+      accessToken: accessToken,
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '내 정보 응답이 비어 있습니다.');
+    }
+
+    return UserProfile.fromJson(data);
+  }
+
+  Future<void> deleteAccount() async {
+    final accessToken = await _tokenStorage.getAccessToken();
+    if (accessToken == null) {
+      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
+    }
+
+    await _apiClient.delete('/api/users/me', accessToken: accessToken);
+
+    try {
+      await UserApi.instance.logout();
+    } catch (_) {}
+    await _tokenStorage.clear();
+  }
+
   Future<bool> checkNicknameAvailability(String nickname) async {
     final data = await _apiClient.get(
       '/api/users/search/nickname',
@@ -217,6 +248,35 @@ class PhoneVerificationCodeSent {
     return PhoneVerificationCodeSent(
       phoneNumber: json['phoneNumber'] as String,
       expiresInSeconds: json['expiresInSeconds'] as int,
+    );
+  }
+}
+
+class UserProfile {
+  final int id;
+  final String nickname;
+  final String? gender;
+  final String? birthDate; // yyyy-MM-dd
+  final String? profileImageUrl;
+  final String? phoneNumber;
+
+  const UserProfile({
+    required this.id,
+    required this.nickname,
+    required this.gender,
+    required this.birthDate,
+    required this.profileImageUrl,
+    required this.phoneNumber,
+  });
+
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    return UserProfile(
+      id: (json['id'] as num).toInt(),
+      nickname: json['nickname'] as String,
+      gender: json['gender'] as String?,
+      birthDate: json['birthDate'] as String?,
+      profileImageUrl: json['profileImageUrl'] as String?,
+      phoneNumber: json['phoneNumber'] as String?,
     );
   }
 }
