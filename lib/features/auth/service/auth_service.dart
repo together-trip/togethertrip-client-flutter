@@ -1,4 +1,5 @@
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/token_storage.dart';
 
@@ -6,35 +7,126 @@ class AuthService {
   final ApiClient _apiClient;
   final TokenStorage _tokenStorage;
 
-  AuthService({
-    ApiClient? apiClient,
-    TokenStorage? tokenStorage,
-  })  : _apiClient = apiClient ?? ApiClient(),
-        _tokenStorage = tokenStorage ?? TokenStorage();
+  AuthService({ApiClient? apiClient, TokenStorage? tokenStorage})
+    : _apiClient = apiClient ?? ApiClient(),
+      _tokenStorage = tokenStorage ?? TokenStorage();
 
-  Future<void> loginWithKakao() async {
+  Future<AuthLoginResult> loginWithKakao() async {
     final kakaoToken = await _getKakaoToken();
-    final data = await _apiClient.post(
-      '/api/auth/oauth/kakao',
-      {'accessToken': kakaoToken},
+    final data = await _apiClient.post('/api/auth/oauth/kakao', {
+      'accessToken': kakaoToken,
+    });
+
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '로그인 응답이 비어 있습니다.');
+    }
+
+    final result = AuthLoginResult.fromJson(data);
+    if (result.hasToken) {
+      await _saveTokens(
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      );
+    } else {
+      await _tokenStorage.clear();
+    }
+
+    return result;
+  }
+
+  Future<PhoneVerificationCodeSent> requestPhoneVerification({
+    required String temporaryToken,
+    required String phoneNumber,
+  }) async {
+    final data = await _apiClient.post('/api/auth/phone/request', {
+      'temporaryToken': temporaryToken,
+      'phoneNumber': phoneNumber,
+    });
+
+    if (data == null) {
+      throw const ApiException(
+        statusCode: 500,
+        message: '인증번호 요청 응답이 비어 있습니다.',
+      );
+    }
+
+    return PhoneVerificationCodeSent.fromJson(data);
+  }
+
+  Future<AuthLoginResult> confirmPhoneVerification({
+    required String temporaryToken,
+    required String phoneNumber,
+    required String code,
+  }) async {
+    final data = await _apiClient.post('/api/auth/phone/confirm', {
+      'temporaryToken': temporaryToken,
+      'phoneNumber': phoneNumber,
+      'code': code,
+    });
+
+    if (data == null) {
+      throw const ApiException(
+        statusCode: 500,
+        message: '전화번호 인증 응답이 비어 있습니다.',
+      );
+    }
+
+    final result = AuthLoginResult.fromJson(data);
+    await _saveTokens(
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
     );
-    await _tokenStorage.save(
-      accessToken: data!['accessToken'] as String,
-      refreshToken: data['refreshToken'] as String,
+
+    return result;
+  }
+
+  Future<void> updateMyProfile({
+    required String nickname,
+    required String gender,
+    required String birthDate,
+    String? profileImageUrl,
+  }) async {
+    final accessToken = await _tokenStorage.getAccessToken();
+    if (accessToken == null) {
+      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
+    }
+
+    await _apiClient.patch('/api/users/me', {
+      'nickname': nickname,
+      'gender': gender,
+      'birthDate': birthDate,
+      'profileImageUrl': profileImageUrl,
+    }, accessToken: accessToken);
+  }
+
+  Future<bool> checkNicknameAvailability(String nickname) async {
+    final data = await _apiClient.get(
+      '/api/users/search/nickname',
+      queryParameters: {'nickname': nickname},
     );
+
+    if (data == null || data['available'] is! bool) {
+      throw const ApiException(
+        statusCode: 500,
+        message: '닉네임 확인 응답이 올바르지 않습니다.',
+      );
+    }
+
+    return data['available'] as bool;
   }
 
   Future<void> refreshToken() async {
     final refreshToken = await _tokenStorage.getRefreshToken();
-    if (refreshToken == null) throw ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
+    if (refreshToken == null) {
+      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
+    }
 
-    final data = await _apiClient.post(
-      '/api/auth/refresh',
-      {'refreshToken': refreshToken},
-    );
-    await _tokenStorage.save(
-      accessToken: data!['accessToken'] as String,
-      refreshToken: data['refreshToken'] as String,
+    final data = await _apiClient.post('/api/auth/refresh', {
+      'refreshToken': refreshToken,
+    });
+    await _saveTokens(
+      accessToken: data?['accessToken'] as String?,
+      refreshToken: data?['refreshToken'] as String?,
     );
   }
 
@@ -55,6 +147,20 @@ class AuthService {
 
   Future<String?> getAccessToken() => _tokenStorage.getAccessToken();
 
+  Future<void> _saveTokens({
+    required String? accessToken,
+    required String? refreshToken,
+  }) async {
+    if (accessToken == null || refreshToken == null) {
+      throw const ApiException(statusCode: 500, message: '토큰 응답이 올바르지 않습니다.');
+    }
+
+    await _tokenStorage.save(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+    );
+  }
+
   Future<String> _getKakaoToken() async {
     OAuthToken token;
     if (await isKakaoTalkInstalled()) {
@@ -63,5 +169,54 @@ class AuthService {
       token = await UserApi.instance.loginWithKakaoAccount();
     }
     return token.accessToken;
+  }
+}
+
+class AuthLoginResult {
+  final String status;
+  final String? temporaryToken;
+  final String? accessToken;
+  final String? refreshToken;
+
+  const AuthLoginResult({
+    required this.status,
+    required this.temporaryToken,
+    required this.accessToken,
+    required this.refreshToken,
+  });
+
+  bool get isAuthenticated => status == 'AUTHENTICATED';
+
+  bool get isProfileRequired => status == 'PROFILE_REQUIRED';
+
+  bool get hasToken => isAuthenticated || isProfileRequired;
+
+  bool get isPhoneVerificationRequired =>
+      status == 'PHONE_VERIFICATION_REQUIRED';
+
+  factory AuthLoginResult.fromJson(Map<String, dynamic> json) {
+    return AuthLoginResult(
+      status: json['status'] as String,
+      temporaryToken: json['temporaryToken'] as String?,
+      accessToken: json['accessToken'] as String?,
+      refreshToken: json['refreshToken'] as String?,
+    );
+  }
+}
+
+class PhoneVerificationCodeSent {
+  final String phoneNumber;
+  final int expiresInSeconds;
+
+  const PhoneVerificationCodeSent({
+    required this.phoneNumber,
+    required this.expiresInSeconds,
+  });
+
+  factory PhoneVerificationCodeSent.fromJson(Map<String, dynamic> json) {
+    return PhoneVerificationCodeSent(
+      phoneNumber: json['phoneNumber'] as String,
+      expiresInSeconds: json['expiresInSeconds'] as int,
+    );
   }
 }

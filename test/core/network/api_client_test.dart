@@ -5,16 +5,16 @@ import 'package:http/testing.dart';
 import 'package:togethertrip/core/network/api_client.dart';
 
 Map<String, dynamic> _apiResponse(dynamic data) => {
-      'success': true,
-      'data': data,
-      'message': null,
-    };
+  'success': true,
+  'data': data,
+  'message': null,
+};
 
 Map<String, dynamic> _apiError(String message) => {
-      'success': false,
-      'code': 'ERROR',
-      'message': message,
-    };
+  'success': false,
+  'code': 'ERROR',
+  'message': message,
+};
 
 void main() {
   group('ApiClient', () {
@@ -51,6 +51,32 @@ void main() {
       await apiClient.post('/api/auth/logout', {}, accessToken: 'my_token');
 
       expect(capturedAuth, 'Bearer my_token');
+    });
+
+    test('get 요청 시 query와 Authorization 헤더가 포함된다', () async {
+      Uri? capturedUrl;
+      String? capturedAuth;
+      final mockClient = MockClient((request) async {
+        capturedUrl = request.url;
+        capturedAuth = request.headers['Authorization'];
+        return http.Response(
+          jsonEncode(_apiResponse({'available': true})),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      final result = await apiClient.get(
+        '/api/users/search/nickname',
+        queryParameters: {'nickname': '여행자'},
+        accessToken: 'my_token',
+      );
+
+      expect(capturedUrl!.path, '/api/users/search/nickname');
+      expect(capturedUrl!.queryParameters['nickname'], '여행자');
+      expect(capturedAuth, 'Bearer my_token');
+      expect(result!['available'], true);
     });
 
     test('서버 오류 시 ApiException을 던진다', () async {

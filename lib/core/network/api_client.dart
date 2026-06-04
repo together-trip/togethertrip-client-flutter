@@ -8,6 +8,35 @@ class ApiClient {
 
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
+  Future<Map<String, dynamic>?> get(
+    String path, {
+    Map<String, String>? queryParameters,
+    String? accessToken,
+  }) async {
+    final url = Uri.parse(
+      '$_baseUrl$path',
+    ).replace(queryParameters: queryParameters);
+    final headers = {'Content-Type': 'application/json'};
+    if (accessToken != null) {
+      headers['Authorization'] = 'Bearer $accessToken';
+    }
+
+    final response = await _client.get(url, headers: headers);
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: decoded['message']?.toString() ?? '서버 오류가 발생했습니다.',
+      );
+    }
+
+    final data = decoded['data'];
+    if (data is Map<String, dynamic>) return data;
+    return null;
+  }
+
   Future<Map<String, dynamic>?> post(
     String path,
     Map<String, dynamic> body, {
@@ -22,6 +51,35 @@ class ApiClient {
     final response = await _client.post(
       url,
       headers: headers,
+      body: jsonEncode(body),
+    );
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: decoded['message']?.toString() ?? '서버 오류가 발생했습니다.',
+      );
+    }
+
+    final data = decoded['data'];
+    if (data is Map<String, dynamic>) return data;
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> patch(
+    String path,
+    Map<String, dynamic> body, {
+    required String accessToken,
+  }) async {
+    final url = Uri.parse('$_baseUrl$path');
+    final response = await _client.patch(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
       body: jsonEncode(body),
     );
 
