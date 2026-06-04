@@ -10,7 +10,7 @@ void main() {
   });
 
   testWidgets('회원가입 완료 시 메인 더미 페이지로 이동한다', (WidgetTester tester) async {
-    final authService = _FakeAuthService();
+    final authService = _FakeAuthService(confirmStatus: 'PROFILE_REQUIRED');
     await tester.pumpWidget(TogetherTripApp(authService: authService));
 
     await tester.tap(find.text('카카오로 시작하기'));
@@ -54,6 +54,33 @@ void main() {
     expect(authService.updatedBirthDate, '1990-01-01');
   });
 
+  testWidgets('재가입자는 전화번호 인증 후 프로필 입력 없이 메인으로 이동한다', (
+    WidgetTester tester,
+  ) async {
+    final authService = _FakeAuthService(confirmStatus: 'AUTHENTICATED');
+    await tester.pumpWidget(TogetherTripApp(authService: authService));
+
+    await tester.tap(find.text('카카오로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('프로필 설정'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('phoneField')),
+      '010-1234-5678',
+    );
+    await tester.tap(find.byKey(const ValueKey('requestCodeButton')));
+    await tester.pump();
+
+    await tester.enterText(find.byKey(const ValueKey('codeField')), '123456');
+    await tester.tap(find.byKey(const ValueKey('confirmCodeButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('메인페이지 입니다.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('nicknameField')), findsNothing);
+    expect(authService.updatedNickname, isNull);
+  });
+
   testWidgets('프로필 미완료 로그인은 전화번호 인증 없이 프로필 입력으로 이동한다', (
     WidgetTester tester,
   ) async {
@@ -82,13 +109,17 @@ void main() {
 
 class _FakeAuthService extends AuthService {
   final bool profileRequired;
+  final String confirmStatus;
   String? checkedNickname;
   String? requestedPhoneNumber;
   String? updatedNickname;
   String? updatedGender;
   String? updatedBirthDate;
 
-  _FakeAuthService({this.profileRequired = false});
+  _FakeAuthService({
+    this.profileRequired = false,
+    this.confirmStatus = 'AUTHENTICATED',
+  });
 
   @override
   Future<AuthLoginResult> loginWithKakao() async {
@@ -127,8 +158,8 @@ class _FakeAuthService extends AuthService {
     required String phoneNumber,
     required String code,
   }) async {
-    return const AuthLoginResult(
-      status: 'AUTHENTICATED',
+    return AuthLoginResult(
+      status: confirmStatus,
       temporaryToken: null,
       accessToken: 'access-token',
       refreshToken: 'refresh-token',

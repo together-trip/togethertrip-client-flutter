@@ -162,12 +162,21 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     });
 
     try {
-      await widget.authService.confirmPhoneVerification(
+      final result = await widget.authService.confirmPhoneVerification(
         temporaryToken: temporaryToken,
         phoneNumber: _requestedPhoneNumber!,
         code: code,
       );
       if (!mounted) return;
+
+      if (result.isAuthenticated) {
+        _timer?.cancel();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute<void>(builder: (_) => const MainShellScreen()),
+          (_) => false,
+        );
+        return;
+      }
 
       _timer?.cancel();
       setState(() {
