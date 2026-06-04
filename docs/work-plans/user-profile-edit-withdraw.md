@@ -18,7 +18,7 @@
 - `GET /api/users/me` → `UserResponse` (수정 화면 프리필용 내 정보 조회)
 - `PATCH /api/users/me` (`nickname`/`gender`/`birthDate`/`profileImageUrl`, 모두 선택) → 내 정보 수정
 - `DELETE /api/users/me` → 회원 탈퇴 (soft delete + `status=WITHDRAWN`)
-- `GET /api/users/search/nickname?nickname=` → 닉네임 중복 확인 (기존)
+- `GET /api/users/nicknames/availability?nickname=` → 닉네임 중복 확인 (기존)
 
 ## 범위
 
@@ -37,7 +37,7 @@
 ## 설계 결정
 
 - 수정 화면을 별도로 만들지 않고 `SignUpProfileScreen`을 재사용한다. `initialProfile != null` 이면 수정 모드.
-- 닉네임 중복확인 API(`/api/users/search/nickname`)는 **본인 닉네임도 "사용중"으로 판단**(self 제외 안 함)한다.
+- 닉네임 중복확인 API(`/api/users/nicknames/availability`)는 **본인 닉네임도 "사용중"으로 판단**(self 제외 안 함)한다.
   따라서 수정 모드에서 기존 닉네임은 중복확인 절차 없이 "확인됨"으로 간주한다. 닉네임을 실제로 바꾼 경우에만 재확인.
   (`PATCH`는 self를 제외하므로 닉네임 미변경 시에도 정상 통과)
 - 사용자/프로필 호출은 기존 코드 관례에 맞춰 `AuthService`에 둔다(이미 `updateMyProfile`,
@@ -169,7 +169,7 @@ Closes #<이슈번호>
 - GET /api/users/me
 - PATCH /api/users/me
 - DELETE /api/users/me
-- GET /api/users/search/nickname (기존)
+- GET /api/users/nicknames/availability (기존)
 
 ## 검증
 - [ ] flutter analyze

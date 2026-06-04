@@ -132,7 +132,7 @@ class AuthService {
 
   Future<bool> checkNicknameAvailability(String nickname) async {
     final data = await _apiClient.get(
-      '/api/users/search/nickname',
+      '/api/users/nicknames/availability',
       queryParameters: {'nickname': nickname},
     );
 
