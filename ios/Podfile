@@ -39,5 +39,14 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    target.shell_script_build_phases.each do |phase|
+      next unless phase.name == 'Remove extended attributes before code signing'
+
+      target.build_phases.delete(phase)
+    end
+
+    phase = target.new_shell_script_build_phase('Remove extended attributes before code signing')
+    phase.shell_script = 'if [ -n "${FULL_PRODUCT_NAME}" ] && [ -d "${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}" ]; then xattr -cr "${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}"; fi'
   end
 end

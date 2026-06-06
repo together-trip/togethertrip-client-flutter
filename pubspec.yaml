@@ -22,4 +22,7 @@ dev_dependencies:
   build_runner: ^2.4.15
 
 flutter:
+  config:
+    enable-swift-package-manager: false
   uses-material-design: true
+
