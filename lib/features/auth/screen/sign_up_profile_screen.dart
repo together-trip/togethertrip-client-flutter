@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../main/screen/main_shell_screen.dart';
+import '../../trip/service/trip_service.dart';
 import '../service/auth_service.dart';
 
 enum _Gender {
@@ -19,6 +20,7 @@ enum _Gender {
 
 class SignUpProfileScreen extends StatefulWidget {
   final AuthService authService;
+  final TripService? tripService;
   final String? temporaryToken;
 
   /// 값이 있으면 "개인정보 수정" 모드로 동작하며 기존 내용을 프리필한다.
@@ -28,6 +30,7 @@ class SignUpProfileScreen extends StatefulWidget {
   const SignUpProfileScreen({
     super.key,
     required this.authService,
+    this.tripService,
     required this.temporaryToken,
     this.initialProfile,
   });
@@ -172,7 +175,12 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
       if (result.isAuthenticated) {
         _timer?.cancel();
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute<void>(builder: (_) => const MainShellScreen()),
+          MaterialPageRoute<void>(
+            builder: (_) => MainShellScreen(
+              authService: widget.authService,
+              tripService: widget.tripService,
+            ),
+          ),
           (_) => false,
         );
         return;
@@ -262,7 +270,12 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
       }
 
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const MainShellScreen()),
+        MaterialPageRoute<void>(
+          builder: (_) => MainShellScreen(
+            authService: widget.authService,
+            tripService: widget.tripService,
+          ),
+        ),
         (_) => false,
       );
     } on ApiException catch (e) {

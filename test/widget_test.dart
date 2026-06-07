@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:togethertrip/features/auth/service/auth_service.dart';
+import 'package:togethertrip/features/trip/service/trip_service.dart';
 import 'package:togethertrip/main.dart';
 
 void main() {
@@ -11,7 +12,9 @@ void main() {
 
   testWidgets('회원가입 완료 시 메인 더미 페이지로 이동한다', (WidgetTester tester) async {
     final authService = _FakeAuthService(confirmStatus: 'PROFILE_REQUIRED');
-    await tester.pumpWidget(TogetherTripApp(authService: authService));
+    await tester.pumpWidget(
+      TogetherTripApp(authService: authService, tripService: _FakeTripService()),
+    );
 
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
@@ -46,7 +49,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('submitButton')));
     await tester.pumpAndSettle();
 
-    expect(find.text('메인페이지 입니다.'), findsOneWidget);
+    expect(find.text('여행'), findsWidgets);
     expect(authService.checkedNickname, '여행자');
     expect(authService.requestedPhoneNumber, '01012345678');
     expect(authService.updatedNickname, '여행자');
@@ -58,7 +61,9 @@ void main() {
     WidgetTester tester,
   ) async {
     final authService = _FakeAuthService(confirmStatus: 'AUTHENTICATED');
-    await tester.pumpWidget(TogetherTripApp(authService: authService));
+    await tester.pumpWidget(
+      TogetherTripApp(authService: authService, tripService: _FakeTripService()),
+    );
 
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
@@ -76,7 +81,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('confirmCodeButton')));
     await tester.pumpAndSettle();
 
-    expect(find.text('메인페이지 입니다.'), findsOneWidget);
+    expect(find.text('여행'), findsWidgets);
     expect(find.byKey(const ValueKey('nicknameField')), findsNothing);
     expect(authService.updatedNickname, isNull);
   });
@@ -85,7 +90,9 @@ void main() {
     WidgetTester tester,
   ) async {
     final authService = _FakeAuthService(profileRequired: true);
-    await tester.pumpWidget(TogetherTripApp(authService: authService));
+    await tester.pumpWidget(
+      TogetherTripApp(authService: authService, tripService: _FakeTripService()),
+    );
 
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
@@ -103,7 +110,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('submitButton')));
     await tester.pumpAndSettle();
 
-    expect(find.text('메인페이지 입니다.'), findsOneWidget);
+    expect(find.text('여행'), findsWidgets);
   });
 }
 
@@ -182,5 +189,24 @@ class _FakeAuthService extends AuthService {
     updatedNickname = nickname;
     updatedGender = gender;
     updatedBirthDate = birthDate;
+  }
+
+  @override
+  Future<String?> getAccessToken() async => 'access-token';
+}
+
+class _FakeTripService extends TripService {
+  @override
+  Future<TripListPage> getTrips({
+    String? status,
+    String? cursor,
+    int size = 20,
+  }) async {
+    return const TripListPage(
+      items: [],
+      size: 20,
+      nextCursor: null,
+      hasNext: false,
+    );
   }
 }

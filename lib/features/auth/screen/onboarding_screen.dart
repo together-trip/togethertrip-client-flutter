@@ -3,13 +3,15 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../main/screen/main_shell_screen.dart';
+import '../../trip/service/trip_service.dart';
 import '../service/auth_service.dart';
 import 'sign_up_profile_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final AuthService authService;
+  final TripService? tripService;
 
-  const OnboardingScreen({super.key, required this.authService});
+  const OnboardingScreen({super.key, required this.authService, this.tripService});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -33,7 +35,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       if (result.isAuthenticated) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const MainShellScreen()),
+          MaterialPageRoute<void>(
+            builder: (_) => MainShellScreen(
+              authService: widget.authService,
+              tripService: widget.tripService,
+            ),
+          ),
         );
         return;
       }
@@ -43,6 +50,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           MaterialPageRoute<void>(
             builder: (_) => SignUpProfileScreen(
               authService: widget.authService,
+              tripService: widget.tripService,
               temporaryToken: null,
             ),
           ),
@@ -55,6 +63,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           MaterialPageRoute<void>(
             builder: (_) => SignUpProfileScreen(
               authService: widget.authService,
+              tripService: widget.tripService,
               temporaryToken: result.temporaryToken!,
             ),
           ),

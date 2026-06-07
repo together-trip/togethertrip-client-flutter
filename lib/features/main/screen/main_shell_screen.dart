@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
-import 'main_placeholder_screen.dart';
+import '../../auth/service/auth_service.dart';
 import '../../my/screen/my_placeholder_screen.dart';
+import '../../trip/screen/trip_list_screen.dart';
+import '../../trip/service/trip_service.dart';
 
 class MainShellScreen extends StatefulWidget {
-  const MainShellScreen({super.key});
+  final AuthService? authService;
+  final TripService? tripService;
+
+  const MainShellScreen({super.key, this.authService, this.tripService});
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
@@ -12,15 +17,18 @@ class MainShellScreen extends StatefulWidget {
 class _MainShellScreenState extends State<MainShellScreen> {
   int _currentIndex = 0;
 
-  static const _screens = <Widget>[
-    MainPlaceholderScreen(),
-    MyPlaceholderScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final authService = widget.authService;
+    final tripService =
+        widget.tripService ?? TripService(authService: authService);
+    final screens = <Widget>[
+      TripListScreen(tripService: tripService),
+      MyPlaceholderScreen(authService: authService),
+    ];
+
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: screens[_currentIndex],
       bottomNavigationBar: Container(
         height: 60,
         decoration: const BoxDecoration(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'features/auth/screen/onboarding_screen.dart';
 import 'features/auth/service/auth_service.dart';
+import 'features/trip/service/trip_service.dart';
 
 const _kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
 
@@ -14,8 +15,9 @@ void main() {
 
 class TogetherTripApp extends StatelessWidget {
   final AuthService? authService;
+  final TripService? tripService;
 
-  const TogetherTripApp({super.key, this.authService});
+  const TogetherTripApp({super.key, this.authService, this.tripService});
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +28,10 @@ class TogetherTripApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: OnboardingScreen(authService: authService ?? AuthService()),
+      home: OnboardingScreen(
+        authService: authService ?? AuthService(),
+        tripService: tripService,
+      ),
     );
   }
 }
