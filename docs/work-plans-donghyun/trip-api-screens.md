@@ -32,7 +32,7 @@ placeholder 상태였다. 앱에서 실제 여행 목록과 생성/상세 진입
 - 여행 모델 추가: `TripListPage`, `TripSummary`, `TripDetail`, `TripCountry`, `TripParticipant`,
   `TripFormInput`
 - `TripListScreen`: 목록, 빈 상태, 오류 상태, 새로고침, cursor 더 보기, 여행 생성 진입
-- `TripFormScreen`: 여행명, 기본 통화, 여행 기간, 국가, 동행자 입력 기반 생성/수정
+- `TripFormScreen`: 국가 선택 → 일정 선택 → 동행 추가 → 여행 제목 4단계 생성/수정 플로우
 - `TripDetailScreen`: 여행 상세, 상태/국가/참여자 표시, 방장 기준 수정/삭제 액션 노출
 - `MainShellScreen`의 여행 탭을 실제 여행 목록 화면으로 교체
 - 로그인/회원가입 완료 후 메인 진입 경로에 `AuthService`/`TripService` 주입 경로 연결
@@ -56,6 +56,10 @@ placeholder 상태였다. 앱에서 실제 여행 목록과 생성/상세 진입
 - 여행 수정 화면은 생성 화면(`TripFormScreen`)을 재사용한다. 단, 참여자 편집은 이번 범위에서 제외하고
   기본 정보와 국가 목록 변경만 처리한다.
 - 목록은 서버 cursor 응답(`nextCursor`, `hasNext`)에 맞춰 첫 페이지 조회와 "더 보기" 버튼을 제공한다.
+- 여행 생성 화면은 제공된 와이어프레임 기준으로 4단계 wizard UX를 적용한다. API 요청은 기존 여행 API DTO에
+  맞춰 선택 국가, 날짜, 동행자, 제목을 마지막 단계에서 한 번에 전송한다.
+- 생성 화면의 기본 통화는 선택된 첫 국가 기준으로 자동 지정한다. 현재는 일본은 `JPY`, 그 외 국가는 `KRW`로
+  보낸다.
 
 ## 변경 파일
 
@@ -94,8 +98,8 @@ git diff --check
 
 ## 위험과 확인 사항
 
-- `TripFormScreen`의 국가 입력은 1차 MVP용 단일 국가 입력 UX다. 서버 요청은 list 형태이므로 추후 다국가
-  추가 UI로 확장할 수 있다.
+- `TripFormScreen`의 생성 UX는 국가/일정/동행/제목 4단계로 분리했다. 국가는 와이어프레임처럼 복수 선택을
+  지원하며, 선택 순서에 맞춰 서버의 countries list DTO로 전송한다.
 - 여행 수정에서 동행자 편집은 제외했다. 초대/제거/방장 위임 API 화면이 들어올 때 별도 작업으로 분리한다.
 - 현재 날짜 입력은 `yyyy-MM-dd` 텍스트 입력이다. 날짜 선택 캘린더는 후속 UX 개선으로 다룬다.
 - PR 커밋에는 기존 로컬 iOS 설정 변경(`.metadata`, `ios/Flutter/*`, `ios/Runner/Info.plist`)을 포함하지 않았다.
