@@ -15,10 +15,251 @@ class TripFormScreen extends StatefulWidget {
 
 class _TripFormScreenState extends State<TripFormScreen> {
   static const _defaultCountryOptions = <_CountryOption>[
-    _CountryOption(code: 'JP', name: '일본', flag: '🇯🇵'),
-    _CountryOption(code: 'KR', name: '대한민국', flag: '🇰🇷'),
-    _CountryOption(code: 'US', name: '미국', flag: '🇺🇸'),
-    _CountryOption(code: 'CN', name: '중국', flag: '🇨🇳'),
+    _CountryOption(
+      code: 'JP',
+      name: '일본',
+      flag: '🇯🇵',
+      currency: 'JPY',
+      aliases: ['japan', '도쿄', '오사카', '후쿠오카', '교토', '삿포로'],
+    ),
+    _CountryOption(
+      code: 'KR',
+      name: '대한민국',
+      flag: '🇰🇷',
+      currency: 'KRW',
+      aliases: ['korea', 'south korea', '한국', '서울', '부산', '제주'],
+    ),
+    _CountryOption(
+      code: 'US',
+      name: '미국',
+      flag: '🇺🇸',
+      currency: 'USD',
+      aliases: ['usa', 'united states', 'america', '뉴욕', '엘에이', '하와이'],
+    ),
+    _CountryOption(
+      code: 'CN',
+      name: '중국',
+      flag: '🇨🇳',
+      currency: 'CNY',
+      aliases: ['china', '상하이', '베이징', '칭다오'],
+    ),
+    _CountryOption(
+      code: 'TW',
+      name: '대만',
+      flag: '🇹🇼',
+      currency: 'TWD',
+      aliases: ['taiwan', '타이베이', '가오슝'],
+    ),
+    _CountryOption(
+      code: 'HK',
+      name: '홍콩',
+      flag: '🇭🇰',
+      currency: 'HKD',
+      aliases: ['hong kong'],
+    ),
+    _CountryOption(
+      code: 'MO',
+      name: '마카오',
+      flag: '🇲🇴',
+      currency: 'MOP',
+      aliases: ['macau', 'macao'],
+    ),
+    _CountryOption(
+      code: 'VN',
+      name: '베트남',
+      flag: '🇻🇳',
+      currency: 'VND',
+      aliases: ['vietnam', '다낭', '나트랑', '하노이', '호치민', '푸꾸옥'],
+    ),
+    _CountryOption(
+      code: 'TH',
+      name: '태국',
+      flag: '🇹🇭',
+      currency: 'THB',
+      aliases: ['thailand', '방콕', '푸켓', '치앙마이', '파타야'],
+    ),
+    _CountryOption(
+      code: 'SG',
+      name: '싱가포르',
+      flag: '🇸🇬',
+      currency: 'SGD',
+      aliases: ['singapore'],
+    ),
+    _CountryOption(
+      code: 'MY',
+      name: '말레이시아',
+      flag: '🇲🇾',
+      currency: 'MYR',
+      aliases: ['malaysia', '쿠알라룸푸르', '코타키나발루', '랑카위'],
+    ),
+    _CountryOption(
+      code: 'PH',
+      name: '필리핀',
+      flag: '🇵🇭',
+      currency: 'PHP',
+      aliases: ['philippines', '세부', '보라카이', '마닐라'],
+    ),
+    _CountryOption(
+      code: 'ID',
+      name: '인도네시아',
+      flag: '🇮🇩',
+      currency: 'IDR',
+      aliases: ['indonesia', '발리', '자카르타'],
+    ),
+    _CountryOption(
+      code: 'MN',
+      name: '몽골',
+      flag: '🇲🇳',
+      currency: 'MNT',
+      aliases: ['mongolia', '울란바토르'],
+    ),
+    _CountryOption(
+      code: 'AU',
+      name: '호주',
+      flag: '🇦🇺',
+      currency: 'AUD',
+      aliases: ['australia', '시드니', '멜버른', '브리즈번', '골드코스트'],
+    ),
+    _CountryOption(
+      code: 'NZ',
+      name: '뉴질랜드',
+      flag: '🇳🇿',
+      currency: 'NZD',
+      aliases: ['new zealand', '오클랜드', '퀸스타운'],
+    ),
+    _CountryOption(
+      code: 'GB',
+      name: '영국',
+      flag: '🇬🇧',
+      currency: 'GBP',
+      aliases: ['uk', 'united kingdom', 'england', '런던'],
+    ),
+    _CountryOption(
+      code: 'FR',
+      name: '프랑스',
+      flag: '🇫🇷',
+      currency: 'EUR',
+      aliases: ['france', '파리', '니스'],
+    ),
+    _CountryOption(
+      code: 'IT',
+      name: '이탈리아',
+      flag: '🇮🇹',
+      currency: 'EUR',
+      aliases: ['italy', '로마', '피렌체', '베네치아', '밀라노'],
+    ),
+    _CountryOption(
+      code: 'ES',
+      name: '스페인',
+      flag: '🇪🇸',
+      currency: 'EUR',
+      aliases: ['spain', '바르셀로나', '마드리드', '세비야'],
+    ),
+    _CountryOption(
+      code: 'PT',
+      name: '포르투갈',
+      flag: '🇵🇹',
+      currency: 'EUR',
+      aliases: ['portugal', '리스본', '포르투'],
+    ),
+    _CountryOption(
+      code: 'DE',
+      name: '독일',
+      flag: '🇩🇪',
+      currency: 'EUR',
+      aliases: ['germany', '베를린', '뮌헨', '프랑크푸르트'],
+    ),
+    _CountryOption(
+      code: 'CH',
+      name: '스위스',
+      flag: '🇨🇭',
+      currency: 'CHF',
+      aliases: ['switzerland', '취리히', '인터라켄'],
+    ),
+    _CountryOption(
+      code: 'AT',
+      name: '오스트리아',
+      flag: '🇦🇹',
+      currency: 'EUR',
+      aliases: ['austria', '빈', '비엔나'],
+    ),
+    _CountryOption(
+      code: 'CZ',
+      name: '체코',
+      flag: '🇨🇿',
+      currency: 'CZK',
+      aliases: ['czech', 'czech republic', '프라하'],
+    ),
+    _CountryOption(
+      code: 'HU',
+      name: '헝가리',
+      flag: '🇭🇺',
+      currency: 'HUF',
+      aliases: ['hungary', '부다페스트'],
+    ),
+    _CountryOption(
+      code: 'TR',
+      name: '튀르키예',
+      flag: '🇹🇷',
+      currency: 'TRY',
+      aliases: ['turkey', 'turkiye', '이스탄불', '카파도키아'],
+    ),
+    _CountryOption(
+      code: 'AE',
+      name: '아랍에미리트',
+      flag: '🇦🇪',
+      currency: 'AED',
+      aliases: ['uae', 'dubai', '두바이', '아부다비'],
+    ),
+    _CountryOption(
+      code: 'CA',
+      name: '캐나다',
+      flag: '🇨🇦',
+      currency: 'CAD',
+      aliases: ['canada', '밴쿠버', '토론토', '몬트리올'],
+    ),
+    _CountryOption(
+      code: 'MX',
+      name: '멕시코',
+      flag: '🇲🇽',
+      currency: 'MXN',
+      aliases: ['mexico', '칸쿤', '멕시코시티'],
+    ),
+    _CountryOption(
+      code: 'BR',
+      name: '브라질',
+      flag: '🇧🇷',
+      currency: 'BRL',
+      aliases: ['brazil', '리우', '상파울루'],
+    ),
+    _CountryOption(
+      code: 'IN',
+      name: '인도',
+      flag: '🇮🇳',
+      currency: 'INR',
+      aliases: ['india', '델리', '뭄바이'],
+    ),
+    _CountryOption(
+      code: 'NP',
+      name: '네팔',
+      flag: '🇳🇵',
+      currency: 'NPR',
+      aliases: ['nepal', '카트만두'],
+    ),
+    _CountryOption(
+      code: 'EG',
+      name: '이집트',
+      flag: '🇪🇬',
+      currency: 'EGP',
+      aliases: ['egypt', '카이로'],
+    ),
+    _CountryOption(
+      code: 'MA',
+      name: '모로코',
+      flag: '🇲🇦',
+      currency: 'MAD',
+      aliases: ['morocco', '마라케시', '카사블랑카'],
+    ),
   ];
 
   late final TripService _tripService;
@@ -55,6 +296,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
             code: country.countryCode,
             name: country.countryName,
             flag: '',
+            currency: 'KRW',
           ),
         );
       }
@@ -231,7 +473,17 @@ class _TripFormScreenState extends State<TripFormScreen> {
   }
 
   String _currencyForCountry(String countryCode) {
-    return countryCode == 'JP' ? 'JPY' : 'KRW';
+    return _countryOptions
+        .firstWhere(
+          (country) => country.code == countryCode,
+          orElse: () => const _CountryOption(
+            code: 'KR',
+            name: '대한민국',
+            flag: '🇰🇷',
+            currency: 'KRW',
+          ),
+        )
+        .currency;
   }
 
   void _addCompanionFromInput() {
@@ -344,8 +596,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
     final keyword = _countrySearchController.text.trim().toLowerCase();
     if (keyword.isEmpty) return _countryOptions;
     return _countryOptions.where((country) {
-      return country.name.toLowerCase().contains(keyword) ||
-          country.code.toLowerCase().contains(keyword);
+      return country.matches(keyword);
     }).toList();
   }
 
@@ -850,10 +1101,21 @@ class _CountryOption {
   final String code;
   final String name;
   final String flag;
+  final String currency;
+  final List<String> aliases;
 
   const _CountryOption({
     required this.code,
     required this.name,
     required this.flag,
+    required this.currency,
+    this.aliases = const [],
   });
+
+  bool matches(String keyword) {
+    return name.toLowerCase().contains(keyword) ||
+        code.toLowerCase().contains(keyword) ||
+        currency.toLowerCase().contains(keyword) ||
+        aliases.any((alias) => alias.toLowerCase().contains(keyword));
+  }
 }

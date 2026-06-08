@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../notification/screen/notification_list_screen.dart';
 import '../service/trip_service.dart';
 import 'trip_detail_screen.dart';
 import 'trip_form_screen.dart';
@@ -18,6 +19,7 @@ class _TripListScreenState extends State<TripListScreen> {
   late final TripService _tripService;
 
   final List<TripSummary> _trips = [];
+  _TripHomeFilter _selectedFilter = _TripHomeFilter.all;
   bool _isLoading = true;
   bool _isLoadingMore = false;
   String? _nextCursor;
@@ -38,7 +40,7 @@ class _TripListScreenState extends State<TripListScreen> {
     });
 
     try {
-      final page = await _tripService.getTrips();
+      final page = await _tripService.getTrips(status: _selectedFilter.status);
       if (!mounted) return;
       setState(() {
         _trips
@@ -63,7 +65,10 @@ class _TripListScreenState extends State<TripListScreen> {
 
     setState(() => _isLoadingMore = true);
     try {
-      final page = await _tripService.getTrips(cursor: _nextCursor);
+      final page = await _tripService.getTrips(
+        status: _selectedFilter.status,
+        cursor: _nextCursor,
+      );
       if (!mounted) return;
       setState(() {
         _trips.addAll(page.items);
@@ -93,6 +98,18 @@ class _TripListScreenState extends State<TripListScreen> {
       if (!mounted) return;
       await _openDetail(created.toSummary());
     }
+  }
+
+  void _openNotifications() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const NotificationListScreen()),
+    );
+  }
+
+  Future<void> _selectFilter(_TripHomeFilter filter) async {
+    if (_selectedFilter == filter) return;
+    setState(() => _selectedFilter = filter);
+    await _loadTrips();
   }
 
   Future<void> _openDetail(TripSummary trip) async {
@@ -125,27 +142,33 @@ class _TripListScreenState extends State<TripListScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            key: const ValueKey('notificationButton'),
+            onPressed: _openNotifications,
+            icon: const Icon(Icons.notifications_none, size: 22),
+            color: const Color(0xFF1A1A1A),
+            tooltip: '알림',
+          ),
           Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: OutlinedButton(
+            padding: const EdgeInsets.only(right: 8),
+            child: IconButton(
               key: const ValueKey('createTripButton'),
               onPressed: _openCreate,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF1A1A1A),
-                side: const BorderSide(color: Color(0xFF1A1A1A)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('추가'),
+              icon: const Icon(Icons.add, size: 24),
+              color: const Color(0xFF1A1A1A),
+              tooltip: '여행 만들기',
             ),
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(44),
+          child: _TripHomeTabs(
+            selectedFilter: _selectedFilter,
+            onSelect: _selectFilter,
+          ),
+        ),
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadTrips,
-        child: _buildBody(),
-      ),
+      body: RefreshIndicator(onRefresh: _loadTrips, child: _buildBody()),
     );
   }
 
@@ -180,7 +203,7 @@ class _TripListScreenState extends State<TripListScreen> {
         padding: const EdgeInsets.fromLTRB(20, 90, 20, 20),
         children: [
           const Text(
-            '아직 여행이 없습니다.',
+            '아직 표시할 여행이 없습니다.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
@@ -221,6 +244,70 @@ class _TripListScreenState extends State<TripListScreen> {
 
         return _TripCard(trip: _trips[index], onTap: _openDetail);
       },
+    );
+  }
+}
+
+enum _TripHomeFilter {
+  all(label: '전체', status: null),
+  ongoing(label: '진행 중', status: 'ONGOING'),
+  planned(label: '계획 중', status: 'PLANNED'),
+  completed(label: '지난 여행', status: 'COMPLETED');
+
+  final String label;
+  final String? status;
+
+  const _TripHomeFilter({required this.label, required this.status});
+}
+
+class _TripHomeTabs extends StatelessWidget {
+  final _TripHomeFilter selectedFilter;
+  final ValueChanged<_TripHomeFilter> onSelect;
+
+  const _TripHomeTabs({required this.selectedFilter, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      color: Colors.white,
+      child: Row(
+        children: _TripHomeFilter.values.map((filter) {
+          final isActive = filter == selectedFilter;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onSelect(filter),
+              behavior: HitTestBehavior.opaque,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        filter.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isActive
+                              ? FontWeight.w800
+                              : FontWeight.w400,
+                          color: isActive
+                              ? const Color(0xFF1A1A1A)
+                              : const Color(0xFF6B6B6B),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    height: 2,
+                    width: isActive ? 52 : 0,
+                    color: const Color(0xFF1A1A1A),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }

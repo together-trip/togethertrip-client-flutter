@@ -31,8 +31,9 @@ placeholder 상태였다. 앱에서 실제 여행 목록과 생성/상세 진입
 - `TripService` 추가: 여행 목록/생성/상세/수정/삭제/국가 변경 API 연동
 - 여행 모델 추가: `TripListPage`, `TripSummary`, `TripDetail`, `TripCountry`, `TripParticipant`,
   `TripFormInput`
-- `TripListScreen`: 목록, 빈 상태, 오류 상태, 새로고침, cursor 더 보기, 여행 생성 진입
+- `TripListScreen`: 여행 홈, 상태 탭, 목록, 빈 상태, 오류 상태, 새로고침, cursor 더 보기, 여행 생성 진입
 - `TripFormScreen`: 국가 선택 → 일정 선택 → 동행 추가 → 여행 제목 4단계 생성/수정 플로우
+- `NotificationListScreen`: 로그인 후 여행 홈 우상단 알림 진입 화면
 - `TripDetailScreen`: 여행 상세, 상태/국가/참여자 표시, 방장 기준 수정/삭제 액션 노출
 - `MainShellScreen`의 여행 탭을 실제 여행 목록 화면으로 교체
 - 로그인/회원가입 완료 후 메인 진입 경로에 `AuthService`/`TripService` 주입 경로 연결
@@ -40,9 +41,10 @@ placeholder 상태였다. 앱에서 실제 여행 목록과 생성/상세 진입
 
 ## 제외 범위
 
+- 실제 알림 목록 API 연동
 - 초대 링크 생성, 참여자 제거, 방장 위임 화면
 - 기록/소비, 정산, 알림 연동
-- 국가/통화 선택용 외부 검색 또는 자동 환율 조회
+- 국가/통화 선택용 외부 검색 API 또는 자동 환율 조회
 - 사진 업로드, 지도/위치 선택
 - 실서버 수동 QA 완료 체크
 
@@ -56,10 +58,13 @@ placeholder 상태였다. 앱에서 실제 여행 목록과 생성/상세 진입
 - 여행 수정 화면은 생성 화면(`TripFormScreen`)을 재사용한다. 단, 참여자 편집은 이번 범위에서 제외하고
   기본 정보와 국가 목록 변경만 처리한다.
 - 목록은 서버 cursor 응답(`nextCursor`, `hasNext`)에 맞춰 첫 페이지 조회와 "더 보기" 버튼을 제공한다.
+- 여행 홈은 `전체`, `진행 중`, `계획 중`, `지난 여행` 탭을 제공하고, 탭 선택 시 서버 목록 API의
+  `status` query를 사용해 다시 조회한다.
 - 여행 생성 화면은 제공된 와이어프레임 기준으로 4단계 wizard UX를 적용한다. API 요청은 기존 여행 API DTO에
   맞춰 선택 국가, 날짜, 동행자, 제목을 마지막 단계에서 한 번에 전송한다.
-- 생성 화면의 기본 통화는 선택된 첫 국가 기준으로 자동 지정한다. 현재는 일본은 `JPY`, 그 외 국가는 `KRW`로
-  보낸다.
+- 생성 화면의 국가는 외부 API를 붙이지 않고 로컬 국가/도시 alias 목록으로 우선 확장한다. 외부 국가 API는
+  서버 캐싱/정렬/통화 매핑 정책이 정해진 뒤 별도 연동으로 분리한다.
+- 생성 화면의 기본 통화는 선택된 첫 국가 기준으로 자동 지정한다.
 
 ## 변경 파일
 
@@ -68,6 +73,7 @@ placeholder 상태였다. 앱에서 실제 여행 목록과 생성/상세 진입
 - `lib/features/trip/screen/trip_list_screen.dart` - 여행 목록 화면
 - `lib/features/trip/screen/trip_form_screen.dart` - 여행 생성/수정 화면
 - `lib/features/trip/screen/trip_detail_screen.dart` - 여행 상세 화면
+- `lib/features/notification/screen/notification_list_screen.dart` - 알림 빈 상태 화면
 - `lib/features/main/screen/main_shell_screen.dart` - 여행 탭 화면 교체 및 service 주입
 - `lib/features/auth/screen/onboarding_screen.dart` - 메인 진입 시 service 주입 전달
 - `lib/features/auth/screen/sign_up_profile_screen.dart` - 회원가입 완료 후 메인 진입 시 service 주입 전달
@@ -86,7 +92,10 @@ git diff --check
 
 수동 확인:
 - 여행 목록 조회와 빈 목록 상태 확인
+- 여행 홈 상태 탭 전환 확인
+- 여행 홈 우상단 알림 화면 진입 확인
 - 여행 생성 후 목록 반영 및 상세 진입 확인
+- 여행 생성 국가 검색에서 주요 국가/도시명 검색 확인
 - 여행 상세에서 국가/참여자 표시 확인
 - 방장 계정에서 수정/삭제 액션 노출 및 처리 확인
 - 일반 참여자 계정에서 수정/삭제 액션 미노출 확인
@@ -100,6 +109,10 @@ git diff --check
 
 - `TripFormScreen`의 생성 UX는 국가/일정/동행/제목 4단계로 분리했다. 국가는 와이어프레임처럼 복수 선택을
   지원하며, 선택 순서에 맞춰 서버의 countries list DTO로 전송한다.
+- 국가 검색은 현재 클라이언트 로컬 목록 기반이다. 더 넓은 국가/도시/통화 데이터가 필요하면 server-main에
+  국가 마스터 API를 두고 Flutter는 해당 API를 조회하는 방식이 더 안정적이다.
+- 알림 화면은 우선 빈 상태 화면이다. 알림 목록/읽음 처리 API가 준비되면 같은 feature 경로에 service와
+  list item을 추가한다.
 - 여행 수정에서 동행자 편집은 제외했다. 초대/제거/방장 위임 API 화면이 들어올 때 별도 작업으로 분리한다.
 - 현재 날짜 입력은 `yyyy-MM-dd` 텍스트 입력이다. 날짜 선택 캘린더는 후속 UX 개선으로 다룬다.
 - PR 커밋에는 기존 로컬 iOS 설정 변경(`.metadata`, `ios/Flutter/*`, `ios/Runner/Info.plist`)을 포함하지 않았다.
