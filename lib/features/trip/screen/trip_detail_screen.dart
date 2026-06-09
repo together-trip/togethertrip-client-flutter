@@ -15,6 +15,7 @@ class TripDetailScreen extends StatefulWidget {
   final TripService? tripService;
   final PostService? postService;
   final TransactionService? transactionService;
+  final ValueChanged<bool>? onClose;
 
   const TripDetailScreen({
     super.key,
@@ -22,6 +23,7 @@ class TripDetailScreen extends StatefulWidget {
     this.tripService,
     this.postService,
     this.transactionService,
+    this.onClose,
   });
 
   @override
@@ -518,10 +520,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final onClose = widget.onClose;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (onClose != null) {
+          onClose(_changed);
+          return;
+        }
         Navigator.of(context).pop(_changed);
       },
       child: Scaffold(
@@ -534,6 +541,13 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             _trip?.title ?? '여행',
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
+          leading: onClose == null
+              ? null
+              : IconButton(
+                  onPressed: () => onClose(_changed),
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: '뒤로',
+                ),
           actions: [
             IconButton(
               onPressed: _openNotifications,

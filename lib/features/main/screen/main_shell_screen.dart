@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../auth/service/auth_service.dart';
 import '../../my/screen/my_placeholder_screen.dart';
+import '../../trip/screen/trip_detail_screen.dart';
 import '../../trip/screen/trip_list_screen.dart';
 import '../../trip/service/trip_service.dart';
 
@@ -16,38 +17,97 @@ class MainShellScreen extends StatefulWidget {
 
 class _MainShellScreenState extends State<MainShellScreen> {
   int _currentIndex = 0;
+  TripSummary? _selectedTrip;
+  int _tripListVersion = 0;
+
+  void _openTripDetail(TripSummary trip) {
+    setState(() {
+      _currentIndex = 0;
+      _selectedTrip = trip;
+    });
+  }
+
+  void _closeTripDetail(bool changed) {
+    setState(() {
+      _selectedTrip = null;
+      if (changed) {
+        _tripListVersion++;
+      }
+    });
+  }
+
+  void _selectTab(int index) {
+    setState(() {
+      _currentIndex = index;
+      if (index != 0) {
+        _selectedTrip = null;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final authService = widget.authService;
     final tripService =
         widget.tripService ?? TripService(authService: authService);
+    final selectedTrip = _selectedTrip;
     final screens = <Widget>[
-      TripListScreen(tripService: tripService),
+      selectedTrip == null
+          ? TripListScreen(
+              key: ValueKey(_tripListVersion),
+              tripService: tripService,
+              onOpenTripDetail: _openTripDetail,
+            )
+          : TripDetailScreen(
+              tripId: selectedTrip.id,
+              tripService: tripService,
+              onClose: _closeTripDetail,
+            ),
       MyPlaceholderScreen(authService: authService),
     ];
 
     return Scaffold(
       body: screens[_currentIndex],
-      bottomNavigationBar: Container(
-        height: 60,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFF1A1A1A))),
-        ),
-        child: Row(
-          children: [
-            _TabItem(
-              label: '여행',
-              isActive: _currentIndex == 0,
-              onTap: () => setState(() => _currentIndex = 0),
+      extendBody: true,
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(58, 0, 58, 14),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFE2E2E2)),
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.10),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-            _TabItem(
-              label: '마이',
-              isActive: _currentIndex == 1,
-              onTap: () => setState(() => _currentIndex = 1),
+            child: SizedBox(
+              height: 58,
+              child: Row(
+                children: [
+                  _TabItem(
+                    icon: Icons.map_outlined,
+                    activeIcon: Icons.map,
+                    label: '여행',
+                    isActive: _currentIndex == 0,
+                    onTap: () => _selectTab(0),
+                  ),
+                  _TabItem(
+                    icon: Icons.person_outline,
+                    activeIcon: Icons.person,
+                    label: '마이',
+                    isActive: _currentIndex == 1,
+                    onTap: () => _selectTab(1),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -56,11 +116,15 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
 class _TabItem extends StatelessWidget {
   const _TabItem({
+    required this.icon,
+    required this.activeIcon,
     required this.label,
     required this.isActive,
     required this.onTap,
   });
 
+  final IconData icon;
+  final IconData activeIcon;
   final String label;
   final bool isActive;
   final VoidCallback onTap;
@@ -74,23 +138,19 @@ class _TabItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: isActive
-                      ? const Color(0xFF1A1A1A)
-                      : const Color(0xFF9E9E9E),
-                ),
-              ),
+            Icon(
+              isActive ? activeIcon : icon,
+              size: 22,
+              color: isActive
+                  ? const Color(0xFF1A1A1A)
+                  : const Color(0xFF8A8A8A),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               label,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
                 color: isActive
                     ? const Color(0xFF1A1A1A)
                     : const Color(0xFF6B6B6B),
