@@ -13,11 +13,15 @@
 
 ## 산출물 위치
 
-- 작업 계획: `docs/work-plans/`
-- 리뷰 리포트: `docs/reviews/`
-- 검증 리포트: `docs/verifications/`
-- 인수인계: `docs/handoffs/`
-- 아키텍처 결정: `docs/adr/`
+- 작업자별 산출물은 `docs/<artifact-type>-<owner>/` 형식을 사용한다.
+- `<owner>`는 작업을 수행하는 사람 또는 에이전트 소유자를 식별하는 짧은 영문 소문자 이름이다. 예: `jaewan`, `donghyun`.
+- 작업 계획: `docs/work-plans-<owner>/`
+- 리뷰 리포트: `docs/reviews-<owner>/`
+- 검증 리포트: `docs/verifications-<owner>/`
+- 인수인계: `docs/handoffs-<owner>/`
+- 아키텍처 결정: `docs/adr-<owner>/`
+- 다른 작업자의 산출물 폴더는 명시 요청이 없는 한 수정하지 않는다.
+- 공용 `docs/work-plans/`, `docs/reviews/`, `docs/verifications/`, `docs/handoffs/`, `docs/adr/` 폴더는 새로 만들지 않는다.
 
 ## 기본 검증
 
