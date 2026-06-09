@@ -32,12 +32,12 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   final _contentController = TextEditingController();
   final _placeController = TextEditingController();
   final _otherCategoryController = TextEditingController();
+  final Map<int, TextEditingController> _paymentControllers = {};
   final Map<int, TextEditingController> _shareControllers = {};
 
   late final List<TripParticipant> _participants;
   late String _currency;
   late DateTime _selectedDate;
-  int? _payerParticipantId;
   String _selectedCategory = '식비';
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -50,10 +50,8 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
         .toList();
     _currency = widget.trip.defaultCurrency;
     _selectedDate = DateTime.now();
-    _payerParticipantId =
-        widget.currentParticipantId ??
-        (_participants.isNotEmpty ? _participants.first.id : null);
     for (final participant in _participants) {
+      _paymentControllers[participant.id] = TextEditingController(text: '0');
       _shareControllers[participant.id] = TextEditingController(text: '0');
     }
   }
@@ -65,6 +63,9 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
     _contentController.dispose();
     _placeController.dispose();
     _otherCategoryController.dispose();
+    for (final controller in _paymentControllers.values) {
+      controller.dispose();
+    }
     for (final controller in _shareControllers.values) {
       controller.dispose();
     }
@@ -102,20 +103,34 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
     setState(() {});
   }
 
+  void _fillPaymentByDefaultPayer() {
+    final amount = _parseAmount(_amountController.text);
+    if (amount == null || amount <= 0 || _participants.isEmpty) return;
+
+    final defaultPayerId =
+        widget.currentParticipantId ??
+        (_participants.isNotEmpty ? _participants.first.id : null);
+    for (final participant in _participants) {
+      _paymentControllers[participant.id]?.text =
+          participant.id == defaultPayerId ? _formatDecimal(amount) : '0';
+    }
+    setState(() {});
+  }
+
+  void _syncAmountDefaults() {
+    _fillPaymentByDefaultPayer();
+    _splitEvenly();
+  }
+
   Future<void> _submit() async {
     final amount = _parseAmount(_amountController.text);
     final title = _titleController.text.trim();
     final category = _selectedCategory == '기타'
         ? _otherCategoryController.text.trim()
         : _selectedCategory;
-    final payerParticipantId = _payerParticipantId;
 
     if (amount == null || amount <= 0) {
       setState(() => _errorMessage = '금액을 입력해주세요.');
-      return;
-    }
-    if (payerParticipantId == null) {
-      setState(() => _errorMessage = '결제자를 선택해주세요.');
       return;
     }
     if (title.isEmpty) {
@@ -125,6 +140,22 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
     if (category.isEmpty) {
       setState(() => _errorMessage = '기타 카테고리를 입력해주세요.');
       return;
+    }
+
+    final payments = <TransactionPaymentInput>[];
+    var paymentTotal = 0.0;
+    for (final participant in _participants) {
+      final paymentAmount = _parseAmount(
+        _paymentControllers[participant.id]?.text ?? '',
+      );
+      if (paymentAmount == null || paymentAmount <= 0) continue;
+      paymentTotal += paymentAmount;
+      payments.add(
+        TransactionPaymentInput(
+          participantId: participant.id,
+          amount: paymentAmount,
+        ),
+      );
     }
 
     final shares = <TransactionShareInput>[];
@@ -144,6 +175,14 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
       );
     }
 
+    if (payments.isEmpty) {
+      setState(() => _errorMessage = '결제자를 입력해주세요.');
+      return;
+    }
+    if (((paymentTotal - amount) * 100).round() != 0) {
+      setState(() => _errorMessage = '결제 금액 합계가 총 금액과 같아야 합니다.');
+      return;
+    }
     if (shares.isEmpty) {
       setState(() => _errorMessage = '부담자를 선택해주세요.');
       return;
@@ -164,12 +203,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
           transactionType: 'EXPENSE',
           amount: amount,
           currency: _currency,
-          payments: [
-            TransactionPaymentInput(
-              participantId: payerParticipantId,
-              amount: amount,
-            ),
-          ],
+          payments: payments,
           shares: shares,
         ),
         postInput: PostFormInput(
@@ -239,7 +273,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      onChanged: (_) => _splitEvenly(),
+                      onChanged: (_) => _syncAmountDefaults(),
                       decoration: const InputDecoration(
                         labelText: '금액',
                         border: OutlineInputBorder(),
@@ -274,24 +308,33 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                 ],
               ),
               const SizedBox(height: 14),
-              DropdownButtonFormField<int>(
-                initialValue: _payerParticipantId,
-                items: _participants
-                    .map(
-                      (participant) => DropdownMenuItem(
-                        value: participant.id,
-                        child: Text(participant.displayName),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '결제자',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
                       ),
-                    )
-                    .toList(),
-                onChanged: _isSubmitting
-                    ? null
-                    : (value) => setState(() => _payerParticipantId = value),
-                decoration: const InputDecoration(
-                  labelText: '결제자',
-                  border: OutlineInputBorder(),
-                ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _isSubmitting
+                        ? null
+                        : _fillPaymentByDefaultPayer,
+                    child: const Text('전액 입력'),
+                  ),
+                ],
               ),
+              const SizedBox(height: 6),
+              ..._participants.map((participant) {
+                return _ParticipantAmountRow(
+                  participant: participant,
+                  controller: _paymentControllers[participant.id]!,
+                  enabled: !_isSubmitting,
+                );
+              }),
               const SizedBox(height: 18),
               Row(
                 children: [
@@ -312,33 +355,10 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
               ),
               const SizedBox(height: 6),
               ..._participants.map((participant) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          participant.displayName,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 132,
-                        child: TextField(
-                          controller: _shareControllers[participant.id],
-                          enabled: !_isSubmitting,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          textAlign: TextAlign.end,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                return _ParticipantAmountRow(
+                  participant: participant,
+                  controller: _shareControllers[participant.id]!,
+                  enabled: !_isSubmitting,
                 );
               }),
               const SizedBox(height: 10),
@@ -432,6 +452,83 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ParticipantAmountRow extends StatelessWidget {
+  final TripParticipant participant;
+  final TextEditingController controller;
+  final bool enabled;
+
+  const _ParticipantAmountRow({
+    required this.participant,
+    required this.controller,
+    required this.enabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          _ParticipantAvatar(participant: participant),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              participant.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 132,
+            child: TextField(
+              controller: controller,
+              enabled: enabled,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textAlign: TextAlign.end,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ParticipantAvatar extends StatelessWidget {
+  final TripParticipant participant;
+
+  const _ParticipantAvatar({required this.participant});
+
+  @override
+  Widget build(BuildContext context) {
+    final profileImageUrl = participant.profileImageUrl;
+    final hasProfile =
+        participant.userId != null &&
+        profileImageUrl != null &&
+        profileImageUrl.isNotEmpty;
+
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: const Color(0xFFF2F2F2),
+      backgroundImage: hasProfile ? NetworkImage(profileImageUrl) : null,
+      child: hasProfile
+          ? null
+          : const Icon(
+              Icons.person_outline,
+              size: 20,
+              color: Color(0xFF8A8A8A),
+            ),
     );
   }
 }
