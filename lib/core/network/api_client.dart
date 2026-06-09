@@ -97,6 +97,35 @@ class ApiClient {
     return null;
   }
 
+  Future<Map<String, dynamic>?> put(
+    String path,
+    Map<String, dynamic> body, {
+    required String accessToken,
+  }) async {
+    final url = Uri.parse('$_baseUrl$path');
+    final response = await _client.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode(body),
+    );
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: decoded['message']?.toString() ?? '서버 오류가 발생했습니다.',
+      );
+    }
+
+    final data = decoded['data'];
+    if (data is Map<String, dynamic>) return data;
+    return null;
+  }
+
   Future<Map<String, dynamic>?> delete(
     String path, {
     required String accessToken,

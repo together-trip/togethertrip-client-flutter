@@ -127,5 +127,34 @@ void main() {
       final result = await apiClient.post('/api/auth/logout', {});
       expect(result, isNull);
     });
+
+    test('put 요청 시 body와 Authorization 헤더가 포함된다', () async {
+      String? capturedAuth;
+      Map<String, dynamic>? capturedBody;
+      final mockClient = MockClient((request) async {
+        capturedAuth = request.headers['Authorization'];
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode(_apiResponse({'tripId': 10, 'countries': []})),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      final result = await apiClient.put(
+        '/api/trips/10/countries',
+        {
+          'countries': [
+            {'countryCode': 'JP', 'countryName': '일본', 'sortOrder': 0},
+          ],
+        },
+        accessToken: 'my_token',
+      );
+
+      expect(capturedAuth, 'Bearer my_token');
+      expect(capturedBody!['countries'], isA<List<dynamic>>());
+      expect(result!['tripId'], 10);
+    });
   });
 }

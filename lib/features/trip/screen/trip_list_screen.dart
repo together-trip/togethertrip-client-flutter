@@ -1,0 +1,415 @@
+import 'package:flutter/material.dart';
+
+import '../../../core/network/api_client.dart';
+import '../../notification/screen/notification_list_screen.dart';
+import '../service/trip_service.dart';
+import 'trip_detail_screen.dart';
+import 'trip_form_screen.dart';
+
+class TripListScreen extends StatefulWidget {
+  final TripService? tripService;
+
+  const TripListScreen({super.key, this.tripService});
+
+  @override
+  State<TripListScreen> createState() => _TripListScreenState();
+}
+
+class _TripListScreenState extends State<TripListScreen> {
+  late final TripService _tripService;
+
+  final List<TripSummary> _trips = [];
+  _TripHomeFilter _selectedFilter = _TripHomeFilter.all;
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  String? _nextCursor;
+  bool _hasNext = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _tripService = widget.tripService ?? TripService();
+    _loadTrips();
+  }
+
+  Future<void> _loadTrips() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final page = await _tripService.getTrips(status: _selectedFilter.status);
+      if (!mounted) return;
+      setState(() {
+        _trips
+          ..clear()
+          ..addAll(page.items);
+        _nextCursor = page.nextCursor;
+        _hasNext = page.hasNext;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = e.message);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = '여행 목록을 불러오지 못했습니다: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasNext || _nextCursor == null) return;
+
+    setState(() => _isLoadingMore = true);
+    try {
+      final page = await _tripService.getTrips(
+        status: _selectedFilter.status,
+        cursor: _nextCursor,
+      );
+      if (!mounted) return;
+      setState(() {
+        _trips.addAll(page.items);
+        _nextCursor = page.nextCursor;
+        _hasNext = page.hasNext;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = e.message);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = '추가 여행을 불러오지 못했습니다: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _openCreate() async {
+    final created = await Navigator.of(context).push<TripDetail>(
+      MaterialPageRoute<TripDetail>(
+        builder: (_) => TripFormScreen(tripService: _tripService),
+      ),
+    );
+
+    if (created != null) {
+      await _loadTrips();
+      if (!mounted) return;
+      await _openDetail(created.toSummary());
+    }
+  }
+
+  void _openNotifications() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const NotificationListScreen()),
+    );
+  }
+
+  Future<void> _selectFilter(_TripHomeFilter filter) async {
+    if (_selectedFilter == filter) return;
+    setState(() => _selectedFilter = filter);
+    await _loadTrips();
+  }
+
+  Future<void> _openDetail(TripSummary trip) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            TripDetailScreen(tripId: trip.id, tripService: _tripService),
+      ),
+    );
+
+    if (changed == true) {
+      await _loadTrips();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: false,
+        title: const Text(
+          '여행',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1A1A1A),
+          ),
+        ),
+        actions: [
+          IconButton(
+            key: const ValueKey('notificationButton'),
+            onPressed: _openNotifications,
+            icon: const Icon(Icons.notifications_none, size: 22),
+            color: const Color(0xFF1A1A1A),
+            tooltip: '알림',
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: IconButton(
+              key: const ValueKey('createTripButton'),
+              onPressed: _openCreate,
+              icon: const Icon(Icons.add, size: 24),
+              color: const Color(0xFF1A1A1A),
+              tooltip: '여행 만들기',
+            ),
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(44),
+          child: _TripHomeTabs(
+            selectedFilter: _selectedFilter,
+            onSelect: _selectFilter,
+          ),
+        ),
+      ),
+      body: RefreshIndicator(onRefresh: _loadTrips, child: _buildBody()),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+
+    if (_errorMessage != null && _trips.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 80, 20, 20),
+        children: [
+          const Text(
+            '여행을 불러오지 못했습니다.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _errorMessage!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B6B)),
+          ),
+          const SizedBox(height: 18),
+          OutlinedButton(onPressed: _loadTrips, child: const Text('다시 시도')),
+        ],
+      );
+    }
+
+    if (_trips.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 90, 20, 20),
+        children: [
+          const Text(
+            '아직 표시할 여행이 없습니다.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '함께 떠날 여행을 만들고 동행자를 기록해 보세요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Color(0xFF6B6B6B)),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: _openCreate,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A1A1A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('첫 여행 만들기'),
+          ),
+        ],
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      itemCount: _trips.length + 1,
+      separatorBuilder: (_, index) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        if (index == _trips.length) {
+          if (!_hasNext) return const SizedBox(height: 4);
+          return OutlinedButton(
+            onPressed: _isLoadingMore ? null : _loadMore,
+            child: Text(_isLoadingMore ? '불러오는 중...' : '더 보기'),
+          );
+        }
+
+        return _TripCard(trip: _trips[index], onTap: _openDetail);
+      },
+    );
+  }
+}
+
+enum _TripHomeFilter {
+  all(label: '전체', status: null),
+  ongoing(label: '진행 중', status: 'ONGOING'),
+  planned(label: '계획 중', status: 'PLANNED'),
+  completed(label: '지난 여행', status: 'COMPLETED');
+
+  final String label;
+  final String? status;
+
+  const _TripHomeFilter({required this.label, required this.status});
+}
+
+class _TripHomeTabs extends StatelessWidget {
+  final _TripHomeFilter selectedFilter;
+  final ValueChanged<_TripHomeFilter> onSelect;
+
+  const _TripHomeTabs({required this.selectedFilter, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      color: Colors.white,
+      child: Row(
+        children: _TripHomeFilter.values.map((filter) {
+          final isActive = filter == selectedFilter;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onSelect(filter),
+              behavior: HitTestBehavior.opaque,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        filter.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isActive
+                              ? FontWeight.w800
+                              : FontWeight.w400,
+                          color: isActive
+                              ? const Color(0xFF1A1A1A)
+                              : const Color(0xFF6B6B6B),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    height: 2,
+                    width: isActive ? 52 : 0,
+                    color: const Color(0xFF1A1A1A),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _TripCard extends StatelessWidget {
+  final TripSummary trip;
+  final ValueChanged<TripSummary> onTap;
+
+  const _TripCard({required this.trip, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onTap(trip),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAFAFA),
+          border: Border.all(color: const Color(0xFF1A1A1A)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    trip.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _StatusChip(label: _tripStatusLabel(trip.tripStatus)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _dateRangeLabel(trip.startDate, trip.endDate),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF4A4A4A)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${trip.defaultCurrency} · 정산 ${_settlementStatusLabel(trip.settlementStatus)}',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B6B)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final String label;
+
+  const _StatusChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFC7C7C7)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+String _dateRangeLabel(String? startDate, String? endDate) {
+  if ((startDate == null || startDate.isEmpty) &&
+      (endDate == null || endDate.isEmpty)) {
+    return '날짜 미정';
+  }
+  return '${startDate ?? '시작 미정'} - ${endDate ?? '종료 미정'}';
+}
+
+String _tripStatusLabel(String status) {
+  return switch (status) {
+    'ONGOING' => '진행중',
+    'COMPLETED' => '완료',
+    _ => '예정',
+  };
+}
+
+String _settlementStatusLabel(String status) {
+  return switch (status) {
+    'IN_PROGRESS' => '진행중',
+    'SETTLED' => '완료',
+    _ => '미시작',
+  };
+}
