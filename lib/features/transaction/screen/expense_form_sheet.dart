@@ -78,9 +78,6 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
     for (final controller in _shareControllers.values) {
       controller.dispose();
     }
-    for (final attachment in _attachments) {
-      attachment.dispose();
-    }
     super.dispose();
   }
 
@@ -225,7 +222,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
           placeName: _nullableText(_placeController.text),
           latitude: null,
           longitude: null,
-          attachments: buildAttachmentInputs(_attachments),
+          files: buildAttachmentInputs(_attachments),
         ),
       );
       if (!mounted) return;
@@ -240,22 +237,23 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height * 0.9;
-    return SafeArea(
-      top: false,
-      child: SizedBox(
-        height: height,
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
-            20,
-            16,
-            20,
-            20 + MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.86,
+      minChildSize: 0.5,
+      maxChildSize: 0.9,
+      builder: (context, scrollController) {
+        return SafeArea(
+          top: false,
+          child: ListView(
+            controller: scrollController,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              20 + MediaQuery.of(context).viewInsets.bottom,
+            ),
             children: [
               Center(
                 child: Container(
@@ -268,9 +266,38 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
-                '소비 등록',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => Navigator.of(context).pop(false),
+                    child: const Text('취소'),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      '소비 등록',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _isSubmitting || _participants.isEmpty
+                        ? null
+                        : _submit,
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('등록'),
+                  ),
+                ],
               ),
               const SizedBox(height: 18),
               Row(
@@ -394,18 +421,33 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                 ),
               ),
               const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _categories.map((category) {
-                  return ChoiceChip(
-                    label: Text(category),
-                    selected: _selectedCategory == category,
-                    onSelected: _isSubmitting
-                        ? null
-                        : (_) => setState(() => _selectedCategory = category),
-                  );
-                }).toList(),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _categories.map((category) {
+                    final selected = _selectedCategory == category;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(category),
+                        selected: selected,
+                        selectedColor: const Color(0xFF1A1A1A),
+                        backgroundColor: Colors.white,
+                        side: const BorderSide(color: Color(0xFFE0E0E0)),
+                        labelStyle: TextStyle(
+                          color: selected
+                              ? Colors.white
+                              : const Color(0xFF1A1A1A),
+                          fontWeight: FontWeight.w700,
+                        ),
+                        onSelected: _isSubmitting
+                            ? null
+                            : (_) =>
+                                  setState(() => _selectedCategory = category),
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
               if (_selectedCategory == '기타') ...[
                 const SizedBox(height: 12),
@@ -452,6 +494,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
               AttachmentInputSection(
                 attachments: _attachments,
                 enabled: !_isSubmitting,
+                onChanged: (_) => setState(() {}),
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 12),
@@ -464,22 +507,10 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                 ),
               ],
               const SizedBox(height: 20),
-              FilledButton(
-                onPressed: _isSubmitting || _participants.isEmpty
-                    ? null
-                    : _submit,
-                child: _isSubmitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('등록하기'),
-              ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

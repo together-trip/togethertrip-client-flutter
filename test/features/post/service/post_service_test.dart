@@ -76,12 +76,16 @@ void main() {
       expect(page.hasNext, true);
     });
 
-    test('게시글 작성 요청을 서버 DTO 형태로 전송한다', () async {
-      Map<String, dynamic>? capturedBody;
+    test('게시글 작성 요청을 multipart 서버 DTO 형태로 전송한다', () async {
+      String? capturedMethod;
+      String? capturedContentType;
+      String? capturedBody;
       final service = PostService(
         apiClient: ApiClient(
           client: MockClient((request) async {
-            capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+            capturedMethod = request.method;
+            capturedContentType = request.headers['content-type'];
+            capturedBody = request.body;
             return _jsonResponse({
               'id': 1,
               'tripId': 10,
@@ -118,34 +122,19 @@ void main() {
           placeName: 'Ichiran',
           latitude: null,
           longitude: null,
-          attachments: [
-            PostAttachmentInput(
-              attachmentType: 'IMAGE',
-              fileUrl: 'https://example.com/ramen.jpg',
-              thumbnailUrl: 'https://example.com/ramen-thumb.jpg',
-              fileSize: null,
-              mimeType: 'image/jpeg',
-              sortOrder: 0,
-            ),
-          ],
         ),
       );
 
-      expect(capturedBody!['title'], '점심');
-      expect(capturedBody!['category'], '식비');
-      expect(capturedBody!['postType'], 'RECORD');
-      expect(capturedBody!['occurredAt'], '2026-06-09T03:00:00.000Z');
-      expect(capturedBody!['attachments'], isA<List<dynamic>>());
-      expect(capturedBody!['attachments'], [
-        {
-          'attachmentType': 'IMAGE',
-          'fileUrl': 'https://example.com/ramen.jpg',
-          'thumbnailUrl': 'https://example.com/ramen-thumb.jpg',
-          'fileSize': null,
-          'mimeType': 'image/jpeg',
-          'sortOrder': 0,
-        },
-      ]);
+      expect(capturedMethod, 'POST');
+      expect(capturedContentType, startsWith('multipart/form-data;'));
+      expect(capturedBody, contains('name="title"'));
+      expect(capturedBody, contains('점심'));
+      expect(capturedBody, contains('name="category"'));
+      expect(capturedBody, contains('식비'));
+      expect(capturedBody, contains('name="postType"'));
+      expect(capturedBody, contains('RECORD'));
+      expect(capturedBody, contains('name="occurredAt"'));
+      expect(capturedBody, contains('2026-06-09T03:00:00.000Z'));
     });
 
     test('댓글 작성과 삭제 경로를 사용한다', () async {

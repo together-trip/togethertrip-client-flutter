@@ -27,11 +27,13 @@ class _PostFormSheetState extends State<PostFormSheet> {
   final _placeController = TextEditingController();
   final _otherCategoryController = TextEditingController();
   final List<AttachmentDraft> _attachments = [];
+  final List<PostAttachment> _existingAttachments = [];
 
   String _selectedCategory = _categories.first;
   DateTime _selectedDate = DateTime.now();
   bool _isSubmitting = false;
   String? _errorMessage;
+  bool _attachmentsChanged = false;
 
   bool get _isEditing => widget.initialPost != null;
 
@@ -51,9 +53,7 @@ class _PostFormSheetState extends State<PostFormSheet> {
       _otherCategoryController.text = initialPost.category;
     }
     _selectedDate = _parseDate(initialPost.occurredAt) ?? DateTime.now();
-    _attachments.addAll(
-      initialPost.attachments.map(AttachmentDraft.fromAttachment),
-    );
+    _existingAttachments.addAll(initialPost.attachments);
   }
 
   @override
@@ -62,9 +62,6 @@ class _PostFormSheetState extends State<PostFormSheet> {
     _contentController.dispose();
     _placeController.dispose();
     _otherCategoryController.dispose();
-    for (final attachment in _attachments) {
-      attachment.dispose();
-    }
     super.dispose();
   }
 
@@ -110,7 +107,8 @@ class _PostFormSheetState extends State<PostFormSheet> {
           placeName: _nullableText(_placeController.text),
           latitude: null,
           longitude: null,
-          attachments: buildAttachmentInputs(_attachments),
+          files: buildAttachmentInputs(_attachments),
+          replaceAttachments: _attachmentsChanged,
         ),
       );
       if (!mounted) return;
@@ -153,13 +151,36 @@ class _PostFormSheetState extends State<PostFormSheet> {
                 ),
               ),
               const SizedBox(height: 18),
-              Text(
-                _isEditing ? '게시글 수정' : '기록 작성',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1A1A1A),
-                ),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => Navigator.of(context).pop(false),
+                    child: const Text('취소'),
+                  ),
+                  Expanded(
+                    child: Text(
+                      _isEditing ? '기록 수정' : '기록 작성',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _isSubmitting ? null : _submit,
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(_isEditing ? '저장' : '등록'),
+                  ),
+                ],
               ),
               const SizedBox(height: 18),
               TextField(
@@ -171,18 +192,33 @@ class _PostFormSheetState extends State<PostFormSheet> {
                 ),
               ),
               const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _categories.map((category) {
-                  return ChoiceChip(
-                    label: Text(category),
-                    selected: _selectedCategory == category,
-                    onSelected: _isSubmitting
-                        ? null
-                        : (_) => setState(() => _selectedCategory = category),
-                  );
-                }).toList(),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _categories.map((category) {
+                    final selected = _selectedCategory == category;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(category),
+                        selected: selected,
+                        selectedColor: const Color(0xFF1A1A1A),
+                        backgroundColor: Colors.white,
+                        side: const BorderSide(color: Color(0xFFE0E0E0)),
+                        labelStyle: TextStyle(
+                          color: selected
+                              ? Colors.white
+                              : const Color(0xFF1A1A1A),
+                          fontWeight: FontWeight.w700,
+                        ),
+                        onSelected: _isSubmitting
+                            ? null
+                            : (_) =>
+                                  setState(() => _selectedCategory = category),
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
               if (_selectedCategory == '기타') ...[
                 const SizedBox(height: 12),
@@ -228,7 +264,13 @@ class _PostFormSheetState extends State<PostFormSheet> {
               const SizedBox(height: 18),
               AttachmentInputSection(
                 attachments: _attachments,
+                existingAttachments: _attachmentsChanged
+                    ? const []
+                    : _existingAttachments,
                 enabled: !_isSubmitting,
+                onChanged: (changed) {
+                  setState(() => _attachmentsChanged = changed);
+                },
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 12),
@@ -241,16 +283,6 @@ class _PostFormSheetState extends State<PostFormSheet> {
                 ),
               ],
               const SizedBox(height: 20),
-              FilledButton(
-                onPressed: _isSubmitting ? null : _submit,
-                child: _isSubmitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(_isEditing ? '수정하기' : '작성하기'),
-              ),
             ],
           ),
         );

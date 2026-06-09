@@ -1,7 +1,16 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 const _baseUrl = String.fromEnvironment('API_BASE_URL');
+
+String resolveApiUrl(String value) {
+  if (value.isEmpty) return value;
+  final uri = Uri.tryParse(value);
+  if (uri != null && uri.hasScheme) return value;
+  if (_baseUrl.isEmpty) return value;
+  return Uri.parse(_baseUrl).resolve(value).toString();
+}
 
 class ApiClient {
   final http.Client _client;
@@ -97,6 +106,46 @@ class ApiClient {
     return null;
   }
 
+  Future<Map<String, dynamic>?> multipart(
+    String method,
+    String path, {
+    required Map<String, String> fields,
+    required List<MultipartFileInput> files,
+    required String accessToken,
+  }) async {
+    final request = http.MultipartRequest(method, Uri.parse('$_baseUrl$path'));
+    request.headers['Authorization'] = 'Bearer $accessToken';
+    request.fields.addAll(fields);
+
+    for (final file in files) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          file.fieldName,
+          file.path,
+          filename: file.filename,
+          contentType: file.mimeType == null
+              ? null
+              : MediaType.parse(file.mimeType!),
+        ),
+      );
+    }
+
+    final streamedResponse = await _client.send(request);
+    final response = await http.Response.fromStream(streamedResponse);
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: decoded['message']?.toString() ?? '서버 오류가 발생했습니다.',
+      );
+    }
+
+    final data = decoded['data'];
+    if (data is Map<String, dynamic>) return data;
+    return null;
+  }
+
   Future<Map<String, dynamic>?> put(
     String path,
     Map<String, dynamic> body, {
@@ -155,6 +204,20 @@ class ApiClient {
     if (data is Map<String, dynamic>) return data;
     return null;
   }
+}
+
+class MultipartFileInput {
+  final String fieldName;
+  final String path;
+  final String? filename;
+  final String? mimeType;
+
+  const MultipartFileInput({
+    required this.fieldName,
+    required this.path,
+    this.filename,
+    this.mimeType,
+  });
 }
 
 class ApiException implements Exception {

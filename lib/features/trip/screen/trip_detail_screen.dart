@@ -39,7 +39,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   final List<PostSummary> _posts = [];
   final Map<int, List<PostAttachment>> _attachmentsByPostId = {};
-  final Map<int, TransactionSummary> _transactionsById = {};
+  final Map<int, TransactionDetail> _transactionsById = {};
 
   TripDetail? _trip;
   int? _currentUserId;
@@ -218,10 +218,28 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         transactionId,
       );
       if (!mounted) return;
-      setState(() => _transactionsById[transactionId] = transaction.summary);
+      setState(() => _transactionsById[transactionId] = transaction);
     } catch (_) {
       // Transaction enhancement is optional for feed rendering.
     }
+  }
+
+  Future<void> _openTransactionInfo(TransactionDetail transaction) async {
+    final trip = _trip;
+    if (trip == null) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return _TransactionInfoSheet(
+          transaction: transaction,
+          participants: trip.participants,
+        );
+      },
+    );
   }
 
   Future<void> _selectFilter(_PostFeedFilter filter) async {
@@ -322,6 +340,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _openCreateChooser() async {
+    final defaultPostType = _selectedFilter == _PostFeedFilter.expense
+        ? 'EXPENSE'
+        : 'RECORD';
     final selected = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
@@ -338,14 +359,17 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 12),
-                ListTile(
-                  leading: const Icon(Icons.edit_note_outlined),
-                  title: const Text('기록'),
+                _CreateOptionTile(
+                  icon: Icons.edit_note_outlined,
+                  title: '기록',
+                  selected: defaultPostType == 'RECORD',
                   onTap: () => Navigator.of(context).pop('RECORD'),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.payments_outlined),
-                  title: const Text('소비'),
+                const SizedBox(height: 8),
+                _CreateOptionTile(
+                  icon: Icons.payments_outlined,
+                  title: '소비',
+                  selected: defaultPostType == 'EXPENSE',
                   onTap: () => Navigator.of(context).pop('EXPENSE'),
                 ),
               ],
@@ -392,7 +416,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 placeName: postInput.placeName,
                 latitude: postInput.latitude,
                 longitude: postInput.longitude,
-                attachments: postInput.attachments,
+                files: postInput.files,
               ),
             );
           },
@@ -618,7 +642,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           ),
         ),
         floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 86),
+          padding: const EdgeInsets.only(bottom: 112),
           child: FloatingActionButton(
             onPressed: _openCreateChooser,
             backgroundColor: const Color(0xFF1A1A1A),
@@ -698,11 +722,62 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                       _currentParticipantId == post.authorParticipantId,
                   onActionsTap: () => _openPostActions(post),
                   onCommentsTap: () => _openComments(post),
+                  onTransactionTap:
+                      _transactionsById[post.transactionId] == null
+                      ? null
+                      : () => _openTransactionInfo(
+                          _transactionsById[post.transactionId]!,
+                        ),
                 );
               },
             ),
           const SliverToBoxAdapter(child: SizedBox(height: 88)),
         ],
+      ),
+    );
+  }
+}
+
+class _CreateOptionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CreateOptionTile({
+    required this.icon,
+    required this.title,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFF4F4F4) : Colors.white,
+          border: Border.all(
+            color: selected ? const Color(0xFF1A1A1A) : const Color(0xFFE0E0E0),
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF1A1A1A)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+            if (selected) const Icon(Icons.check, size: 18),
+          ],
+        ),
       ),
     );
   }
@@ -811,10 +886,11 @@ class _PostFeedTabs extends StatelessWidget {
 class _PostFeedCard extends StatefulWidget {
   final PostSummary post;
   final List<PostAttachment> attachments;
-  final TransactionSummary? transaction;
+  final TransactionDetail? transaction;
   final bool showActions;
   final VoidCallback onActionsTap;
   final VoidCallback onCommentsTap;
+  final VoidCallback? onTransactionTap;
 
   const _PostFeedCard({
     required this.post,
@@ -823,6 +899,7 @@ class _PostFeedCard extends StatefulWidget {
     required this.showActions,
     required this.onActionsTap,
     required this.onCommentsTap,
+    required this.onTransactionTap,
   });
 
   @override
@@ -847,6 +924,7 @@ class _PostFeedCardState extends State<_PostFeedCard> {
     final visibleContent = _isExpanded || !shouldClamp
         ? content
         : '${content.substring(0, min(content.length, 110))}...';
+    final isExpense = widget.post.postType == 'EXPENSE';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -855,6 +933,8 @@ class _PostFeedCardState extends State<_PostFeedCard> {
         children: [
           Row(
             children: [
+              _PostTypeBadge(postType: widget.post.postType),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   widget.post.authorDisplayName,
@@ -926,35 +1006,84 @@ class _PostFeedCardState extends State<_PostFeedCard> {
                   icon: Icons.place_outlined,
                   label: widget.post.placeName!,
                 ),
-              if (widget.transaction != null)
-                _MetaChip(
-                  icon: Icons.payments_outlined,
-                  label: _moneyLabel(widget.transaction!),
-                ),
             ],
           ),
           const SizedBox(height: 10),
-          InkWell(
-            onTap: widget.onCommentsTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.chat_bubble_outline, size: 18),
-                  const SizedBox(width: 6),
-                  Text(
-                    '댓글 ${widget.post.commentCount}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            children: [
+              _FeedAction(
+                icon: Icons.chat_bubble_outline,
+                label: '댓글 ${widget.post.commentCount}',
+                onTap: widget.onCommentsTap,
               ),
-            ),
+              if (isExpense && widget.transaction != null)
+                _FeedAction(
+                  icon: Icons.payments_outlined,
+                  label: _moneyLabel(widget.transaction!.summary),
+                  onTap: widget.onTransactionTap,
+                ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PostTypeBadge extends StatelessWidget {
+  final String postType;
+
+  const _PostTypeBadge({required this.postType});
+
+  @override
+  Widget build(BuildContext context) {
+    final isExpense = postType == 'EXPENSE';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F4F4),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        isExpense ? '소비' : '기록',
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+}
+
+class _FeedAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  const _FeedAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -987,9 +1116,10 @@ class _AttachmentCarousel extends StatelessWidget {
               onPageChanged: onPageChanged,
               itemBuilder: (context, index) {
                 final attachment = attachments[index];
-                final imageUrl = attachment.thumbnailUrl?.isNotEmpty == true
+                final rawImageUrl = attachment.thumbnailUrl?.isNotEmpty == true
                     ? attachment.thumbnailUrl!
                     : attachment.fileUrl;
+                final imageUrl = resolveApiUrl(rawImageUrl);
                 final isVideo = attachment.attachmentType == 'VIDEO';
                 return Stack(
                   fit: StackFit.expand,
@@ -1209,6 +1339,186 @@ class _CommentsSheet extends StatefulWidget {
 
   @override
   State<_CommentsSheet> createState() => _CommentsSheetState();
+}
+
+class _TransactionInfoSheet extends StatelessWidget {
+  final TransactionDetail transaction;
+  final List<TripParticipant> participants;
+
+  const _TransactionInfoSheet({
+    required this.transaction,
+    required this.participants,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.62,
+      minChildSize: 0.42,
+      maxChildSize: 0.86,
+      builder: (context, scrollController) {
+        return SafeArea(
+          top: false,
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0E0E0),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '소비 정보',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _moneyLabel(transaction.summary),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _TransactionPartySection(
+                title: '결제자',
+                rows: transaction.payments
+                    .map(
+                      (payment) => _TransactionPartyRowData(
+                        participantName: _participantName(
+                          participants,
+                          payment.participantId,
+                          payment.participantDisplayName,
+                        ),
+                        amount: _moneyLabelFor(
+                          payment.amount,
+                          transaction.summary.currency,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 18),
+              _TransactionPartySection(
+                title: '부담자',
+                rows: transaction.shares
+                    .map(
+                      (share) => _TransactionPartyRowData(
+                        participantName: _participantName(
+                          participants,
+                          share.participantId,
+                          share.participantDisplayName,
+                        ),
+                        amount: _moneyLabelFor(
+                          share.shareAmount,
+                          transaction.summary.currency,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TransactionPartySection extends StatelessWidget {
+  final String title;
+  final List<_TransactionPartyRowData> rows;
+
+  const _TransactionPartySection({required this.title, required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        if (rows.isEmpty)
+          const Text(
+            '내역이 없습니다.',
+            style: TextStyle(fontSize: 13, color: Color(0xFF7A7A7A)),
+          )
+        else
+          ...rows.map((row) => _TransactionPartyRow(row: row)),
+      ],
+    );
+  }
+}
+
+class _TransactionPartyRow extends StatelessWidget {
+  final _TransactionPartyRowData row;
+
+  const _TransactionPartyRow({required this.row});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFE5E5E5)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 16,
+            backgroundColor: Color(0xFFF2F2F2),
+            child: Icon(
+              Icons.person_outline,
+              size: 18,
+              color: Color(0xFF8A8A8A),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              row.participantName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(row.amount, style: const TextStyle(fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransactionPartyRowData {
+  final String participantName;
+  final String amount;
+
+  const _TransactionPartyRowData({
+    required this.participantName,
+    required this.amount,
+  });
 }
 
 class _CommentsSheetState extends State<_CommentsSheet> {
@@ -1613,8 +1923,8 @@ class _FullErrorState extends StatelessWidget {
 
 enum _PostFeedFilter {
   all(label: '전체', postType: null),
-  record(label: '기록', postType: 'RECORD'),
-  expense(label: '소비', postType: 'EXPENSE');
+  record(label: '#기록', postType: 'RECORD'),
+  expense(label: '#소비', postType: 'EXPENSE');
 
   final String label;
   final String? postType;
@@ -1681,13 +1991,29 @@ String _roleLabel(String role) {
 }
 
 String _moneyLabel(TransactionSummary transaction) {
-  final amount = _formatAmount(transaction.amount);
-  return switch (transaction.currency) {
+  return _moneyLabelFor(transaction.amount, transaction.currency);
+}
+
+String _moneyLabelFor(double amountValue, String currency) {
+  final amount = _formatAmount(amountValue);
+  return switch (currency) {
     'JPY' => '¥$amount',
     'KRW' => '₩$amount',
     'USD' => '\$$amount',
-    _ => '${transaction.currency} $amount',
+    _ => '$currency $amount',
   };
+}
+
+String _participantName(
+  List<TripParticipant> participants,
+  int participantId,
+  String fallbackName,
+) {
+  if (fallbackName.isNotEmpty) return fallbackName;
+  for (final participant in participants) {
+    if (participant.id == participantId) return participant.displayName;
+  }
+  return '참여자 $participantId';
 }
 
 String _formatAmount(double amount) {

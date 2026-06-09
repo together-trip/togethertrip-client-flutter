@@ -51,9 +51,11 @@ class PostService {
 
   Future<PostDetail> createPost(int tripId, PostFormInput input) async {
     final accessToken = await _requireAccessToken();
-    final data = await _apiClient.post(
+    final data = await _apiClient.multipart(
+      'POST',
       '/api/trips/$tripId/posts',
-      input.toCreateJson(),
+      fields: input.toCreateFields(),
+      files: input.toMultipartFiles(),
       accessToken: accessToken,
     );
     if (data == null) {
@@ -69,9 +71,11 @@ class PostService {
     PostFormInput input,
   ) async {
     final accessToken = await _requireAccessToken();
-    final data = await _apiClient.patch(
+    final data = await _apiClient.multipart(
+      'PATCH',
       '/api/trips/$tripId/posts/$postId',
-      input.toUpdateJson(),
+      fields: input.toUpdateFields(),
+      files: input.toMultipartFiles(),
       accessToken: accessToken,
     );
     if (data == null) {
@@ -381,35 +385,6 @@ class PostAttachment {
   }
 }
 
-class PostAttachmentInput {
-  final String attachmentType;
-  final String fileUrl;
-  final String? thumbnailUrl;
-  final int? fileSize;
-  final String? mimeType;
-  final int sortOrder;
-
-  const PostAttachmentInput({
-    required this.attachmentType,
-    required this.fileUrl,
-    required this.thumbnailUrl,
-    required this.fileSize,
-    required this.mimeType,
-    required this.sortOrder,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'attachmentType': attachmentType,
-      'fileUrl': fileUrl,
-      'thumbnailUrl': thumbnailUrl,
-      'fileSize': fileSize,
-      'mimeType': mimeType,
-      'sortOrder': sortOrder,
-    };
-  }
-}
-
 class PostFormInput {
   final int? transactionId;
   final String title;
@@ -420,7 +395,8 @@ class PostFormInput {
   final String? placeName;
   final double? latitude;
   final double? longitude;
-  final List<PostAttachmentInput> attachments;
+  final List<PostFileInput> files;
+  final bool replaceAttachments;
 
   const PostFormInput({
     required this.transactionId,
@@ -432,40 +408,62 @@ class PostFormInput {
     required this.placeName,
     required this.latitude,
     required this.longitude,
-    this.attachments = const [],
+    this.files = const [],
+    this.replaceAttachments = false,
   });
 
-  Map<String, dynamic> toCreateJson() {
+  Map<String, String> toCreateFields() {
+    final fields = _baseFields();
+    if (transactionId != null) {
+      fields['transactionId'] = transactionId.toString();
+    }
+    fields['postType'] = postType;
+    return fields;
+  }
+
+  Map<String, String> toUpdateFields() {
     return {
-      'transactionId': transactionId,
-      'title': title,
-      'category': category,
-      'content': content,
-      'postType': postType,
-      'occurredAt': occurredAt,
-      'placeName': placeName,
-      'latitude': latitude,
-      'longitude': longitude,
-      'attachments': attachments
-          .map((attachment) => attachment.toJson())
-          .toList(),
+      ..._baseFields(),
+      'replaceAttachments': replaceAttachments.toString(),
     };
   }
 
-  Map<String, dynamic> toUpdateJson() {
+  List<MultipartFileInput> toMultipartFiles() {
+    return files
+        .map(
+          (file) => MultipartFileInput(
+            fieldName: 'files',
+            path: file.path,
+            filename: file.filename,
+            mimeType: file.mimeType,
+          ),
+        )
+        .toList();
+  }
+
+  Map<String, String> _baseFields() {
     return {
       'title': title,
       'category': category,
-      'content': content,
+      'content': content ?? '',
       'occurredAt': occurredAt,
-      'placeName': placeName,
-      'latitude': latitude,
-      'longitude': longitude,
-      'attachments': attachments
-          .map((attachment) => attachment.toJson())
-          .toList(),
+      'placeName': placeName ?? '',
+      if (latitude != null) 'latitude': latitude.toString(),
+      if (longitude != null) 'longitude': longitude.toString(),
     };
   }
+}
+
+class PostFileInput {
+  final String path;
+  final String filename;
+  final String? mimeType;
+
+  const PostFileInput({
+    required this.path,
+    required this.filename,
+    required this.mimeType,
+  });
 }
 
 class PostCommentListPage {

@@ -131,11 +131,13 @@ class TransactionSummary {
 class TransactionPayment {
   final int id;
   final int participantId;
+  final String participantDisplayName;
   final double amount;
 
   const TransactionPayment({
     required this.id,
     required this.participantId,
+    required this.participantDisplayName,
     required this.amount,
   });
 
@@ -143,6 +145,7 @@ class TransactionPayment {
     return TransactionPayment(
       id: (json['id'] as num?)?.toInt() ?? 0,
       participantId: (json['participantId'] as num?)?.toInt() ?? 0,
+      participantDisplayName: json['participantDisplayName'] as String? ?? '',
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
     );
   }
@@ -151,12 +154,14 @@ class TransactionPayment {
 class TransactionShare {
   final int id;
   final int participantId;
+  final String participantDisplayName;
   final double shareAmount;
   final double? shareRatio;
 
   const TransactionShare({
     required this.id,
     required this.participantId,
+    required this.participantDisplayName,
     required this.shareAmount,
     required this.shareRatio,
   });
@@ -165,6 +170,7 @@ class TransactionShare {
     return TransactionShare(
       id: (json['id'] as num?)?.toInt() ?? 0,
       participantId: (json['participantId'] as num?)?.toInt() ?? 0,
+      participantDisplayName: json['participantDisplayName'] as String? ?? '',
       shareAmount: (json['shareAmount'] as num?)?.toDouble() ?? 0,
       shareRatio: (json['shareRatio'] as num?)?.toDouble(),
     );
