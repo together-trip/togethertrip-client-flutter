@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../post/service/post_service.dart';
 import '../../trip/service/trip_service.dart';
@@ -42,6 +43,12 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   bool _isSubmitting = false;
   String? _errorMessage;
 
+  int? get _amountCents => _parseAmountCents(_amountController.text);
+
+  int get _paymentTotalCents => _sumControllerCents(_paymentControllers);
+
+  int get _shareTotalCents => _sumControllerCents(_shareControllers);
+
   @override
   void initState() {
     super.initState();
@@ -84,10 +91,9 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   }
 
   void _splitEvenly() {
-    final amount = _parseAmount(_amountController.text);
-    if (amount == null || amount <= 0 || _participants.isEmpty) return;
+    final cents = _amountCents;
+    if (cents == null || cents <= 0 || _participants.isEmpty) return;
 
-    final cents = (amount * 100).round();
     final base = cents ~/ _participants.length;
     var remainder = cents % _participants.length;
     for (final participant in _participants) {
@@ -96,23 +102,21 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
         participantCents += 1;
         remainder -= 1;
       }
-      _shareControllers[participant.id]?.text = _formatDecimal(
-        participantCents / 100,
-      );
+      _shareControllers[participant.id]?.text = _formatCents(participantCents);
     }
     setState(() {});
   }
 
   void _fillPaymentByDefaultPayer() {
-    final amount = _parseAmount(_amountController.text);
-    if (amount == null || amount <= 0 || _participants.isEmpty) return;
+    final cents = _amountCents;
+    if (cents == null || cents <= 0 || _participants.isEmpty) return;
 
     final defaultPayerId =
         widget.currentParticipantId ??
         (_participants.isNotEmpty ? _participants.first.id : null);
     for (final participant in _participants) {
       _paymentControllers[participant.id]?.text =
-          participant.id == defaultPayerId ? _formatDecimal(amount) : '0';
+          participant.id == defaultPayerId ? _formatCents(cents) : '0';
     }
     setState(() {});
   }
@@ -123,13 +127,13 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   }
 
   Future<void> _submit() async {
-    final amount = _parseAmount(_amountController.text);
+    final amountCents = _amountCents;
     final title = _titleController.text.trim();
     final category = _selectedCategory == '기타'
         ? _otherCategoryController.text.trim()
         : _selectedCategory;
 
-    if (amount == null || amount <= 0) {
+    if (amountCents == null || amountCents <= 0) {
       setState(() => _errorMessage = '금액을 입력해주세요.');
       return;
     }
@@ -143,34 +147,34 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
     }
 
     final payments = <TransactionPaymentInput>[];
-    var paymentTotal = 0.0;
+    var paymentTotalCents = 0;
     for (final participant in _participants) {
-      final paymentAmount = _parseAmount(
+      final paymentCents = _parseAmountCents(
         _paymentControllers[participant.id]?.text ?? '',
       );
-      if (paymentAmount == null || paymentAmount <= 0) continue;
-      paymentTotal += paymentAmount;
+      if (paymentCents == null || paymentCents <= 0) continue;
+      paymentTotalCents += paymentCents;
       payments.add(
         TransactionPaymentInput(
           participantId: participant.id,
-          amount: paymentAmount,
+          amount: _centsToAmount(paymentCents),
         ),
       );
     }
 
     final shares = <TransactionShareInput>[];
-    var shareTotal = 0.0;
+    var shareTotalCents = 0;
     for (final participant in _participants) {
-      final shareAmount = _parseAmount(
+      final shareCents = _parseAmountCents(
         _shareControllers[participant.id]?.text ?? '',
       );
-      if (shareAmount == null || shareAmount <= 0) continue;
-      shareTotal += shareAmount;
+      if (shareCents == null || shareCents <= 0) continue;
+      shareTotalCents += shareCents;
       shares.add(
         TransactionShareInput(
           participantId: participant.id,
-          shareAmount: shareAmount,
-          shareRatio: amount == 0 ? 0 : shareAmount / amount,
+          shareAmount: _centsToAmount(shareCents),
+          shareRatio: amountCents == 0 ? 0 : shareCents / amountCents,
         ),
       );
     }
@@ -179,7 +183,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
       setState(() => _errorMessage = '결제자를 입력해주세요.');
       return;
     }
-    if (((paymentTotal - amount) * 100).round() != 0) {
+    if (paymentTotalCents != amountCents) {
       setState(() => _errorMessage = '결제 금액 합계가 총 금액과 같아야 합니다.');
       return;
     }
@@ -187,7 +191,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
       setState(() => _errorMessage = '부담자를 선택해주세요.');
       return;
     }
-    if (((shareTotal - amount) * 100).round() != 0) {
+    if (shareTotalCents != amountCents) {
       setState(() => _errorMessage = '부담 금액 합계가 총 금액과 같아야 합니다.');
       return;
     }
@@ -201,7 +205,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
       await widget.onSubmit(
         transactionInput: TransactionFormInput(
           transactionType: 'EXPENSE',
-          amount: amount,
+          amount: _centsToAmount(amountCents),
           currency: _currency,
           payments: payments,
           shares: shares,
@@ -273,6 +277,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
+                      inputFormatters: const [_MoneyInputFormatter()],
                       onChanged: (_) => _syncAmountDefaults(),
                       decoration: const InputDecoration(
                         labelText: '금액',
@@ -333,8 +338,14 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                   participant: participant,
                   controller: _paymentControllers[participant.id]!,
                   enabled: !_isSubmitting,
+                  onChanged: () => setState(() {}),
                 );
               }),
+              _AmountTotalRow(
+                label: '결제 합계',
+                amountCents: _paymentTotalCents,
+                expectedCents: _amountCents,
+              ),
               const SizedBox(height: 18),
               Row(
                 children: [
@@ -359,8 +370,14 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                   participant: participant,
                   controller: _shareControllers[participant.id]!,
                   enabled: !_isSubmitting,
+                  onChanged: () => setState(() {}),
                 );
               }),
+              _AmountTotalRow(
+                label: '부담 합계',
+                amountCents: _shareTotalCents,
+                expectedCents: _amountCents,
+              ),
               const SizedBox(height: 10),
               TextField(
                 controller: _titleController,
@@ -460,11 +477,13 @@ class _ParticipantAmountRow extends StatelessWidget {
   final TripParticipant participant;
   final TextEditingController controller;
   final bool enabled;
+  final VoidCallback onChanged;
 
   const _ParticipantAmountRow({
     required this.participant,
     required this.controller,
     required this.enabled,
+    required this.onChanged,
   });
 
   @override
@@ -492,11 +511,50 @@ class _ParticipantAmountRow extends StatelessWidget {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              inputFormatters: const [_MoneyInputFormatter()],
+              onChanged: (_) => onChanged(),
               textAlign: TextAlign.end,
               decoration: const InputDecoration(
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AmountTotalRow extends StatelessWidget {
+  final String label;
+  final int amountCents;
+  final int? expectedCents;
+
+  const _AmountTotalRow({
+    required this.label,
+    required this.amountCents,
+    required this.expectedCents,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final expected = expectedCents;
+    final matched = expected != null && expected > 0 && amountCents == expected;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        children: [
+          const Spacer(),
+          Text(
+            '$label ${_formatCents(amountCents)}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: matched
+                  ? const Color(0xFF1A7F37)
+                  : const Color(0xFF6B6B6B),
             ),
           ),
         ],
@@ -540,17 +598,80 @@ String? _nullableText(String text) {
   return trimmed.isEmpty ? null : trimmed;
 }
 
-double? _parseAmount(String value) {
+int? _parseAmountCents(String value) {
   final normalized = value.replaceAll(',', '').trim();
   if (normalized.isEmpty) return null;
-  return double.tryParse(normalized);
+  final match = RegExp(r'^\d+(\.\d{0,2})?$').firstMatch(normalized);
+  if (match == null) return null;
+
+  final parts = normalized.split('.');
+  final major = int.tryParse(parts.first);
+  if (major == null) return null;
+  final minorText = parts.length > 1 ? parts[1].padRight(2, '0') : '00';
+  final minor = int.tryParse(minorText);
+  if (minor == null) return null;
+  return major * 100 + minor;
 }
 
-String _formatDecimal(double value) {
-  if (value.truncateToDouble() == value) {
-    return value.toStringAsFixed(0);
+int _sumControllerCents(Map<int, TextEditingController> controllers) {
+  var total = 0;
+  for (final controller in controllers.values) {
+    total += _parseAmountCents(controller.text) ?? 0;
   }
-  return value.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '');
+  return total;
+}
+
+double _centsToAmount(int cents) {
+  return cents / 100;
+}
+
+String _formatCents(int cents) {
+  final major = cents ~/ 100;
+  final minor = cents.abs() % 100;
+  final majorText = _formatThousands(major.toString());
+  if (minor == 0) return majorText;
+  return '$majorText.${minor.toString().padLeft(2, '0')}';
+}
+
+String _formatThousands(String value) {
+  final buffer = StringBuffer();
+  for (var i = 0; i < value.length; i++) {
+    if (i > 0 && (value.length - i) % 3 == 0) {
+      buffer.write(',');
+    }
+    buffer.write(value[i]);
+  }
+  return buffer.toString();
+}
+
+class _MoneyInputFormatter extends TextInputFormatter {
+  const _MoneyInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final raw = newValue.text.replaceAll(',', '');
+    if (raw.isEmpty) return newValue;
+    if (!RegExp(r'^\d*\.?\d{0,2}$').hasMatch(raw)) {
+      return oldValue;
+    }
+
+    final parts = raw.split('.');
+    final integerPart = parts.first.isEmpty ? '0' : parts.first;
+    final formattedInteger = _formatThousands(
+      integerPart.replaceFirst(RegExp(r'^0+(?=\d)'), ''),
+    );
+    final formatted = parts.length > 1
+        ? '$formattedInteger.${parts[1]}'
+        : formattedInteger;
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
 }
 
 String _toOccurredAt(DateTime date) {
