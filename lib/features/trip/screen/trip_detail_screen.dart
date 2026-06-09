@@ -6,6 +6,7 @@ import '../../../core/network/api_client.dart';
 import '../../notification/screen/notification_list_screen.dart';
 import '../../post/screen/post_form_sheet.dart';
 import '../../post/service/post_service.dart';
+import '../../transaction/screen/expense_form_sheet.dart';
 import '../../transaction/service/transaction_service.dart';
 import '../service/trip_service.dart';
 import 'trip_form_screen.dart';
@@ -355,10 +356,57 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
     if (selected == null) return;
     if (selected == 'EXPENSE') {
-      await _openPostForm(postType: selected);
+      await _openExpenseForm();
       return;
     }
     await _openPostForm(postType: selected);
+  }
+
+  Future<void> _openExpenseForm() async {
+    final trip = _trip;
+    if (trip == null) return;
+
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return ExpenseFormSheet(
+          trip: trip,
+          currentParticipantId: _currentParticipantId,
+          onSubmit: ({required transactionInput, required postInput}) async {
+            final transaction = await _transactionService.createTransaction(
+              widget.tripId,
+              transactionInput,
+            );
+            await _postService.createPost(
+              widget.tripId,
+              PostFormInput(
+                transactionId: transaction.summary.id,
+                title: postInput.title,
+                category: postInput.category,
+                content: postInput.content,
+                postType: 'EXPENSE',
+                occurredAt: postInput.occurredAt,
+                placeName: postInput.placeName,
+                latitude: postInput.latitude,
+                longitude: postInput.longitude,
+                attachments: postInput.attachments,
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (changed == true) {
+      _changed = true;
+      if (_selectedFilter == _PostFeedFilter.record) {
+        setState(() => _selectedFilter = _PostFeedFilter.all);
+      }
+      await _loadPosts();
+    }
   }
 
   Future<void> _openPostForm({

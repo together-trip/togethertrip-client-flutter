@@ -381,6 +381,35 @@ class PostAttachment {
   }
 }
 
+class PostAttachmentInput {
+  final String attachmentType;
+  final String fileUrl;
+  final String? thumbnailUrl;
+  final int? fileSize;
+  final String? mimeType;
+  final int sortOrder;
+
+  const PostAttachmentInput({
+    required this.attachmentType,
+    required this.fileUrl,
+    required this.thumbnailUrl,
+    required this.fileSize,
+    required this.mimeType,
+    required this.sortOrder,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'attachmentType': attachmentType,
+      'fileUrl': fileUrl,
+      'thumbnailUrl': thumbnailUrl,
+      'fileSize': fileSize,
+      'mimeType': mimeType,
+      'sortOrder': sortOrder,
+    };
+  }
+}
+
 class PostFormInput {
   final int? transactionId;
   final String title;
@@ -391,6 +420,7 @@ class PostFormInput {
   final String? placeName;
   final double? latitude;
   final double? longitude;
+  final List<PostAttachmentInput> attachments;
 
   const PostFormInput({
     required this.transactionId,
@@ -402,6 +432,7 @@ class PostFormInput {
     required this.placeName,
     required this.latitude,
     required this.longitude,
+    this.attachments = const [],
   });
 
   Map<String, dynamic> toCreateJson() {
@@ -415,7 +446,9 @@ class PostFormInput {
       'placeName': placeName,
       'latitude': latitude,
       'longitude': longitude,
-      'attachments': <Map<String, dynamic>>[],
+      'attachments': attachments
+          .map((attachment) => attachment.toJson())
+          .toList(),
     };
   }
 
