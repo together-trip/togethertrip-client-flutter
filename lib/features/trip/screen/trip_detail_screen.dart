@@ -548,7 +548,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             const SizedBox(width: 8),
           ],
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(44),
+            preferredSize: const Size.fromHeight(56),
             child: _PostFeedTabs(
               selectedFilter: _selectedFilter,
               onSelect: _selectFilter,
@@ -701,38 +701,39 @@ class _PostFeedTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 44,
+      height: 56,
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xFFEDEDED))),
       ),
       child: Row(
+        spacing: 8,
         children: _PostFeedFilter.values.map((filter) {
           final selected = selectedFilter == filter;
           return Expanded(
             child: InkWell(
               onTap: () => onSelect(filter),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    filter.label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                      color: selected
-                          ? const Color(0xFF1A1A1A)
-                          : const Color(0xFF8A8A8A),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    height: 2,
-                    width: 44,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected ? const Color(0xFF1A1A1A) : Colors.white,
+                  border: Border.all(
                     color: selected
                         ? const Color(0xFF1A1A1A)
-                        : Colors.transparent,
+                        : const Color(0xFFE2E2E2),
                   ),
-                ],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  filter.label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    color: selected ? Colors.white : const Color(0xFF4A4A4A),
+                  ),
+                ),
               ),
             ),
           );
@@ -1547,8 +1548,8 @@ class _FullErrorState extends StatelessWidget {
 
 enum _PostFeedFilter {
   all(label: '전체', postType: null),
-  record(label: '#기록', postType: 'RECORD'),
-  expense(label: '#소비', postType: 'EXPENSE');
+  record(label: '기록', postType: 'RECORD'),
+  expense(label: '소비', postType: 'EXPENSE');
 
   final String label;
   final String? postType;
