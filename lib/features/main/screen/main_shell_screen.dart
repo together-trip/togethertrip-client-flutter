@@ -37,12 +37,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   }
 
   void _selectTab(int index) {
-    setState(() {
-      _currentIndex = index;
-      if (index != 0) {
-        _selectedTrip = null;
-      }
-    });
+    setState(() => _currentIndex = index);
   }
 
   @override
@@ -67,7 +62,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     ];
 
     return Scaffold(
-      body: screens[_currentIndex],
+      body: IndexedStack(index: _currentIndex, children: screens),
       extendBody: true,
       bottomNavigationBar: SafeArea(
         top: false,
