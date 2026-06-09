@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../post/service/post_service.dart';
+import '../../post/widget/attachment_input_section.dart';
 import '../../trip/service/trip_service.dart';
 import '../service/transaction_service.dart';
 
@@ -35,6 +36,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   final _otherCategoryController = TextEditingController();
   final Map<int, TextEditingController> _paymentControllers = {};
   final Map<int, TextEditingController> _shareControllers = {};
+  final List<AttachmentDraft> _attachments = [];
 
   late final List<TripParticipant> _participants;
   late String _currency;
@@ -75,6 +77,9 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
     }
     for (final controller in _shareControllers.values) {
       controller.dispose();
+    }
+    for (final attachment in _attachments) {
+      attachment.dispose();
     }
     super.dispose();
   }
@@ -220,6 +225,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
           placeName: _nullableText(_placeController.text),
           latitude: null,
           longitude: null,
+          attachments: buildAttachmentInputs(_attachments),
         ),
       );
       if (!mounted) return;
@@ -441,6 +447,11 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                   alignLabelWithHint: true,
                   border: OutlineInputBorder(),
                 ),
+              ),
+              const SizedBox(height: 18),
+              AttachmentInputSection(
+                attachments: _attachments,
+                enabled: !_isSubmitting,
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 12),

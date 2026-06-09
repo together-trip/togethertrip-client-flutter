@@ -461,6 +461,9 @@ class PostFormInput {
       'placeName': placeName,
       'latitude': latitude,
       'longitude': longitude,
+      'attachments': attachments
+          .map((attachment) => attachment.toJson())
+          .toList(),
     };
   }
 }

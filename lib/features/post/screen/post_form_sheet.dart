@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../service/post_service.dart';
+import '../widget/attachment_input_section.dart';
 
 class PostFormSheet extends StatefulWidget {
   final String postType;
@@ -25,6 +26,7 @@ class _PostFormSheetState extends State<PostFormSheet> {
   final _contentController = TextEditingController();
   final _placeController = TextEditingController();
   final _otherCategoryController = TextEditingController();
+  final List<AttachmentDraft> _attachments = [];
 
   String _selectedCategory = _categories.first;
   DateTime _selectedDate = DateTime.now();
@@ -49,6 +51,9 @@ class _PostFormSheetState extends State<PostFormSheet> {
       _otherCategoryController.text = initialPost.category;
     }
     _selectedDate = _parseDate(initialPost.occurredAt) ?? DateTime.now();
+    _attachments.addAll(
+      initialPost.attachments.map(AttachmentDraft.fromAttachment),
+    );
   }
 
   @override
@@ -57,6 +62,9 @@ class _PostFormSheetState extends State<PostFormSheet> {
     _contentController.dispose();
     _placeController.dispose();
     _otherCategoryController.dispose();
+    for (final attachment in _attachments) {
+      attachment.dispose();
+    }
     super.dispose();
   }
 
@@ -102,6 +110,7 @@ class _PostFormSheetState extends State<PostFormSheet> {
           placeName: _nullableText(_placeController.text),
           latitude: null,
           longitude: null,
+          attachments: buildAttachmentInputs(_attachments),
         ),
       );
       if (!mounted) return;
@@ -215,6 +224,11 @@ class _PostFormSheetState extends State<PostFormSheet> {
                   alignLabelWithHint: true,
                   border: OutlineInputBorder(),
                 ),
+              ),
+              const SizedBox(height: 18),
+              AttachmentInputSection(
+                attachments: _attachments,
+                enabled: !_isSubmitting,
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 12),

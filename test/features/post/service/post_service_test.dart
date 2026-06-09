@@ -118,6 +118,16 @@ void main() {
           placeName: 'Ichiran',
           latitude: null,
           longitude: null,
+          attachments: [
+            PostAttachmentInput(
+              attachmentType: 'IMAGE',
+              fileUrl: 'https://example.com/ramen.jpg',
+              thumbnailUrl: 'https://example.com/ramen-thumb.jpg',
+              fileSize: null,
+              mimeType: 'image/jpeg',
+              sortOrder: 0,
+            ),
+          ],
         ),
       );
 
@@ -126,6 +136,16 @@ void main() {
       expect(capturedBody!['postType'], 'RECORD');
       expect(capturedBody!['occurredAt'], '2026-06-09T03:00:00.000Z');
       expect(capturedBody!['attachments'], isA<List<dynamic>>());
+      expect(capturedBody!['attachments'], [
+        {
+          'attachmentType': 'IMAGE',
+          'fileUrl': 'https://example.com/ramen.jpg',
+          'thumbnailUrl': 'https://example.com/ramen-thumb.jpg',
+          'fileSize': null,
+          'mimeType': 'image/jpeg',
+          'sortOrder': 0,
+        },
+      ]);
     });
 
     test('댓글 작성과 삭제 경로를 사용한다', () async {
