@@ -234,22 +234,22 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.9,
-      minChildSize: 0.55,
-      maxChildSize: 0.94,
-      builder: (context, scrollController) {
-        return SafeArea(
-          top: false,
-          child: ListView(
-            controller: scrollController,
-            padding: EdgeInsets.fromLTRB(
-              20,
-              16,
-              20,
-              20 + MediaQuery.of(context).viewInsets.bottom,
-            ),
+    final height = MediaQuery.sizeOf(context).height * 0.9;
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: height,
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            16,
+            20,
+            20 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
                 child: Container(
@@ -467,8 +467,8 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

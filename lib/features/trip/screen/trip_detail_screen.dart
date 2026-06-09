@@ -617,11 +617,14 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             ),
           ),
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _openCreateChooser,
-          backgroundColor: const Color(0xFF1A1A1A),
-          foregroundColor: Colors.white,
-          child: const Icon(Icons.add),
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 86),
+          child: FloatingActionButton(
+            onPressed: _openCreateChooser,
+            backgroundColor: const Color(0xFF1A1A1A),
+            foregroundColor: Colors.white,
+            child: const Icon(Icons.add),
+          ),
         ),
         body: _buildBody(),
       ),
