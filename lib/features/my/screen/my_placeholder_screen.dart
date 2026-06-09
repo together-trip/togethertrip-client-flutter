@@ -4,11 +4,13 @@ import '../../../core/network/api_client.dart';
 import '../../auth/screen/onboarding_screen.dart';
 import '../../auth/screen/sign_up_profile_screen.dart';
 import '../../auth/service/auth_service.dart';
+import '../../notification/screen/notification_list_screen.dart';
 
 class MyPlaceholderScreen extends StatefulWidget {
   final AuthService? authService;
+  final VoidCallback? onBack;
 
-  const MyPlaceholderScreen({super.key, this.authService});
+  const MyPlaceholderScreen({super.key, this.authService, this.onBack});
 
   @override
   State<MyPlaceholderScreen> createState() => _MyPlaceholderScreenState();
@@ -100,6 +102,66 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
     await _withdraw();
   }
 
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('로그아웃'),
+          content: const Text('현재 계정에서 로그아웃하시겠어요?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('로그아웃'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    await _logout();
+  }
+
+  Future<void> _logout() async {
+    setState(() => _errorMessage = null);
+
+    try {
+      await _authService.logout();
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => OnboardingScreen(authService: _authService),
+        ),
+        (_) => false,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = e.message);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = '로그아웃에 실패했습니다: $e');
+    }
+  }
+
+  void _openNotifications() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const NotificationListScreen()),
+    );
+  }
+
+  void _showPreparingMessage(String featureName) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$featureName 기능은 아직 준비 중입니다.')));
+  }
+
   Future<void> _withdraw() async {
     setState(() {
       _isWithdrawing = true;
@@ -137,6 +199,12 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: false,
+        leading: IconButton(
+          onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.chevron_left, size: 24),
+          color: const Color(0xFF1A1A1A),
+          tooltip: '뒤로',
+        ),
         title: const Text(
           '마이페이지',
           style: TextStyle(
@@ -146,17 +214,13 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
           ),
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFF1A1A1A)),
-            ),
-            child: const Center(
-              child: Text('🔔', style: TextStyle(fontSize: 14)),
-            ),
+          IconButton(
+            onPressed: _openNotifications,
+            icon: const Icon(Icons.notifications_none, size: 22),
+            color: const Color(0xFF1A1A1A),
+            tooltip: '알림',
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(
@@ -216,9 +280,10 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
                       ],
                     ),
                   ),
-                  const Text(
-                    '›',
-                    style: TextStyle(fontSize: 18, color: Color(0xFF9E9E9E)),
+                  const Icon(
+                    Icons.chevron_right,
+                    size: 22,
+                    color: Color(0xFF9E9E9E),
                   ),
                 ],
               ),
@@ -244,12 +309,23 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
             ),
           // 메뉴 목록
           _MenuRow(
+            icon: Icons.manage_accounts_outlined,
             label: '개인정보 수정',
             onTap: _isLoading || _profile == null ? null : _openProfileEdit,
           ),
-          _MenuRow(label: '알림 설정', onTap: () {}),
-          _MenuRow(label: '약관', onTap: () {}),
           _MenuRow(
+            icon: Icons.notifications_none,
+            label: '알림 설정',
+            onTap: () => _showPreparingMessage('알림 설정'),
+          ),
+          _MenuRow(
+            icon: Icons.article_outlined,
+            label: '약관',
+            onTap: () => _showPreparingMessage('약관'),
+          ),
+          _MenuRow(icon: Icons.logout, label: '로그아웃', onTap: _confirmLogout),
+          _MenuRow(
+            icon: Icons.person_remove_outlined,
             label: _isWithdrawing ? '탈퇴 처리 중…' : '회원 탈퇴',
             labelColor: const Color(0xFFCC0000),
             onTap: _isWithdrawing ? null : _confirmWithdraw,
@@ -262,11 +338,13 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
 
 class _MenuRow extends StatelessWidget {
   const _MenuRow({
+    required this.icon,
     required this.label,
     required this.onTap,
     this.labelColor = const Color(0xFF1A1A1A),
   });
 
+  final IconData icon;
   final String label;
   final Color labelColor;
   final VoidCallback? onTap;
@@ -282,13 +360,12 @@ class _MenuRow extends StatelessWidget {
           border: Border(bottom: BorderSide(color: Color(0xFFE5E5E5))),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            Icon(icon, size: 20, color: labelColor),
+            const SizedBox(width: 12),
             Text(label, style: TextStyle(fontSize: 13, color: labelColor)),
-            const Text(
-              '›',
-              style: TextStyle(fontSize: 18, color: Color(0xFF9E9E9E)),
-            ),
+            const Spacer(),
+            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF9E9E9E)),
           ],
         ),
       ),

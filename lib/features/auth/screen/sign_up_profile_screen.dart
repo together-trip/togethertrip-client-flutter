@@ -344,10 +344,34 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          tooltip: '뒤로',
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.chevron_left, size: 24),
+          color: const Color(0xFF1A1A1A),
+        ),
+        title: Text(
+          _isEditMode ? '개인정보 수정' : '프로필 설정',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1A1A1A),
+          ),
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: Color(0xFF1A1A1A)),
+        ),
+      ),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
-            _Header(title: _isEditMode ? '개인정보 수정' : '프로필 설정'),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
@@ -610,45 +634,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                     ],
                   ),
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final String title;
-
-  const _Header({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFF1A1A1A))),
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned(
-              left: 4,
-              child: IconButton(
-                tooltip: '뒤로',
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.chevron_left),
-              ),
-            ),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1A1A1A),
               ),
             ),
           ],

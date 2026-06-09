@@ -58,7 +58,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
               tripService: tripService,
               onClose: _closeTripDetail,
             ),
-      MyPlaceholderScreen(authService: authService),
+      MyPlaceholderScreen(
+        authService: authService,
+        onBack: () => _selectTab(0),
+      ),
     ];
 
     return Scaffold(
