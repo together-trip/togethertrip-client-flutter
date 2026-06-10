@@ -8,8 +8,9 @@ import 'trip_form_screen.dart';
 
 class TripListScreen extends StatefulWidget {
   final TripService? tripService;
+  final ValueChanged<TripSummary>? onOpenTripDetail;
 
-  const TripListScreen({super.key, this.tripService});
+  const TripListScreen({super.key, this.tripService, this.onOpenTripDetail});
 
   @override
   State<TripListScreen> createState() => _TripListScreenState();
@@ -113,6 +114,12 @@ class _TripListScreenState extends State<TripListScreen> {
   }
 
   Future<void> _openDetail(TripSummary trip) async {
+    final onOpenTripDetail = widget.onOpenTripDetail;
+    if (onOpenTripDetail != null) {
+      onOpenTripDetail(trip);
+      return;
+    }
+
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) =>
@@ -230,7 +237,7 @@ class _TripListScreenState extends State<TripListScreen> {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
       itemCount: _trips.length + 1,
       separatorBuilder: (_, index) => const SizedBox(height: 10),
       itemBuilder: (context, index) {

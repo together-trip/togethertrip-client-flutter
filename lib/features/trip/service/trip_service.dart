@@ -96,6 +96,23 @@ class TripService {
     await _apiClient.delete('/api/trips/$tripId', accessToken: accessToken);
   }
 
+  Future<TripParticipant> getMyTripParticipant(int tripId) async {
+    final accessToken = await _requireAccessToken();
+    final data = await _apiClient.get(
+      '/api/users/me/trip-participants',
+      queryParameters: {'tripId': tripId.toString()},
+      accessToken: accessToken,
+    );
+    if (data == null) {
+      throw const ApiException(
+        statusCode: 500,
+        message: '내 여행 참여자 응답이 비어 있습니다.',
+      );
+    }
+
+    return TripParticipant.fromJson(data);
+  }
+
   Future<UserProfile> getCurrentUser() => _authService.getMe();
 
   Future<String> _requireAccessToken() async {

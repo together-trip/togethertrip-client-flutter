@@ -12,6 +12,7 @@ TogetherTrip 기획과 리포 책임에 맞춰 구현 가능한 작업 계획을
 
 ## 출력
 
-- `docs/work-plans/<task-slug>.md` 형식의 계획서
+- `docs/work-plans-<owner>/<task-slug>.md` 형식의 계획서
+- `<owner>`는 작업을 수행하는 사람 또는 에이전트 소유자를 식별하는 짧은 영문 소문자 이름이다.
+- `<owner>`가 불명확하면 공용 `docs/work-plans/`를 만들지 말고 먼저 확인한다.
 - 범위, 제외 범위, 테스트 계획, 남은 질문
-
