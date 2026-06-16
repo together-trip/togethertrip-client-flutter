@@ -158,6 +158,40 @@ void main() {
       expect(transfer.isCompleted, isTrue);
       expect(overview.allTransfersCompleted, isTrue);
     });
+
+    test('탈퇴한 사용자는 기본 확인된 것으로 보고 반대쪽 확인만 있으면 완료로 본다', () {
+      final transfer = SettlementTransferItem.fromJson({
+        'id': 2,
+        'senderParticipantId': 102,
+        'senderDisplayName': '탈퇴한 사용자',
+        'receiverParticipantId': 100,
+        'receiverDisplayName': '나',
+        'amount': 12000,
+        'currency': 'KRW',
+        'status': 'RECEIVER_CONFIRMED',
+        'senderConfirmedAt': null,
+        'receiverConfirmedAt': '2026-06-16T00:02:00Z',
+        'completedAt': null,
+      });
+
+      final overview = SettlementOverview(
+        tripId: 10,
+        tripTitle: '오사카 여행',
+        baseCurrency: 'KRW',
+        stage: SettlementStage.confirmed,
+        currentParticipantId: 100,
+        isOwner: false,
+        settlementId: 901,
+        shareToken: null,
+        balances: const [],
+        transfers: [transfer],
+      );
+
+      expect(transfer.senderConfirmed, isTrue);
+      expect(transfer.receiverConfirmed, isTrue);
+      expect(transfer.isCompleted, isTrue);
+      expect(overview.allTransfersCompleted, isTrue);
+    });
   });
 }
 

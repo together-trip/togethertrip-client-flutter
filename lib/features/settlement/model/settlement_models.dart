@@ -252,7 +252,13 @@ class SettlementTransferItem {
       status == SettlementTransferStatus.completed ||
       (status != SettlementTransferStatus.cancelled &&
           senderConfirmed &&
-          receiverConfirmed);
+          receiverConfirmed) ||
+      (status != SettlementTransferStatus.cancelled &&
+          senderDisplayName == '탈퇴한 사용자' &&
+          receiverConfirmed) ||
+      (status != SettlementTransferStatus.cancelled &&
+          receiverDisplayName == '탈퇴한 사용자' &&
+          senderConfirmed);
 
   SettlementTransferItem confirmSender() {
     final nextReceiverConfirmed = receiverConfirmed;
@@ -300,12 +306,17 @@ class SettlementTransferItem {
     final senderConfirmedAt = json['senderConfirmedAt'] as String?;
     final receiverConfirmedAt = json['receiverConfirmedAt'] as String?;
     final completedAt = json['completedAt'] as String?;
+    final senderDisplayName = json['senderDisplayName'] as String? ?? '알 수 없음';
+    final receiverDisplayName =
+        json['receiverDisplayName'] as String? ?? '알 수 없음';
     final senderConfirmed =
         senderConfirmedAt != null ||
+        senderDisplayName == '탈퇴한 사용자' ||
         rawStatus == SettlementTransferStatus.senderConfirmed ||
         rawStatus == SettlementTransferStatus.completed;
     final receiverConfirmed =
         receiverConfirmedAt != null ||
+        receiverDisplayName == '탈퇴한 사용자' ||
         rawStatus == SettlementTransferStatus.receiverConfirmed ||
         rawStatus == SettlementTransferStatus.completed;
     final status =
@@ -318,9 +329,9 @@ class SettlementTransferItem {
     return SettlementTransferItem(
       id: (json['id'] as num?)?.toInt() ?? 0,
       senderParticipantId: (json['senderParticipantId'] as num).toInt(),
-      senderDisplayName: json['senderDisplayName'] as String? ?? '알 수 없음',
+      senderDisplayName: senderDisplayName,
       receiverParticipantId: (json['receiverParticipantId'] as num).toInt(),
-      receiverDisplayName: json['receiverDisplayName'] as String? ?? '알 수 없음',
+      receiverDisplayName: receiverDisplayName,
       amount: _amountToInt(json['amount']),
       currency: json['currency'] as String? ?? 'KRW',
       status: status,
