@@ -13,10 +13,11 @@ class TransactionService {
     int tripId,
     int transactionId,
   ) async {
-    final accessToken = await _requireAccessToken();
-    final data = await _apiClient.get(
-      '/api/trips/$tripId/transactions/$transactionId',
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.get(
+        '/api/trips/$tripId/transactions/$transactionId',
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '거래 상세 응답이 비어 있습니다.');
@@ -29,25 +30,18 @@ class TransactionService {
     int tripId,
     TransactionFormInput input,
   ) async {
-    final accessToken = await _requireAccessToken();
-    final data = await _apiClient.post(
-      '/api/trips/$tripId/transactions',
-      input.toJson(),
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.post(
+        '/api/trips/$tripId/transactions',
+        input.toJson(),
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '거래 생성 응답이 비어 있습니다.');
     }
 
     return TransactionDetail.fromJson(data);
-  }
-
-  Future<String> _requireAccessToken() async {
-    final accessToken = await _authService.getAccessToken();
-    if (accessToken == null || accessToken.isEmpty) {
-      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
-    }
-    return accessToken;
   }
 }
 

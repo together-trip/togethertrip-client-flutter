@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/network/api_client.dart';
 import '../../post/service/post_service.dart';
 import '../../post/widget/attachment_input_section.dart';
 import '../../trip/service/trip_service.dart';
@@ -621,7 +622,9 @@ class _ParticipantAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: 18,
       backgroundColor: const Color(0xFFF2F2F2),
-      backgroundImage: hasProfile ? NetworkImage(profileImageUrl) : null,
+      backgroundImage: hasProfile
+          ? NetworkImage(resolveApiUrl(profileImageUrl))
+          : null,
       child: hasProfile
           ? null
           : const Icon(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:togethertrip/features/my/screen/my_placeholder_screen.dart';
 import 'package:togethertrip/features/auth/service/auth_service.dart';
 import 'package:togethertrip/features/trip/service/trip_service.dart';
 import 'package:togethertrip/main.dart';
@@ -13,13 +14,22 @@ void main() {
   testWidgets('회원가입 완료 시 메인 더미 페이지로 이동한다', (WidgetTester tester) async {
     final authService = _FakeAuthService(confirmStatus: 'PROFILE_REQUIRED');
     await tester.pumpWidget(
-      TogetherTripApp(authService: authService, tripService: _FakeTripService()),
+      TogetherTripApp(
+        authService: authService,
+        tripService: _FakeTripService(),
+      ),
     );
 
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
 
     expect(find.text('프로필 설정'), findsOneWidget);
+    expect(find.text('프로필 이미지'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('pickProfileImageButton')),
+      findsOneWidget,
+    );
+    expect(find.text('이미지 선택'), findsOneWidget);
 
     await tester.enterText(find.byKey(const ValueKey('nicknameField')), '여행자');
     await tester.enterText(
@@ -46,12 +56,14 @@ void main() {
 
     expect(find.textContaining('인증완료'), findsOneWidget);
 
+    await tester.ensureVisible(find.byKey(const ValueKey('submitButton')));
     await tester.tap(find.byKey(const ValueKey('submitButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('여행'), findsWidgets);
     expect(authService.checkedNickname, '여행자');
     expect(authService.requestedPhoneNumber, '01012345678');
+    expect(authService.confirmedPhoneNumber, '01012345678');
     expect(authService.updatedNickname, '여행자');
     expect(authService.updatedGender, 'MALE');
     expect(authService.updatedBirthDate, '1990-01-01');
@@ -62,7 +74,10 @@ void main() {
   ) async {
     final authService = _FakeAuthService(confirmStatus: 'AUTHENTICATED');
     await tester.pumpWidget(
-      TogetherTripApp(authService: authService, tripService: _FakeTripService()),
+      TogetherTripApp(
+        authService: authService,
+        tripService: _FakeTripService(),
+      ),
     );
 
     await tester.tap(find.text('카카오로 시작하기'));
@@ -91,7 +106,10 @@ void main() {
   ) async {
     final authService = _FakeAuthService(profileRequired: true);
     await tester.pumpWidget(
-      TogetherTripApp(authService: authService, tripService: _FakeTripService()),
+      TogetherTripApp(
+        authService: authService,
+        tripService: _FakeTripService(),
+      ),
     );
 
     await tester.tap(find.text('카카오로 시작하기'));
@@ -112,6 +130,25 @@ void main() {
 
     expect(find.text('여행'), findsWidgets);
   });
+
+  testWidgets('개인정보 수정 화면에서 마스킹 전화번호가 표시된다', (WidgetTester tester) async {
+    final authService = _FakeAuthService();
+    await tester.pumpWidget(
+      MaterialApp(home: MyPlaceholderScreen(authService: authService)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('여행자'), findsOneWidget);
+    expect(find.text('010-****-5678'), findsNothing);
+
+    await tester.tap(find.text('개인정보 수정'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('개인정보 수정'), findsOneWidget);
+    expect(find.text('전화번호'), findsOneWidget);
+    expect(find.text('010-****-5678'), findsOneWidget);
+    expect(find.text('인증 완료'), findsOneWidget);
+  });
 }
 
 class _FakeAuthService extends AuthService {
@@ -119,6 +156,7 @@ class _FakeAuthService extends AuthService {
   final String confirmStatus;
   String? checkedNickname;
   String? requestedPhoneNumber;
+  String? confirmedPhoneNumber;
   String? updatedNickname;
   String? updatedGender;
   String? updatedBirthDate;
@@ -153,10 +191,7 @@ class _FakeAuthService extends AuthService {
     required String phoneNumber,
   }) async {
     requestedPhoneNumber = phoneNumber;
-    return const PhoneVerificationCodeSent(
-      phoneNumber: '01012345678',
-      expiresInSeconds: 180,
-    );
+    return const PhoneVerificationCodeSent(expiresInSeconds: 180);
   }
 
   @override
@@ -165,6 +200,7 @@ class _FakeAuthService extends AuthService {
     required String phoneNumber,
     required String code,
   }) async {
+    confirmedPhoneNumber = phoneNumber;
     return AuthLoginResult(
       status: confirmStatus,
       temporaryToken: null,
@@ -185,6 +221,7 @@ class _FakeAuthService extends AuthService {
     required String gender,
     required String birthDate,
     String? profileImageUrl,
+    ProfileImageInput? profileImage,
   }) async {
     updatedNickname = nickname;
     updatedGender = gender;
@@ -193,6 +230,27 @@ class _FakeAuthService extends AuthService {
 
   @override
   Future<String?> getAccessToken() async => 'access-token';
+
+  @override
+  Future<UserProfile> getMe() async {
+    return const UserProfile(
+      id: 1,
+      nickname: '여행자',
+      gender: 'MALE',
+      birthDate: '1990-01-01',
+      profileImageUrl: null,
+      phoneNumberMasked: '010-****-5678',
+      phoneVerifiedAt: '2026-06-12T00:00:00Z',
+      phoneVerified: true,
+    );
+  }
+
+  @override
+  Future<T> runWithAccessToken<T>(
+    Future<T> Function(String accessToken) request,
+  ) {
+    return request('access-token');
+  }
 }
 
 class _FakeTripService extends TripService {

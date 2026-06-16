@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
-const _baseUrl = String.fromEnvironment('API_BASE_URL');
+import '../env/env.dart';
+
+const _baseUrl = Env.apiBaseUrl;
 
 String resolveApiUrl(String value) {
   if (value.isEmpty) return value;
