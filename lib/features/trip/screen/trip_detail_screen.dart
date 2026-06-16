@@ -6,6 +6,7 @@ import '../../../core/network/api_client.dart';
 import '../../notification/screen/notification_list_screen.dart';
 import '../../post/screen/post_form_sheet.dart';
 import '../../post/service/post_service.dart';
+import '../../settlement/screen/settlement_screen.dart';
 import '../../transaction/screen/expense_form_sheet.dart';
 import '../../transaction/service/transaction_service.dart';
 import '../service/trip_service.dart';
@@ -254,10 +255,20 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
-  void _showSettlementPreparing() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('정산 기능은 준비 중입니다.')));
+  void _openSettlement() {
+    final trip = _trip;
+    if (trip == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SettlementScreen(
+          tripId: trip.id,
+          tripTitle: trip.title,
+          isOwner: _canManageTrip,
+          currentParticipantId: _currentParticipantId ?? 0,
+        ),
+      ),
+    );
   }
 
   Future<void> _openInfoSheet() async {
@@ -680,7 +691,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           SliverToBoxAdapter(
             child: _TripFeedHeader(
               trip: trip,
-              onSettlementTap: _showSettlementPreparing,
+              onSettlementTap: _openSettlement,
             ),
           ),
           if (_isLoadingPosts)
