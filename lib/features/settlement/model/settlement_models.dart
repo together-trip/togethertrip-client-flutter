@@ -10,6 +10,8 @@ enum SettlementTransferStatus {
 
 enum SettlementTransferDirection { sent, received }
 
+enum SettlementSourceStatus { notStarted, settled }
+
 class SettlementOverview {
   final int tripId;
   final String tripTitle;
@@ -82,6 +84,83 @@ class SettlementOverview {
       transfers: transfers ?? this.transfers,
     );
   }
+
+  factory SettlementOverview.fromBalanceSummaryJson({
+    required Map<String, dynamic> json,
+    required String tripTitle,
+    required int currentParticipantId,
+    required bool isOwner,
+    required SettlementSourceStatus sourceStatus,
+    List<SettlementTransferItem> transfers = const [],
+  }) {
+    return SettlementOverview(
+      tripId: (json['tripId'] as num).toInt(),
+      tripTitle: tripTitle,
+      baseCurrency: json['baseCurrency'] as String? ?? 'KRW',
+      stage: sourceStatus == SettlementSourceStatus.settled
+          ? SettlementStage.confirmed
+          : SettlementStage.notStarted,
+      currentParticipantId: currentParticipantId,
+      isOwner: isOwner,
+      settlementId: null,
+      shareToken: null,
+      balances: _parseBalances(
+        json['balances'],
+        currentParticipantId: currentParticipantId,
+        ownerParticipantId: null,
+      ),
+      transfers: transfers,
+    );
+  }
+
+  factory SettlementOverview.fromPreviewJson({
+    required Map<String, dynamic> json,
+    required String tripTitle,
+    required int currentParticipantId,
+    required bool isOwner,
+  }) {
+    return SettlementOverview(
+      tripId: (json['tripId'] as num).toInt(),
+      tripTitle: tripTitle,
+      baseCurrency: json['baseCurrency'] as String? ?? 'KRW',
+      stage: SettlementStage.previewed,
+      currentParticipantId: currentParticipantId,
+      isOwner: isOwner,
+      settlementId: null,
+      shareToken: null,
+      balances: _parseBalances(
+        json['balances'],
+        currentParticipantId: currentParticipantId,
+        ownerParticipantId: null,
+      ),
+      transfers: _parseTransfers(json['transfers']),
+    );
+  }
+
+  factory SettlementOverview.fromSettlementJson({
+    required Map<String, dynamic> json,
+    required String tripTitle,
+    required int currentParticipantId,
+    required bool isOwner,
+    String? shareToken,
+  }) {
+    return SettlementOverview(
+      tripId: (json['tripId'] as num).toInt(),
+      tripTitle: tripTitle,
+      baseCurrency: json['baseCurrency'] as String? ?? 'KRW',
+      stage: _stageFromStatus(json['status'] as String?),
+      currentParticipantId: currentParticipantId,
+      isOwner: isOwner,
+      settlementId: (json['id'] as num?)?.toInt(),
+      shareToken: shareToken,
+      balances: _parseBalances(
+        json['balances'],
+        currentParticipantId: currentParticipantId,
+        ownerParticipantId: null,
+      ),
+      transfers: _parseTransfers(json['transfers']),
+    );
+  }
 }
 
 class SettlementBalance {
@@ -115,6 +194,26 @@ class SettlementBalance {
       paidAmount: 0,
       shareAmount: 0,
       netAmount: 0,
+    );
+  }
+
+  factory SettlementBalance.fromJson(
+    Map<String, dynamic> json, {
+    required int currentParticipantId,
+    required int? ownerParticipantId,
+  }) {
+    final participantId = (json['participantId'] as num).toInt();
+    final participantStatus = json['participantStatus'] as String? ?? 'ACTIVE';
+    return SettlementBalance(
+      participantId: participantId,
+      displayName: json['displayName'] as String? ?? '알 수 없음',
+      isMe: participantId == currentParticipantId,
+      isOwner:
+          ownerParticipantId != null && participantId == ownerParticipantId,
+      isWithdrawn: participantStatus != 'ACTIVE',
+      paidAmount: _amountToInt(json['paidAmount']),
+      shareAmount: _amountToInt(json['shareAmount']),
+      netAmount: _amountToInt(json['netAmount']),
     );
   }
 
@@ -191,6 +290,81 @@ class SettlementTransferItem {
       autoConfirmed: autoConfirmed ?? this.autoConfirmed,
     );
   }
+
+  factory SettlementTransferItem.fromJson(Map<String, dynamic> json) {
+    final status = _transferStatusFromJson(json['status'] as String?);
+    final senderConfirmedAt = json['senderConfirmedAt'] as String?;
+    final receiverConfirmedAt = json['receiverConfirmedAt'] as String?;
+    return SettlementTransferItem(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      senderParticipantId: (json['senderParticipantId'] as num).toInt(),
+      senderDisplayName: json['senderDisplayName'] as String? ?? '알 수 없음',
+      receiverParticipantId: (json['receiverParticipantId'] as num).toInt(),
+      receiverDisplayName: json['receiverDisplayName'] as String? ?? '알 수 없음',
+      amount: _amountToInt(json['amount']),
+      currency: json['currency'] as String? ?? 'KRW',
+      status: status,
+      senderConfirmed:
+          senderConfirmedAt != null ||
+          status == SettlementTransferStatus.senderConfirmed ||
+          status == SettlementTransferStatus.completed,
+      receiverConfirmed:
+          receiverConfirmedAt != null ||
+          status == SettlementTransferStatus.receiverConfirmed ||
+          status == SettlementTransferStatus.completed,
+      autoConfirmed: false,
+    );
+  }
+}
+
+SettlementStage _stageFromStatus(String? status) {
+  return switch (status) {
+    'CONFIRMED' => SettlementStage.confirmed,
+    _ => SettlementStage.previewed,
+  };
+}
+
+SettlementTransferStatus _transferStatusFromJson(String? status) {
+  return switch (status) {
+    'SENDER_CONFIRMED' => SettlementTransferStatus.senderConfirmed,
+    'RECEIVER_CONFIRMED' => SettlementTransferStatus.receiverConfirmed,
+    'COMPLETED' => SettlementTransferStatus.completed,
+    'CANCELLED' => SettlementTransferStatus.cancelled,
+    _ => SettlementTransferStatus.pending,
+  };
+}
+
+List<SettlementBalance> _parseBalances(
+  dynamic value, {
+  required int currentParticipantId,
+  required int? ownerParticipantId,
+}) {
+  return (value as List<dynamic>? ?? const [])
+      .map(
+        (item) => SettlementBalance.fromJson(
+          item as Map<String, dynamic>,
+          currentParticipantId: currentParticipantId,
+          ownerParticipantId: ownerParticipantId,
+        ),
+      )
+      .toList();
+}
+
+List<SettlementTransferItem> _parseTransfers(dynamic value) {
+  return (value as List<dynamic>? ?? const [])
+      .map(
+        (item) => SettlementTransferItem.fromJson(item as Map<String, dynamic>),
+      )
+      .toList();
+}
+
+int _amountToInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.round();
+  if (value is String) {
+    return (double.tryParse(value) ?? 0).round();
+  }
+  return 0;
 }
 
 String formatSettlementAmount(int amount, String currency) {

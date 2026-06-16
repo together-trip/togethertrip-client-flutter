@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:togethertrip/features/settlement/screen/settlement_screen.dart';
+import 'package:togethertrip/features/settlement/service/settlement_service.dart';
 
 void main() {
   testWidgets('정산 mock 화면에서 미리보기, 확정, 수금 확인 흐름을 표시한다', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: SettlementScreen(
           tripId: 1,
           tripTitle: '오사카 여행',
           isOwner: true,
           currentParticipantId: 11,
+          settlementService: SettlementMockService(),
+          showMockCases: true,
         ),
       ),
     );
@@ -63,12 +66,14 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: SettlementScreen(
           tripId: 1,
           tripTitle: '오사카 여행',
           isOwner: true,
           currentParticipantId: 11,
+          settlementService: SettlementMockService(),
+          showMockCases: true,
         ),
       ),
     );

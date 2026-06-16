@@ -23,6 +23,8 @@ class SettlementScreen extends StatefulWidget {
   final String tripTitle;
   final bool isOwner;
   final int currentParticipantId;
+  final String tripSettlementStatus;
+  final bool showMockCases;
   final SettlementService? settlementService;
 
   const SettlementScreen({
@@ -31,6 +33,8 @@ class SettlementScreen extends StatefulWidget {
     required this.tripTitle,
     required this.isOwner,
     required this.currentParticipantId,
+    this.tripSettlementStatus = 'NOT_STARTED',
+    this.showMockCases = false,
     this.settlementService,
   });
 
@@ -46,6 +50,7 @@ class _SettlementScreenState extends State<SettlementScreen> {
   late SettlementMockCase _selectedMockCase;
   bool _isLoading = true;
   bool _isBusy = false;
+  bool _changed = false;
   String? _errorMessage;
 
   @override
@@ -70,6 +75,7 @@ class _SettlementScreenState extends State<SettlementScreen> {
         tripTitle: widget.tripTitle,
         isOwner: widget.isOwner,
         currentParticipantId: widget.currentParticipantId,
+        tripSettlementStatus: widget.tripSettlementStatus,
         mockCase: _selectedMockCase,
         reset: reset,
       );
@@ -105,7 +111,10 @@ class _SettlementScreenState extends State<SettlementScreen> {
     try {
       final overview = await action();
       if (!mounted) return;
-      setState(() => _overview = overview);
+      setState(() {
+        _overview = overview;
+        _changed = true;
+      });
       if (message != null) {
         ScaffoldMessenger.of(
           context,
@@ -203,48 +212,64 @@ class _SettlementScreenState extends State<SettlementScreen> {
     );
   }
 
+  void _close() {
+    Navigator.of(context).pop(_changed);
+  }
+
   @override
   Widget build(BuildContext context) {
     final overview = _overview;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: false,
-        title: const Text(
-          '정산',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: IconButton(
-              key: const ValueKey('settlementHelpButton'),
-              onPressed: _showExplanation,
-              tooltip: '정산 계산 방법',
-              style: IconButton.styleFrom(
-                backgroundColor: const Color(0xFFF2F2F2),
-                foregroundColor: const Color(0xFF6B6B6B),
-                fixedSize: const Size(32, 32),
-                minimumSize: const Size(32, 32),
-              ),
-              icon: const Icon(Icons.question_mark, size: 17),
-            ),
-          ),
-        ],
-      ),
-      body: switch ((_isLoading, overview)) {
-        (true, _) => const Center(
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-        (false, null) => _SettlementErrorState(
-          message: _errorMessage ?? '정산 정보를 불러오지 못했습니다.',
-          onRetry: _loadOverview,
-        ),
-        (false, final data?) => _buildContent(data),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _close();
       },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: false,
+          leading: IconButton(
+            onPressed: _close,
+            icon: const Icon(Icons.arrow_back),
+            tooltip: '뒤로',
+          ),
+          title: const Text(
+            '정산',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: IconButton(
+                key: const ValueKey('settlementHelpButton'),
+                onPressed: _showExplanation,
+                tooltip: '정산 계산 방법',
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFF2F2F2),
+                  foregroundColor: const Color(0xFF6B6B6B),
+                  fixedSize: const Size(32, 32),
+                  minimumSize: const Size(32, 32),
+                ),
+                icon: const Icon(Icons.question_mark, size: 17),
+              ),
+            ),
+          ],
+        ),
+        body: switch ((_isLoading, overview)) {
+          (true, _) => const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          (false, null) => _SettlementErrorState(
+            message: _errorMessage ?? '정산 정보를 불러오지 못했습니다.',
+            onRetry: _loadOverview,
+          ),
+          (false, final data?) => _buildContent(data),
+        },
+      ),
     );
   }
 
@@ -257,10 +282,11 @@ class _SettlementScreenState extends State<SettlementScreen> {
           onPrimaryAction: _handlePrimaryAction,
           onShare: _handleShare,
         ),
-        _MockCaseSelector(
-          selectedMockCase: _selectedMockCase,
-          onSelect: _selectMockCase,
-        ),
+        if (widget.showMockCases)
+          _MockCaseSelector(
+            selectedMockCase: _selectedMockCase,
+            onSelect: _selectMockCase,
+          ),
         SettlementMySummaryCard(overview: overview),
         _SettlementTabs(selectedTab: _selectedTab, onSelect: _selectTab),
         Expanded(child: _buildTabBody(overview)),

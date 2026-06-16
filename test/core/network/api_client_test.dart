@@ -142,19 +142,46 @@ void main() {
       });
 
       final apiClient = ApiClient(client: mockClient);
-      final result = await apiClient.put(
-        '/api/trips/10/countries',
-        {
-          'countries': [
-            {'countryCode': 'JP', 'countryName': '일본', 'sortOrder': 0},
-          ],
-        },
-        accessToken: 'my_token',
-      );
+      final result = await apiClient.put('/api/trips/10/countries', {
+        'countries': [
+          {'countryCode': 'JP', 'countryName': '일본', 'sortOrder': 0},
+        ],
+      }, accessToken: 'my_token');
 
       expect(capturedAuth, 'Bearer my_token');
       expect(capturedBody!['countries'], isA<List<dynamic>>());
       expect(result!['tripId'], 10);
+    });
+
+    test('getList 성공 시 data 배열을 반환한다', () async {
+      Uri? capturedUrl;
+      String? capturedAuth;
+      final mockClient = MockClient((request) async {
+        capturedUrl = request.url;
+        capturedAuth = request.headers['Authorization'];
+        return http.Response(
+          jsonEncode(
+            _apiResponse([
+              {'id': 1},
+              {'id': 2},
+            ]),
+          ),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      final result = await apiClient.getList(
+        '/api/trips/10/settlement-transfers',
+        queryParameters: {'participantId': '100'},
+        accessToken: 'my_token',
+      );
+
+      expect(capturedUrl!.path, '/api/trips/10/settlement-transfers');
+      expect(capturedUrl!.queryParameters['participantId'], '100');
+      expect(capturedAuth, 'Bearer my_token');
+      expect(result, hasLength(2));
     });
   });
 }

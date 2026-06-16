@@ -1,3 +1,5 @@
+import '../../../core/network/api_client.dart';
+import '../../auth/service/auth_service.dart';
 import '../model/settlement_models.dart';
 
 enum SettlementMockCase {
@@ -15,18 +17,225 @@ enum SettlementMockCase {
 }
 
 class SettlementService {
+  final ApiClient _apiClient;
+  final AuthService _authService;
+
   SettlementOverview? _overview;
+
+  SettlementService({ApiClient? apiClient, AuthService? authService})
+    : _apiClient = apiClient ?? ApiClient(),
+      _authService = authService ?? AuthService();
 
   Future<SettlementOverview> getOverview({
     required int tripId,
     required String tripTitle,
     required bool isOwner,
     required int currentParticipantId,
+    String tripSettlementStatus = 'NOT_STARTED',
     SettlementMockCase mockCase = SettlementMockCase.ownerNotStarted,
     bool reset = false,
   }) async {
-    if (_overview == null || reset) {
-      _overview = _createMockOverview(
+    if (_overview != null && !reset) return _overview!;
+
+    final accessToken = await _requireAccessToken();
+    final sourceStatus = tripSettlementStatus == 'SETTLED'
+        ? SettlementSourceStatus.settled
+        : SettlementSourceStatus.notStarted;
+    final balanceData = await _apiClient.get(
+      '/api/trips/$tripId/balance-summary',
+      accessToken: accessToken,
+    );
+    if (balanceData == null) {
+      throw const ApiException(statusCode: 500, message: '정산 요약 응답이 비어 있습니다.');
+    }
+
+    final transfers = sourceStatus == SettlementSourceStatus.settled
+        ? await _getTransfers(
+            accessToken: accessToken,
+            tripId: tripId,
+            participantId: currentParticipantId,
+          )
+        : <SettlementTransferItem>[];
+
+    _overview = SettlementOverview.fromBalanceSummaryJson(
+      json: balanceData,
+      tripTitle: tripTitle,
+      currentParticipantId: currentParticipantId,
+      isOwner: isOwner,
+      sourceStatus: sourceStatus,
+      transfers: transfers,
+    );
+    return _overview!;
+  }
+
+  Future<SettlementOverview> previewSettlement() async {
+    final current = _requireOverview();
+    final accessToken = await _requireAccessToken();
+    final data = await _apiClient.post(
+      '/api/trips/${current.tripId}/settlement-preview',
+      {},
+      accessToken: accessToken,
+    );
+    if (data == null) {
+      throw const ApiException(
+        statusCode: 500,
+        message: '정산 미리보기 응답이 비어 있습니다.',
+      );
+    }
+
+    _overview = SettlementOverview.fromPreviewJson(
+      json: data,
+      tripTitle: current.tripTitle,
+      currentParticipantId: current.currentParticipantId,
+      isOwner: current.isOwner,
+    );
+    return _overview!;
+  }
+
+  Future<SettlementOverview> confirmSettlement() async {
+    final current = _requireOverview();
+    final accessToken = await _requireAccessToken();
+    final data = await _apiClient.post(
+      '/api/trips/${current.tripId}/settlements',
+      {},
+      accessToken: accessToken,
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '정산 확정 응답이 비어 있습니다.');
+    }
+
+    _overview = SettlementOverview.fromSettlementJson(
+      json: data,
+      tripTitle: current.tripTitle,
+      currentParticipantId: current.currentParticipantId,
+      isOwner: current.isOwner,
+      shareToken: current.shareToken,
+    );
+    return _overview!;
+  }
+
+  Future<SettlementOverview> createShareToken() async {
+    final current = _requireOverview();
+    final settlementId = current.settlementId;
+    if (settlementId == null) {
+      throw const ApiException(statusCode: 400, message: '공유할 확정 정산 ID가 없습니다.');
+    }
+
+    final accessToken = await _requireAccessToken();
+    final data = await _apiClient.post(
+      '/api/trips/${current.tripId}/settlements/$settlementId/share-tokens',
+      {},
+      accessToken: accessToken,
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '정산 공유 응답이 비어 있습니다.');
+    }
+
+    _overview = current.copyWith(shareToken: data['shareToken'] as String?);
+    return _overview!;
+  }
+
+  Future<SettlementOverview> confirmTransferAsSender(int transferId) async {
+    final current = _requireOverview();
+    final accessToken = await _requireAccessToken();
+    final data = await _apiClient.patch(
+      '/api/trips/${current.tripId}/settlement-transfers/$transferId/sender-confirmation',
+      {},
+      accessToken: accessToken,
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '송금 확인 응답이 비어 있습니다.');
+    }
+
+    _overview = _replaceTransfer(
+      current,
+      SettlementTransferItem.fromJson(data),
+    );
+    return _overview!;
+  }
+
+  Future<SettlementOverview> confirmTransferAsReceiver(int transferId) async {
+    final current = _requireOverview();
+    final accessToken = await _requireAccessToken();
+    final data = await _apiClient.patch(
+      '/api/trips/${current.tripId}/settlement-transfers/$transferId/receiver-confirmation',
+      {},
+      accessToken: accessToken,
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '수금 확인 응답이 비어 있습니다.');
+    }
+
+    _overview = _replaceTransfer(
+      current,
+      SettlementTransferItem.fromJson(data),
+    );
+    return _overview!;
+  }
+
+  Future<List<SettlementTransferItem>> _getTransfers({
+    required String accessToken,
+    required int tripId,
+    required int participantId,
+  }) async {
+    final data = await _apiClient.getList(
+      '/api/trips/$tripId/settlement-transfers',
+      queryParameters: {'participantId': participantId.toString()},
+      accessToken: accessToken,
+    );
+
+    return data
+        .map(
+          (item) =>
+              SettlementTransferItem.fromJson(item as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  SettlementOverview _replaceTransfer(
+    SettlementOverview current,
+    SettlementTransferItem updatedTransfer,
+  ) {
+    return current.copyWith(
+      transfers: current.transfers.map((transfer) {
+        if (transfer.id != updatedTransfer.id) return transfer;
+        return updatedTransfer;
+      }).toList(),
+    );
+  }
+
+  SettlementOverview _requireOverview() {
+    final overview = _overview;
+    if (overview == null) {
+      throw StateError('정산 화면 데이터가 아직 준비되지 않았습니다.');
+    }
+    return overview;
+  }
+
+  Future<String> _requireAccessToken() async {
+    final accessToken = await _authService.getAccessToken();
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
+    }
+    return accessToken;
+  }
+}
+
+class SettlementMockService extends SettlementService {
+  SettlementOverview? _mockOverview;
+
+  @override
+  Future<SettlementOverview> getOverview({
+    required int tripId,
+    required String tripTitle,
+    required bool isOwner,
+    required int currentParticipantId,
+    String tripSettlementStatus = 'NOT_STARTED',
+    SettlementMockCase mockCase = SettlementMockCase.ownerNotStarted,
+    bool reset = false,
+  }) async {
+    if (_mockOverview == null || reset) {
+      _mockOverview = _createMockOverview(
         tripId: tripId,
         tripTitle: tripTitle,
         isOwner: isOwner,
@@ -34,54 +243,59 @@ class SettlementService {
         mockCase: mockCase,
       );
     }
-    return _overview!;
+    return _mockOverview!;
   }
 
+  @override
   Future<SettlementOverview> previewSettlement() async {
-    final current = _requireOverview();
-    _overview = current.copyWith(stage: SettlementStage.previewed);
-    return _overview!;
+    final current = _requireMockOverview();
+    _mockOverview = current.copyWith(stage: SettlementStage.previewed);
+    return _mockOverview!;
   }
 
+  @override
   Future<SettlementOverview> confirmSettlement() async {
-    final current = _requireOverview();
-    _overview = current.copyWith(
+    final current = _requireMockOverview();
+    _mockOverview = current.copyWith(
       stage: SettlementStage.confirmed,
       settlementId: 901,
     );
-    return _overview!;
+    return _mockOverview!;
   }
 
+  @override
   Future<SettlementOverview> createShareToken() async {
-    final current = _requireOverview();
-    _overview = current.copyWith(shareToken: 'mock-share-token');
-    return _overview!;
+    final current = _requireMockOverview();
+    _mockOverview = current.copyWith(shareToken: 'mock-share-token');
+    return _mockOverview!;
   }
 
+  @override
   Future<SettlementOverview> confirmTransferAsSender(int transferId) async {
-    final current = _requireOverview();
-    _overview = current.copyWith(
+    final current = _requireMockOverview();
+    _mockOverview = current.copyWith(
       transfers: current.transfers.map((transfer) {
         if (transfer.id != transferId) return transfer;
         return transfer.confirmSender();
       }).toList(),
     );
-    return _overview!;
+    return _mockOverview!;
   }
 
+  @override
   Future<SettlementOverview> confirmTransferAsReceiver(int transferId) async {
-    final current = _requireOverview();
-    _overview = current.copyWith(
+    final current = _requireMockOverview();
+    _mockOverview = current.copyWith(
       transfers: current.transfers.map((transfer) {
         if (transfer.id != transferId) return transfer;
         return transfer.confirmReceiver();
       }).toList(),
     );
-    return _overview!;
+    return _mockOverview!;
   }
 
-  SettlementOverview _requireOverview() {
-    final overview = _overview;
+  SettlementOverview _requireMockOverview() {
+    final overview = _mockOverview;
     if (overview == null) {
       throw StateError('정산 화면 데이터가 아직 준비되지 않았습니다.');
     }
@@ -113,15 +327,6 @@ class SettlementService {
       SettlementMockCase.allCompleted ||
       SettlementMockCase.noTransfers => SettlementStage.confirmed,
     };
-    final balances = _createBalances(
-      currentParticipantId: currentParticipantId,
-      isOwner: effectiveIsOwner,
-      mockCase: mockCase,
-    );
-    final transfers = _createTransfers(
-      currentParticipantId: currentParticipantId,
-      mockCase: mockCase,
-    );
 
     return SettlementOverview(
       tripId: tripId,
@@ -134,8 +339,15 @@ class SettlementService {
       shareToken: mockCase == SettlementMockCase.allCompleted
           ? 'mock-share-token'
           : null,
-      balances: balances,
-      transfers: transfers,
+      balances: _createBalances(
+        currentParticipantId: currentParticipantId,
+        isOwner: effectiveIsOwner,
+        mockCase: mockCase,
+      ),
+      transfers: _createTransfers(
+        currentParticipantId: currentParticipantId,
+        mockCase: mockCase,
+      ),
     );
   }
 

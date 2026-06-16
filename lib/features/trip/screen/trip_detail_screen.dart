@@ -255,20 +255,25 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
-  void _openSettlement() {
+  Future<void> _openSettlement() async {
     final trip = _trip;
     if (trip == null) return;
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => SettlementScreen(
           tripId: trip.id,
           tripTitle: trip.title,
           isOwner: _canManageTrip,
           currentParticipantId: _currentParticipantId ?? 0,
+          tripSettlementStatus: trip.settlementStatus,
         ),
       ),
     );
+    if (changed == true) {
+      _changed = true;
+      await _refreshAll();
+    }
   }
 
   Future<void> _openInfoSheet() async {
