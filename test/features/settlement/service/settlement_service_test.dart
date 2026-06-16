@@ -125,6 +125,39 @@ void main() {
         ),
       );
     });
+
+    test('송금자와 수금자가 모두 확인한 응답은 status 문자열과 무관하게 완료로 본다', () {
+      final transfer = SettlementTransferItem.fromJson({
+        'id': 1,
+        'senderParticipantId': 101,
+        'senderDisplayName': '민지',
+        'receiverParticipantId': 100,
+        'receiverDisplayName': '나',
+        'amount': 46860,
+        'currency': 'KRW',
+        'status': 'SENDER_CONFIRMED',
+        'senderConfirmedAt': '2026-06-16T00:01:00Z',
+        'receiverConfirmedAt': '2026-06-16T00:02:00Z',
+        'completedAt': null,
+      });
+
+      final overview = SettlementOverview(
+        tripId: 10,
+        tripTitle: '오사카 여행',
+        baseCurrency: 'KRW',
+        stage: SettlementStage.confirmed,
+        currentParticipantId: 100,
+        isOwner: false,
+        settlementId: 901,
+        shareToken: null,
+        balances: const [],
+        transfers: [transfer],
+      );
+
+      expect(transfer.status, SettlementTransferStatus.completed);
+      expect(transfer.isCompleted, isTrue);
+      expect(overview.allTransfersCompleted, isTrue);
+    });
   });
 }
 

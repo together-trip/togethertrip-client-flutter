@@ -248,7 +248,11 @@ class SettlementTransferItem {
     required this.autoConfirmed,
   });
 
-  bool get isCompleted => status == SettlementTransferStatus.completed;
+  bool get isCompleted =>
+      status == SettlementTransferStatus.completed ||
+      (status != SettlementTransferStatus.cancelled &&
+          senderConfirmed &&
+          receiverConfirmed);
 
   SettlementTransferItem confirmSender() {
     final nextReceiverConfirmed = receiverConfirmed;
@@ -292,9 +296,25 @@ class SettlementTransferItem {
   }
 
   factory SettlementTransferItem.fromJson(Map<String, dynamic> json) {
-    final status = _transferStatusFromJson(json['status'] as String?);
+    final rawStatus = _transferStatusFromJson(json['status'] as String?);
     final senderConfirmedAt = json['senderConfirmedAt'] as String?;
     final receiverConfirmedAt = json['receiverConfirmedAt'] as String?;
+    final completedAt = json['completedAt'] as String?;
+    final senderConfirmed =
+        senderConfirmedAt != null ||
+        rawStatus == SettlementTransferStatus.senderConfirmed ||
+        rawStatus == SettlementTransferStatus.completed;
+    final receiverConfirmed =
+        receiverConfirmedAt != null ||
+        rawStatus == SettlementTransferStatus.receiverConfirmed ||
+        rawStatus == SettlementTransferStatus.completed;
+    final status =
+        completedAt != null ||
+            (rawStatus != SettlementTransferStatus.cancelled &&
+                senderConfirmed &&
+                receiverConfirmed)
+        ? SettlementTransferStatus.completed
+        : rawStatus;
     return SettlementTransferItem(
       id: (json['id'] as num?)?.toInt() ?? 0,
       senderParticipantId: (json['senderParticipantId'] as num).toInt(),
@@ -304,14 +324,8 @@ class SettlementTransferItem {
       amount: _amountToInt(json['amount']),
       currency: json['currency'] as String? ?? 'KRW',
       status: status,
-      senderConfirmed:
-          senderConfirmedAt != null ||
-          status == SettlementTransferStatus.senderConfirmed ||
-          status == SettlementTransferStatus.completed,
-      receiverConfirmed:
-          receiverConfirmedAt != null ||
-          status == SettlementTransferStatus.receiverConfirmed ||
-          status == SettlementTransferStatus.completed,
+      senderConfirmed: senderConfirmed,
+      receiverConfirmed: receiverConfirmed,
       autoConfirmed: false,
     );
   }
