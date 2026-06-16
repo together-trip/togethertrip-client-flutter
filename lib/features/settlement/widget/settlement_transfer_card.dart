@@ -67,7 +67,7 @@ class SettlementTransferCard extends StatelessWidget {
                 if (transfer.autoConfirmed) ...[
                   const SizedBox(height: 3),
                   const Text(
-                    '탈퇴 사용자 자동 확인됨',
+                    '자동 확인됨',
                     style: TextStyle(fontSize: 11, color: Color(0xFF6B6B6B)),
                   ),
                 ],

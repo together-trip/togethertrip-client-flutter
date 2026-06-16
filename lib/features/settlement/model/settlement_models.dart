@@ -337,7 +337,7 @@ class SettlementTransferItem {
       status: status,
       senderConfirmed: senderConfirmed,
       receiverConfirmed: receiverConfirmed,
-      autoConfirmed: false,
+      autoConfirmed: json['autoConfirmed'] as bool? ?? false,
     );
   }
 }
