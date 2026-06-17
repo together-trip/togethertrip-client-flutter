@@ -410,10 +410,6 @@ class _TripFormScreenState extends State<TripFormScreen> {
           widget.initialTrip!.id,
           input.countries,
         );
-      } else {
-        final invite = await _tripService.createInviteLink(result.id);
-        if (!mounted) return;
-        await _showInviteCreatedSheet(invite);
       }
 
       if (!mounted) return;
@@ -427,64 +423,6 @@ class _TripFormScreenState extends State<TripFormScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
-  }
-
-  Future<void> _showInviteCreatedSheet(TripInvite invite) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  '초대 링크가 만들어졌습니다',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '링크를 복사해 동행자에게 보내세요.',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF6B6B6B)),
-                ),
-                const SizedBox(height: 14),
-                SelectableText(
-                  invite.inviteUrl,
-                  style: const TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    await Clipboard.setData(
-                      ClipboardData(text: invite.inviteUrl),
-                    );
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('초대 링크를 복사했습니다.')),
-                    );
-                  },
-                  icon: const Icon(Icons.copy, size: 18),
-                  label: const Text('링크 복사'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A1A1A),
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('상세로 이동'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 
   TripFormInput? _buildInput() {
@@ -941,6 +879,8 @@ class _ScheduleStep extends StatelessWidget {
           controller: startDateController,
           hintText: '2026-04-01',
           suffixText: '›',
+          keyboardType: TextInputType.number,
+          inputFormatters: const [_DateInputFormatter()],
           onChanged: (_) => onDateChanged(),
         ),
         const SizedBox(height: 16),
@@ -950,6 +890,8 @@ class _ScheduleStep extends StatelessWidget {
           controller: endDateController,
           hintText: '2026-04-05',
           suffixText: '›',
+          keyboardType: TextInputType.number,
+          inputFormatters: const [_DateInputFormatter()],
           onChanged: (_) => onDateChanged(),
         ),
         const SizedBox(height: 18),
@@ -1198,6 +1140,8 @@ class _BoxTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final bool readOnly;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _BoxTextField({
     super.key,
@@ -1209,6 +1153,8 @@ class _BoxTextField extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.readOnly = false,
+    this.keyboardType,
+    this.inputFormatters,
   });
 
   @override
@@ -1219,6 +1165,8 @@ class _BoxTextField extends StatelessWidget {
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       readOnly: readOnly,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         hintText: hintText,
         counterText: maxLength == null ? null : '',
@@ -1244,6 +1192,31 @@ class _BoxTextField extends StatelessWidget {
           borderSide: BorderSide(color: Color(0xFF1A1A1A), width: 1.4),
         ),
       ),
+    );
+  }
+}
+
+class _DateInputFormatter extends TextInputFormatter {
+  const _DateInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final limited = digits.length > 8 ? digits.substring(0, 8) : digits;
+    final buffer = StringBuffer();
+
+    for (var index = 0; index < limited.length; index++) {
+      if (index == 4 || index == 6) buffer.write('-');
+      buffer.write(limited[index]);
+    }
+
+    final formatted = buffer.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

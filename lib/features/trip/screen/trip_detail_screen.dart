@@ -739,8 +739,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               ),
             IconButton(
               onPressed: _openInfoSheet,
-              icon: const Icon(Icons.info_outline, size: 22),
-              tooltip: '여행 정보',
+              icon: const Icon(Icons.more_horiz, size: 22),
+              tooltip: '여행 메뉴',
             ),
             const SizedBox(width: 8),
           ],

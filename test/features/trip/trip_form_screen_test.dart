@@ -31,6 +31,31 @@ void main() {
     expect(find.byKey(const ValueKey('tripCompanionsField')), findsNothing);
   });
 
+  testWidgets('여행 날짜는 숫자 입력을 yyyy-MM-dd 형식으로 자동 포맷한다', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: TripFormScreen(tripService: _FakeTripService())),
+    );
+
+    await tester.tap(find.text('일본'));
+    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('tripStartDateField')),
+      '20260701',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('tripEndDateField')),
+      '20260705',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026-07-01'), findsOneWidget);
+    expect(find.text('2026-07-05'), findsOneWidget);
+  });
+
   testWidgets('국가 선택 순서를 보존해 생성 요청에 반영한다', (WidgetTester tester) async {
     final tripService = _FakeTripService();
     await tester.pumpWidget(
@@ -67,6 +92,7 @@ void main() {
     expect(input.defaultCurrency, 'USD');
     expect(input.countries.map((country) => country.countryCode), ['US', 'JP']);
     expect(input.countries.map((country) => country.sortOrder), [0, 1]);
+    expect(tripService.createInviteLinkCallCount, 0);
   });
 
   testWidgets('닉네임 검색 결과를 클릭하면 실제 사용자 동행자로 추가한다', (WidgetTester tester) async {
@@ -250,6 +276,7 @@ void main() {
 class _FakeTripService extends TripService {
   final int searchUserId;
   TripFormInput? createdInput;
+  int createInviteLinkCallCount = 0;
 
   _FakeTripService({this.searchUserId = 2});
 
@@ -300,6 +327,7 @@ class _FakeTripService extends TripService {
 
   @override
   Future<TripInvite> createInviteLink(int tripId, {int? participantId}) async {
+    createInviteLinkCallCount++;
     return const TripInvite(
       id: 1,
       tripId: 10,
