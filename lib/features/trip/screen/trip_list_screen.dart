@@ -331,9 +331,9 @@ class _JoinByInviteCodeDialogState extends State<_JoinByInviteCodeDialog> {
   }
 
   Future<void> _submit() async {
-    final code = _controller.text.trim();
-    if (code.isEmpty) {
-      setState(() => _errorMessage = '초대 코드를 입력해 주세요.');
+    final input = _parseInviteInput(_controller.text);
+    if (input == null) {
+      setState(() => _errorMessage = '초대 코드 또는 링크를 입력해 주세요.');
       return;
     }
 
@@ -343,8 +343,15 @@ class _JoinByInviteCodeDialogState extends State<_JoinByInviteCodeDialog> {
     });
 
     try {
-      await widget.tripService.getInviteInfo(code: code);
-      final joined = await widget.tripService.joinTrip(code: code);
+      await widget.tripService.getInviteInfo(
+        code: input.code,
+        token: input.token,
+      );
+      final joined = await widget.tripService.joinTrip(
+        code: input.code,
+        token: input.token,
+        participantId: input.participantId,
+      );
       if (!mounted) return;
       Navigator.of(context).pop(joined.tripId);
     } on ApiException catch (e) {
@@ -362,6 +369,33 @@ class _JoinByInviteCodeDialogState extends State<_JoinByInviteCodeDialog> {
     }
   }
 
+  _InviteJoinInput? _parseInviteInput(String value) {
+    final text = value.trim();
+    if (text.isEmpty) return null;
+
+    final uri = Uri.tryParse(text);
+    if (uri != null && uri.hasScheme) {
+      final code = uri.queryParameters['code']?.trim();
+      final token = uri.queryParameters['token']?.trim();
+      final participantIdValue = uri.queryParameters['participantId']?.trim();
+      final participantId = participantIdValue == null
+          ? null
+          : int.tryParse(participantIdValue);
+      if ((code == null || code.isEmpty) && (token == null || token.isEmpty)) {
+        return null;
+      }
+      return _InviteJoinInput(
+        code: code?.isEmpty == true ? null : code,
+        token: token?.isEmpty == true ? null : token,
+        participantId: participantId != null && participantId > 0
+            ? participantId
+            : null,
+      );
+    }
+
+    return _InviteJoinInput(code: text);
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -373,10 +407,11 @@ class _JoinByInviteCodeDialogState extends State<_JoinByInviteCodeDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
+              key: const ValueKey('inviteCodeOrLinkField'),
               controller: _controller,
               autofocus: true,
               textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(hintText: '초대 코드'),
+              decoration: const InputDecoration(hintText: '초대 코드 또는 링크'),
               onSubmitted: (_) => _submit(),
             ),
             if (_errorMessage != null) ...[
@@ -401,6 +436,14 @@ class _JoinByInviteCodeDialogState extends State<_JoinByInviteCodeDialog> {
       ),
     );
   }
+}
+
+class _InviteJoinInput {
+  final String? code;
+  final String? token;
+  final int? participantId;
+
+  const _InviteJoinInput({this.code, this.token, this.participantId});
 }
 
 class _TripHomeTabs extends StatelessWidget {
