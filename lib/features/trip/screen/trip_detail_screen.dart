@@ -10,6 +10,7 @@ import '../../settlement/screen/settlement_screen.dart';
 import '../../transaction/screen/expense_form_sheet.dart';
 import '../../transaction/service/transaction_service.dart';
 import '../service/trip_service.dart';
+import '../widget/trip_invite_participant_sheets.dart';
 import 'trip_form_screen.dart';
 
 class TripDetailScreen extends StatefulWidget {
@@ -287,6 +288,18 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         return _TripInfoSheet(
           trip: trip,
           canManageTrip: _canManageTrip,
+          onManageParticipants: () async {
+            Navigator.of(context).pop(false);
+            await _openParticipantManager();
+          },
+          onCreateInviteLink: () async {
+            Navigator.of(context).pop(false);
+            await _createAndShowInviteLink();
+          },
+          onCreateInviteCode: () async {
+            Navigator.of(context).pop(false);
+            await _createAndShowInviteCode();
+          },
           onEdit: () async {
             Navigator.of(context).pop(false);
             await _openEditTrip();
@@ -299,6 +312,81 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       },
     );
     if (changed == true) await _refreshAll();
+  }
+
+  Future<void> _createAndShowInviteLink() async {
+    try {
+      final invite = await _tripService.createInviteLink(widget.tripId);
+      if (!mounted) return;
+      await _showInviteSheet(
+        title: '초대 링크',
+        value: invite.inviteUrl,
+        copiedMessage: '초대 링크를 복사했습니다.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('초대 링크 생성에 실패했습니다: $e')));
+    }
+  }
+
+  Future<void> _createAndShowInviteCode() async {
+    try {
+      final invite = await _tripService.createInviteCode(widget.tripId);
+      if (!mounted) return;
+      await _showInviteSheet(
+        title: '초대 코드',
+        value: invite.code ?? invite.token,
+        copiedMessage: '초대 코드를 복사했습니다.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('초대 코드 생성에 실패했습니다: $e')));
+    }
+  }
+
+  Future<void> _showInviteSheet({
+    required String title,
+    required String value,
+    required String copiedMessage,
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return TripInviteValueSheet(
+          title: title,
+          value: value,
+          copiedMessage: copiedMessage,
+        );
+      },
+    );
+  }
+
+  Future<void> _openParticipantManager() async {
+    final trip = _trip;
+    if (trip == null) return;
+
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return TripParticipantManagerSheet(
+          trip: trip,
+          tripService: _tripService,
+        );
+      },
+    );
+
+    if (changed == true) {
+      _changed = true;
+      await _refreshAll();
+    }
   }
 
   Future<void> _openEditTrip() async {
@@ -642,10 +730,17 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               icon: const Icon(Icons.notifications_none, size: 22),
               tooltip: '알림',
             ),
+            if (_canManageTrip)
+              IconButton(
+                key: const ValueKey('editTripButton'),
+                onPressed: _openEditTrip,
+                icon: const Icon(Icons.edit_outlined, size: 22),
+                tooltip: '여행 수정',
+              ),
             IconButton(
               onPressed: _openInfoSheet,
-              icon: const Icon(Icons.info_outline, size: 22),
-              tooltip: '여행 정보',
+              icon: const Icon(Icons.more_horiz, size: 22),
+              tooltip: '여행 메뉴',
             ),
             const SizedBox(width: 8),
           ],
@@ -1236,12 +1331,18 @@ class _MetaChip extends StatelessWidget {
 class _TripInfoSheet extends StatelessWidget {
   final TripDetail trip;
   final bool canManageTrip;
+  final VoidCallback onManageParticipants;
+  final VoidCallback onCreateInviteLink;
+  final VoidCallback onCreateInviteCode;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _TripInfoSheet({
     required this.trip,
     required this.canManageTrip,
+    required this.onManageParticipants,
+    required this.onCreateInviteLink,
+    required this.onCreateInviteCode,
     required this.onEdit,
     required this.onDelete,
   });
@@ -1316,6 +1417,24 @@ class _TripInfoSheet extends StatelessWidget {
                           .toList(),
               ),
               if (canManageTrip) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: onManageParticipants,
+                  icon: const Icon(Icons.group_outlined, size: 18),
+                  label: const Text('참여자 관리'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: onCreateInviteLink,
+                  icon: const Icon(Icons.link, size: 18),
+                  label: const Text('초대 링크 공유'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: onCreateInviteCode,
+                  icon: const Icon(Icons.pin_outlined, size: 18),
+                  label: const Text('초대 코드 공유'),
+                ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onEdit,
