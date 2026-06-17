@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
 import '../service/trip_service.dart';
@@ -270,8 +271,12 @@ class _TripFormScreenState extends State<TripFormScreen> {
   late final TextEditingController _companionSearchController;
   late final TextEditingController _titleController;
 
-  final List<String> _companions = [];
-  final Set<String> _selectedCountryCodes = {};
+  final List<_SelectedCompanion> _companions = [];
+  final List<String> _selectedCountryCodes = [];
+  UserSearchUser? _searchedUser;
+  int? _currentUserId;
+  bool _isSearchingCompanion = false;
+  int _nextGuestCompanionNumber = 1;
   int _step = 0;
   bool _isSaving = false;
   String? _errorMessage;
@@ -286,7 +291,9 @@ class _TripFormScreenState extends State<TripFormScreen> {
 
     _countryOptions = [..._defaultCountryOptions];
     for (final country in trip?.countries ?? const <TripCountry>[]) {
-      _selectedCountryCodes.add(country.countryCode);
+      if (!_selectedCountryCodes.contains(country.countryCode)) {
+        _selectedCountryCodes.add(country.countryCode);
+      }
       final exists = _countryOptions.any(
         (option) => option.code == country.countryCode,
       );
@@ -312,7 +319,13 @@ class _TripFormScreenState extends State<TripFormScreen> {
       _companions.addAll(
         trip.participants
             .where((participant) => participant.participantRole != 'LEADER')
-            .map((participant) => participant.displayName),
+            .map(
+              (participant) => _SelectedCompanion(
+                displayName: participant.displayName,
+                profileImageUrl: participant.profileImageUrl,
+                userId: participant.userId,
+              ),
+            ),
       );
     }
   }
@@ -357,7 +370,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
       return false;
     }
     if (_step == 1 && !_hasValidDateRange()) {
-      setState(() => _errorMessage = '시작일과 종료일을 yyyy-MM-dd 형식으로 입력해 주세요.');
+      setState(() => _errorMessage = '시작일과 종료일을 올바른 순서로 입력해 주세요.');
       return false;
     }
     return true;
@@ -368,7 +381,12 @@ class _TripFormScreenState extends State<TripFormScreen> {
     final endDate = _nullableText(_endDateController);
     if (startDate == null || endDate == null) return false;
     final datePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
-    return datePattern.hasMatch(startDate) && datePattern.hasMatch(endDate);
+    if (!datePattern.hasMatch(startDate) || !datePattern.hasMatch(endDate)) {
+      return false;
+    }
+    final start = DateTime.tryParse(startDate);
+    final end = DateTime.tryParse(endDate);
+    return start != null && end != null && !start.isAfter(end);
   }
 
   Future<void> _save() async {
@@ -392,6 +410,10 @@ class _TripFormScreenState extends State<TripFormScreen> {
           widget.initialTrip!.id,
           input.countries,
         );
+      } else {
+        final invite = await _tripService.createInviteLink(result.id);
+        if (!mounted) return;
+        await _showInviteCreatedSheet(invite);
       }
 
       if (!mounted) return;
@@ -405,6 +427,64 @@ class _TripFormScreenState extends State<TripFormScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _showInviteCreatedSheet(TripInvite invite) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  '초대 링크가 만들어졌습니다',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '링크를 복사해 동행자에게 보내세요.',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF6B6B6B)),
+                ),
+                const SizedBox(height: 14),
+                SelectableText(
+                  invite.inviteUrl,
+                  style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: invite.inviteUrl),
+                    );
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('초대 링크를 복사했습니다.')),
+                    );
+                  },
+                  icon: const Icon(Icons.copy, size: 18),
+                  label: const Text('링크 복사'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A1A1A),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('상세로 이동'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   TripFormInput? _buildInput() {
@@ -422,6 +502,13 @@ class _TripFormScreenState extends State<TripFormScreen> {
       setState(() {
         _step = 0;
         _errorMessage = '떠날 국가를 선택해 주세요.';
+      });
+      return null;
+    }
+    if (_companions.any((companion) => companion.displayName.trim().isEmpty)) {
+      setState(() {
+        _step = 2;
+        _errorMessage = '비회원 동행 이름을 입력해 주세요.';
       });
       return null;
     }
@@ -447,9 +534,10 @@ class _TripFormScreenState extends State<TripFormScreen> {
           ? const []
           : _companions
                 .map(
-                  (name) => TripCompanionInput(
-                    displayName: name,
-                    profileImageUrl: null,
+                  (companion) => TripCompanionInput(
+                    displayName: companion.displayName.trim(),
+                    profileImageUrl: companion.profileImageUrl,
+                    userId: companion.userId,
                   ),
                 )
                 .toList(),
@@ -472,6 +560,19 @@ class _TripFormScreenState extends State<TripFormScreen> {
     });
   }
 
+  Future<int?> _getCurrentUserId() async {
+    final cachedUserId = _currentUserId;
+    if (cachedUserId != null) return cachedUserId;
+
+    try {
+      final user = await _tripService.getCurrentUser();
+      if (mounted) setState(() => _currentUserId = user.id);
+      return user.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
   String _currencyForCountry(String countryCode) {
     return _countryOptions
         .firstWhere(
@@ -486,19 +587,105 @@ class _TripFormScreenState extends State<TripFormScreen> {
         .currency;
   }
 
-  void _addCompanionFromInput() {
-    final name = _companionSearchController.text.trim();
-    if (name.isEmpty || _companions.length >= 9 || _companions.contains(name)) {
-      return;
+  void _addGuestCompanion() {
+    if (_companions.length >= 9) return;
+
+    var name = '동행자 $_nextGuestCompanionNumber';
+    while (_companions.any((companion) => companion.displayName == name)) {
+      _nextGuestCompanionNumber += 1;
+      name = '동행자 $_nextGuestCompanionNumber';
     }
+
     setState(() {
-      _companions.add(name);
-      _companionSearchController.clear();
+      _companions.add(_SelectedCompanion(displayName: name));
+      _nextGuestCompanionNumber += 1;
+      _searchedUser = null;
+      _errorMessage = null;
     });
   }
 
-  void _removeCompanion(String name) {
-    setState(() => _companions.remove(name));
+  Future<void> _searchCompanionByNickname() async {
+    final nickname = _companionSearchController.text.trim();
+    if (nickname.length < 2 || nickname.length > 20) {
+      setState(() {
+        _searchedUser = null;
+        _errorMessage = '닉네임은 2~20자로 검색해 주세요.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearchingCompanion = true;
+      _searchedUser = null;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await _tripService.searchUserByNickname(nickname);
+      if (!mounted) return;
+      final user = result.user;
+      if (user != null && user.userId == await _getCurrentUserId()) {
+        if (!mounted) return;
+        setState(() {
+          _searchedUser = null;
+          _errorMessage = '본인은 동행자로 추가할 수 없습니다.';
+        });
+        return;
+      }
+      setState(() {
+        _searchedUser = user;
+        if (!result.found) {
+          _errorMessage = '일치하는 사용자를 찾지 못했습니다. 비회원 동행으로 추가할 수 있어요.';
+        }
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = e.message);
+    } finally {
+      if (mounted) setState(() => _isSearchingCompanion = false);
+    }
+  }
+
+  void _addSearchedUser(UserSearchUser user) {
+    if (_currentUserId == user.userId) {
+      setState(() {
+        _searchedUser = null;
+        _errorMessage = '본인은 동행자로 추가할 수 없습니다.';
+      });
+      return;
+    }
+    if (_companions.length >= 9 ||
+        _companions.any((companion) => companion.userId == user.userId)) {
+      return;
+    }
+    setState(() {
+      _companions.add(
+        _SelectedCompanion(
+          displayName: user.nickname,
+          profileImageUrl: user.profileImageUrl,
+          userId: user.userId,
+        ),
+      );
+      _companionSearchController.clear();
+      _searchedUser = null;
+      _errorMessage = null;
+    });
+  }
+
+  void _removeCompanion(_SelectedCompanion companion) {
+    setState(() {
+      _companions.remove(companion);
+      _errorMessage = null;
+    });
+  }
+
+  void _renameGuestCompanion(_SelectedCompanion companion, String value) {
+    final index = _companions.indexOf(companion);
+    if (index < 0 || companion.userId != null) return;
+    setState(() {
+      _companions[index] = companion.copyWith(displayName: value);
+      _errorMessage = null;
+    });
   }
 
   @override
@@ -575,7 +762,12 @@ class _TripFormScreenState extends State<TripFormScreen> {
       2 => _CompanionStep(
         searchController: _companionSearchController,
         companions: _companions,
-        onSubmitName: _addCompanionFromInput,
+        searchedUser: _searchedUser,
+        isSearching: _isSearchingCompanion,
+        onSearch: _searchCompanionByNickname,
+        onAddGuest: _addGuestCompanion,
+        onSelectUser: _addSearchedUser,
+        onRenameGuest: _renameGuestCompanion,
         onRemove: _removeCompanion,
         isEdit: _isEdit,
       ),
@@ -601,8 +793,11 @@ class _TripFormScreenState extends State<TripFormScreen> {
   }
 
   List<_CountryOption> get _selectedCountries {
-    return _countryOptions
-        .where((country) => _selectedCountryCodes.contains(country.code))
+    return _selectedCountryCodes
+        .map(
+          (code) =>
+              _countryOptions.firstWhere((country) => country.code == code),
+        )
         .toList();
   }
 }
@@ -674,7 +869,7 @@ class _StepIndicator extends StatelessWidget {
 class _CountryStep extends StatelessWidget {
   final TextEditingController searchController;
   final List<_CountryOption> countries;
-  final Set<String> selectedCountryCodes;
+  final List<String> selectedCountryCodes;
   final ValueChanged<_CountryOption> onSelect;
   final VoidCallback onSearchChanged;
 
@@ -735,8 +930,8 @@ class _ScheduleStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return ListView(
+      padding: EdgeInsets.zero,
       children: [
         const _StepTitle(title: '언제 떠나시나요?', subtitle: ''),
         const SizedBox(height: 18),
@@ -769,37 +964,56 @@ class _ScheduleStep extends StatelessWidget {
 
 class _CompanionStep extends StatelessWidget {
   final TextEditingController searchController;
-  final List<String> companions;
-  final VoidCallback onSubmitName;
-  final ValueChanged<String> onRemove;
+  final List<_SelectedCompanion> companions;
+  final UserSearchUser? searchedUser;
+  final bool isSearching;
+  final VoidCallback onSearch;
+  final VoidCallback onAddGuest;
+  final ValueChanged<UserSearchUser> onSelectUser;
+  final void Function(_SelectedCompanion companion, String value) onRenameGuest;
+  final ValueChanged<_SelectedCompanion> onRemove;
   final bool isEdit;
 
   const _CompanionStep({
     required this.searchController,
     required this.companions,
-    required this.onSubmitName,
+    required this.searchedUser,
+    required this.isSearching,
+    required this.onSearch,
+    required this.onAddGuest,
+    required this.onSelectUser,
+    required this.onRenameGuest,
     required this.onRemove,
     required this.isEdit,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return ListView(
+      padding: EdgeInsets.zero,
       children: [
         const _StepTitle(title: '누구와 함께하나요?', subtitle: '방장 포함 최대 10명'),
         const SizedBox(height: 18),
+        const _FieldLabel('실제 사용자 초대'),
         _BoxTextField(
           key: const ValueKey('tripCompanionsField'),
           controller: searchController,
-          hintText: '닉네임으로 검색',
+          hintText: '사용자 닉네임 입력',
           prefixIcon: Icons.search,
-          onSubmitted: (_) => onSubmitName(),
+          onSubmitted: (_) => onSearch(),
           readOnly: isEdit,
         ),
         const SizedBox(height: 8),
-        OutlinedButton(
-          onPressed: null,
+        OutlinedButton.icon(
+          onPressed: isEdit || isSearching ? null : onSearch,
+          icon: isSearching
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.search, size: 16),
+          label: const Text('사용자 검색'),
           style: OutlinedButton.styleFrom(
             disabledForegroundColor: const Color(0xFF1A1A1A),
             side: const BorderSide(color: Color(0xFF1A1A1A)),
@@ -808,8 +1022,31 @@ class _CompanionStep extends StatelessWidget {
             ),
             minimumSize: const Size.fromHeight(42),
           ),
-          child: const Text('초대 링크 공유'),
         ),
+        const SizedBox(height: 8),
+        const _FieldLabel('비회원 동행'),
+        OutlinedButton.icon(
+          key: const ValueKey('addGuestCompanionButton'),
+          onPressed: isEdit ? null : onAddGuest,
+          icon: const Icon(Icons.person_add_alt_1_outlined, size: 16),
+          label: const Text('동행자 이름으로 추가'),
+          style: OutlinedButton.styleFrom(
+            disabledForegroundColor: const Color(0xFF1A1A1A),
+            side: const BorderSide(color: Color(0xFF1A1A1A)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(0),
+            ),
+            minimumSize: const Size.fromHeight(42),
+          ),
+        ),
+        if (searchedUser != null) ...[
+          const SizedBox(height: 12),
+          _UserSearchResultRow(
+            key: ValueKey('tripUserSearchResult-${searchedUser!.userId}'),
+            user: searchedUser!,
+            onTap: () => onSelectUser(searchedUser!),
+          ),
+        ],
         const SizedBox(height: 20),
         Text(
           '선택된 동행자 (${companions.length + 1}/10)',
@@ -818,7 +1055,16 @@ class _CompanionStep extends StatelessWidget {
         const SizedBox(height: 10),
         const _CompanionRow(name: '나', role: '방장'),
         ...companions.map(
-          (name) => _CompanionRow(name: name, onRemove: () => onRemove(name)),
+          (companion) => _CompanionRow(
+            key: ValueKey('tripCompanion-${identityHashCode(companion)}'),
+            name: companion.displayName,
+            role: companion.userId == null ? '비회원' : null,
+            editable: companion.userId == null && !isEdit,
+            onRename: companion.userId == null
+                ? (value) => onRenameGuest(companion, value)
+                : null,
+            onRemove: () => onRemove(companion),
+          ),
         ),
       ],
     );
@@ -844,6 +1090,57 @@ class _TitleStep extends StatelessWidget {
           maxLength: 30,
         ),
       ],
+    );
+  }
+}
+
+class _UserSearchResultRow extends StatelessWidget {
+  final UserSearchUser user;
+  final VoidCallback onTap;
+
+  const _UserSearchResultRow({
+    super.key,
+    required this.user,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAFAFA),
+          border: Border.all(color: const Color(0xFF1A1A1A)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF1A1A1A),
+              child: Text(
+                user.nickname.characters.first,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                user.nickname,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const Icon(Icons.add, size: 18, color: Color(0xFF1A1A1A)),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1049,9 +1346,18 @@ class _ScheduleSummary extends StatelessWidget {
 class _CompanionRow extends StatelessWidget {
   final String name;
   final String? role;
+  final bool editable;
+  final ValueChanged<String>? onRename;
   final VoidCallback? onRemove;
 
-  const _CompanionRow({required this.name, this.role, this.onRemove});
+  const _CompanionRow({
+    super.key,
+    required this.name,
+    this.role,
+    this.editable = false,
+    this.onRename,
+    this.onRemove,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1069,9 +1375,27 @@ class _CompanionRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(child: Text(name, style: const TextStyle(fontSize: 13))),
+          Expanded(
+            child: editable
+                ? TextFormField(
+                    key: const ValueKey('guestCompanionNameField'),
+                    initialValue: name,
+                    onChanged: onRename,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      border: OutlineInputBorder(),
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  )
+                : Text(name, style: const TextStyle(fontSize: 13)),
+          ),
           if (role != null)
             Container(
+              margin: const EdgeInsets.only(left: 8),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
                 border: Border.all(color: const Color(0xFF1A1A1A)),
@@ -1084,8 +1408,11 @@ class _CompanionRow extends StatelessWidget {
                 ),
               ),
             )
-          else
+          else if (onRemove != null)
+            const SizedBox(width: 8),
+          if (onRemove != null)
             IconButton(
+              key: const ValueKey('removeCompanionButton'),
               onPressed: onRemove,
               icon: const Icon(Icons.close, size: 16),
               color: const Color(0xFF9E9E9E),
@@ -1117,5 +1444,25 @@ class _CountryOption {
         code.toLowerCase().contains(keyword) ||
         currency.toLowerCase().contains(keyword) ||
         aliases.any((alias) => alias.toLowerCase().contains(keyword));
+  }
+}
+
+class _SelectedCompanion {
+  final String displayName;
+  final String? profileImageUrl;
+  final int? userId;
+
+  const _SelectedCompanion({
+    required this.displayName,
+    this.profileImageUrl,
+    this.userId,
+  });
+
+  _SelectedCompanion copyWith({String? displayName}) {
+    return _SelectedCompanion(
+      displayName: displayName ?? this.displayName,
+      profileImageUrl: profileImageUrl,
+      userId: userId,
+    );
   }
 }

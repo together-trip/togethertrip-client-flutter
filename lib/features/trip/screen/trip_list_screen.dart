@@ -107,6 +107,41 @@ class _TripListScreenState extends State<TripListScreen> {
     );
   }
 
+  Future<void> _openJoinByInviteCode() async {
+    final joinedTripId = await showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _JoinByInviteCodeDialog(tripService: _tripService),
+    );
+
+    if (joinedTripId == null || !mounted) return;
+    await _loadTrips();
+    if (!mounted) return;
+    await _openDetail(
+      _findTripSummary(joinedTripId) ?? _fallbackTripSummary(joinedTripId),
+    );
+  }
+
+  TripSummary? _findTripSummary(int tripId) {
+    for (final trip in _trips) {
+      if (trip.id == tripId) return trip;
+    }
+    return null;
+  }
+
+  TripSummary _fallbackTripSummary(int tripId) {
+    return TripSummary(
+      id: tripId,
+      title: '초대 여행',
+      defaultCurrency: 'KRW',
+      startDate: null,
+      endDate: null,
+      tripStatus: 'PLANNED',
+      settlementStatus: 'NOT_STARTED',
+      ownerUserId: 0,
+    );
+  }
+
   Future<void> _selectFilter(_TripHomeFilter filter) async {
     if (_selectedFilter == filter) return;
     setState(() => _selectedFilter = filter);
@@ -155,6 +190,13 @@ class _TripListScreenState extends State<TripListScreen> {
             icon: const Icon(Icons.notifications_none, size: 22),
             color: const Color(0xFF1A1A1A),
             tooltip: '알림',
+          ),
+          IconButton(
+            key: const ValueKey('joinTripByInviteCodeButton'),
+            onPressed: _openJoinByInviteCode,
+            icon: const Icon(Icons.pin_outlined, size: 22),
+            color: const Color(0xFF1A1A1A),
+            tooltip: '초대 코드 입력',
           ),
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -265,6 +307,100 @@ enum _TripHomeFilter {
   final String? status;
 
   const _TripHomeFilter({required this.label, required this.status});
+}
+
+class _JoinByInviteCodeDialog extends StatefulWidget {
+  final TripService tripService;
+
+  const _JoinByInviteCodeDialog({required this.tripService});
+
+  @override
+  State<_JoinByInviteCodeDialog> createState() =>
+      _JoinByInviteCodeDialogState();
+}
+
+class _JoinByInviteCodeDialogState extends State<_JoinByInviteCodeDialog> {
+  final TextEditingController _controller = TextEditingController();
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final code = _controller.text.trim();
+    if (code.isEmpty) {
+      setState(() => _errorMessage = '초대 코드를 입력해 주세요.');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.tripService.getInviteInfo(code: code);
+      final joined = await widget.tripService.joinTrip(code: code);
+      if (!mounted) return;
+      Navigator.of(context).pop(joined.tripId);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = e.message;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = '초대 코드 참여에 실패했습니다: $e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isSubmitting,
+      child: AlertDialog(
+        title: const Text('초대 코드 입력'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(hintText: '초대 코드'),
+              onSubmitted: (_) => _submit(),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _errorMessage!,
+                style: const TextStyle(color: Color(0xFFCC0000), fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: _isSubmitting ? null : _submit,
+            child: Text(_isSubmitting ? '참여 중...' : '참여'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _TripHomeTabs extends StatelessWidget {

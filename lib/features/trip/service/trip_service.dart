@@ -51,6 +51,131 @@ class TripService {
     return TripDetail.fromJson(data);
   }
 
+  Future<UserSearchResult> searchUserByNickname(String nickname) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.post('/api/users/search/nickname', {
+        'nickname': nickname,
+      }, accessToken: accessToken),
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '사용자 검색 응답이 비어 있습니다.');
+    }
+
+    return UserSearchResult.fromJson(data);
+  }
+
+  Future<TripInvite> createInviteLink(int tripId) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.post(
+        '/api/trips/$tripId/invite-links',
+        const {},
+        accessToken: accessToken,
+      ),
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '초대 링크 응답이 비어 있습니다.');
+    }
+
+    return TripInvite.fromJson(data);
+  }
+
+  Future<TripInvite> createInviteCode(int tripId) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.post(
+        '/api/trips/$tripId/invite-codes',
+        const {},
+        accessToken: accessToken,
+      ),
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '초대 코드 응답이 비어 있습니다.');
+    }
+
+    return TripInvite.fromJson(data);
+  }
+
+  Future<TripParticipant> addTemporaryParticipant(
+    int tripId,
+    TripCompanionInput input,
+  ) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.post(
+        '/api/trips/$tripId/participants',
+        input.toJson(),
+        accessToken: accessToken,
+      ),
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '참여자 추가 응답이 비어 있습니다.');
+    }
+
+    return TripParticipant.fromJson(data);
+  }
+
+  Future<TripParticipant> linkParticipant(
+    int tripId, {
+    required int participantId,
+    required int userId,
+  }) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.post(
+        '/api/trips/$tripId/participant-connections',
+        {'participantId': participantId, 'userId': userId},
+        accessToken: accessToken,
+      ),
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '참여자 연결 응답이 비어 있습니다.');
+    }
+
+    return TripParticipant.fromJson(data);
+  }
+
+  Future<void> removeParticipant(int tripId, int participantId) async {
+    await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.delete(
+        '/api/trips/$tripId/participants/$participantId',
+        accessToken: accessToken,
+      ),
+    );
+  }
+
+  Future<TripInviteInfo> getInviteInfo({String? code, String? token}) async {
+    final queryParameters = <String, String>{};
+    if (code != null && code.trim().isNotEmpty) {
+      queryParameters['code'] = code.trim();
+    }
+    if (token != null && token.trim().isNotEmpty) {
+      queryParameters['token'] = token.trim();
+    }
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.get(
+        '/api/trip-invites',
+        queryParameters: queryParameters,
+        accessToken: accessToken,
+      ),
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '초대 정보 응답이 비어 있습니다.');
+    }
+
+    return TripInviteInfo.fromJson(data);
+  }
+
+  Future<JoinTripResult> joinTrip({String? code, String? token}) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.post('/api/trip-invite-joins', {
+        if (code != null && code.trim().isNotEmpty) 'code': code.trim(),
+        if (token != null && token.trim().isNotEmpty) 'token': token.trim(),
+      }, accessToken: accessToken),
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '초대 참여 응답이 비어 있습니다.');
+    }
+
+    return JoinTripResult.fromJson(data);
+  }
+
   Future<TripDetail> getTrip(int tripId) async {
     final data = await _authService.runWithAccessToken(
       (accessToken) =>
@@ -384,13 +509,144 @@ class TripCountryInput {
 class TripCompanionInput {
   final String displayName;
   final String? profileImageUrl;
+  final int? userId;
 
   const TripCompanionInput({
     required this.displayName,
     required this.profileImageUrl,
+    this.userId,
   });
 
   Map<String, dynamic> toJson() {
-    return {'displayName': displayName, 'profileImageUrl': profileImageUrl};
+    return {
+      'displayName': displayName,
+      'profileImageUrl': profileImageUrl,
+      if (userId != null) 'userId': userId,
+    };
+  }
+}
+
+class UserSearchResult {
+  final bool found;
+  final UserSearchUser? user;
+
+  const UserSearchResult({required this.found, required this.user});
+
+  factory UserSearchResult.fromJson(Map<String, dynamic> json) {
+    return UserSearchResult(
+      found: json['found'] as bool? ?? false,
+      user: json['user'] == null
+          ? null
+          : UserSearchUser.fromJson(json['user'] as Map<String, dynamic>),
+    );
+  }
+}
+
+class UserSearchUser {
+  final int userId;
+  final String nickname;
+  final String? profileImageUrl;
+
+  const UserSearchUser({
+    required this.userId,
+    required this.nickname,
+    required this.profileImageUrl,
+  });
+
+  factory UserSearchUser.fromJson(Map<String, dynamic> json) {
+    return UserSearchUser(
+      userId: (json['userId'] as num).toInt(),
+      nickname: json['nickname'] as String,
+      profileImageUrl: json['profileImageUrl'] as String?,
+    );
+  }
+}
+
+class TripInvite {
+  final int id;
+  final int tripId;
+  final String type;
+  final String? code;
+  final String token;
+  final String inviteUrl;
+  final String invitationStatus;
+  final String? expiresAt;
+
+  const TripInvite({
+    required this.id,
+    required this.tripId,
+    required this.type,
+    required this.code,
+    required this.token,
+    required this.inviteUrl,
+    required this.invitationStatus,
+    required this.expiresAt,
+  });
+
+  factory TripInvite.fromJson(Map<String, dynamic> json) {
+    return TripInvite(
+      id: (json['id'] as num).toInt(),
+      tripId: (json['tripId'] as num).toInt(),
+      type: json['type'] as String,
+      code: json['code'] as String?,
+      token: json['token'] as String,
+      inviteUrl: json['inviteUrl'] as String,
+      invitationStatus: json['invitationStatus'] as String,
+      expiresAt: json['expiresAt'] as String?,
+    );
+  }
+}
+
+class TripInviteInfo {
+  final int invitationId;
+  final String type;
+  final String? code;
+  final String invitationStatus;
+  final String? expiresAt;
+  final TripSummary trip;
+  final bool alreadyJoined;
+
+  const TripInviteInfo({
+    required this.invitationId,
+    required this.type,
+    required this.code,
+    required this.invitationStatus,
+    required this.expiresAt,
+    required this.trip,
+    required this.alreadyJoined,
+  });
+
+  factory TripInviteInfo.fromJson(Map<String, dynamic> json) {
+    return TripInviteInfo(
+      invitationId: (json['invitationId'] as num).toInt(),
+      type: json['type'] as String,
+      code: json['code'] as String?,
+      invitationStatus: json['invitationStatus'] as String,
+      expiresAt: json['expiresAt'] as String?,
+      trip: TripSummary.fromJson(json['trip'] as Map<String, dynamic>),
+      alreadyJoined: json['alreadyJoined'] as bool? ?? false,
+    );
+  }
+}
+
+class JoinTripResult {
+  final int tripId;
+  final TripParticipant participant;
+  final int invitationId;
+
+  const JoinTripResult({
+    required this.tripId,
+    required this.participant,
+    required this.invitationId,
+  });
+
+  factory JoinTripResult.fromJson(Map<String, dynamic> json) {
+    return JoinTripResult(
+      tripId: (json['tripId'] as num).toInt(),
+      participant: TripParticipant.fromJson(
+        json['participant'] as Map<String, dynamic>,
+      ),
+      invitationId: (json['invitationId'] as num).toInt(),
+    );
   }
 }
