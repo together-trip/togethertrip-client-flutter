@@ -64,7 +64,7 @@ class TripService {
     return UserSearchResult.fromJson(data);
   }
 
-  Future<TripInvite> createInviteLink(int tripId) async {
+  Future<TripInvite> createInviteLink(int tripId, {int? participantId}) async {
     final data = await _authService.runWithAccessToken(
       (accessToken) => _apiClient.post(
         '/api/trips/$tripId/invite-links',
@@ -76,7 +76,15 @@ class TripService {
       throw const ApiException(statusCode: 500, message: '초대 링크 응답이 비어 있습니다.');
     }
 
-    return TripInvite.fromJson(data);
+    final invite = TripInvite.fromJson(data);
+    if (participantId == null) return invite;
+
+    return invite.copyWith(
+      inviteUrl: _appendParticipantId(
+        invite.inviteUrl,
+        participantId: participantId,
+      ),
+    );
   }
 
   Future<TripInvite> createInviteCode(int tripId) async {
@@ -162,11 +170,16 @@ class TripService {
     return TripInviteInfo.fromJson(data);
   }
 
-  Future<JoinTripResult> joinTrip({String? code, String? token}) async {
+  Future<JoinTripResult> joinTrip({
+    String? code,
+    String? token,
+    int? participantId,
+  }) async {
     final data = await _authService.runWithAccessToken(
       (accessToken) => _apiClient.post('/api/trip-invite-joins', {
         if (code != null && code.trim().isNotEmpty) 'code': code.trim(),
         if (token != null && token.trim().isNotEmpty) 'token': token.trim(),
+        ...?participantId == null ? null : {'participantId': participantId},
       }, accessToken: accessToken),
     );
     if (data == null) {
@@ -245,6 +258,23 @@ class TripService {
   }
 
   Future<UserProfile> getCurrentUser() => _authService.getMe();
+
+  String _appendParticipantId(String inviteUrl, {required int participantId}) {
+    final uri = Uri.tryParse(inviteUrl);
+    if (uri == null) {
+      final separator = inviteUrl.contains('?') ? '&' : '?';
+      return '$inviteUrl${separator}participantId=$participantId';
+    }
+
+    return uri
+        .replace(
+          queryParameters: {
+            ...uri.queryParameters,
+            'participantId': participantId.toString(),
+          },
+        )
+        .toString();
+  }
 }
 
 class TripListPage {
@@ -593,6 +623,19 @@ class TripInvite {
       inviteUrl: json['inviteUrl'] as String,
       invitationStatus: json['invitationStatus'] as String,
       expiresAt: json['expiresAt'] as String?,
+    );
+  }
+
+  TripInvite copyWith({String? inviteUrl}) {
+    return TripInvite(
+      id: id,
+      tripId: tripId,
+      type: type,
+      code: code,
+      token: token,
+      inviteUrl: inviteUrl ?? this.inviteUrl,
+      invitationStatus: invitationStatus,
+      expiresAt: expiresAt,
     );
   }
 }

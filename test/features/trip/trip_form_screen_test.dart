@@ -299,7 +299,7 @@ class _FakeTripService extends TripService {
   }
 
   @override
-  Future<TripInvite> createInviteLink(int tripId) async {
+  Future<TripInvite> createInviteLink(int tripId, {int? participantId}) async {
     return const TripInvite(
       id: 1,
       tripId: 10,

@@ -238,6 +238,41 @@ void main() {
       expect(invite.type, 'LINK');
     });
 
+    test('비회원 동행 초대 링크에는 참여자 ID를 추가한다', () async {
+      final apiClient = ApiClient(
+        client: MockClient((request) async {
+          return http.Response(
+            jsonEncode(
+              _apiResponse({
+                'id': 5,
+                'tripId': 10,
+                'type': 'LINK',
+                'code': null,
+                'token': 'invite-token',
+                'inviteUrl':
+                    'https://togethertrip.app/invites?token=invite-token',
+                'invitationStatus': 'ACTIVE',
+                'expiresAt': null,
+              }),
+            ),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+      final tripService = TripService(
+        apiClient: apiClient,
+        authService: _FakeAuthService(),
+      );
+
+      final invite = await tripService.createInviteLink(10, participantId: 31);
+
+      expect(
+        invite.inviteUrl,
+        'https://togethertrip.app/invites?token=invite-token&participantId=31',
+      );
+    });
+
     test('초대 코드를 생성한다', () async {
       Uri? capturedUrl;
       final apiClient = ApiClient(
@@ -424,10 +459,13 @@ void main() {
         authService: _FakeAuthService(),
       );
 
-      final joined = await tripService.joinTrip(code: 'ABC123');
+      final joined = await tripService.joinTrip(
+        code: 'ABC123',
+        participantId: 31,
+      );
 
       expect(capturedUrl!.path, '/api/trip-invite-joins');
-      expect(capturedBody, {'code': 'ABC123'});
+      expect(capturedBody, {'code': 'ABC123', 'participantId': 31});
       expect(joined.tripId, 10);
       expect(joined.participant.displayName, '홍길동');
     });

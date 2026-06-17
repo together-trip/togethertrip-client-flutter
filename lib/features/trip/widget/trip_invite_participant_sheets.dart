@@ -179,6 +179,27 @@ class _TripParticipantManagerSheetState
     });
   }
 
+  Future<void> _createGuestInviteLink(TripParticipant participant) {
+    return _run(() async {
+      final invite = await widget.tripService.createInviteLink(
+        widget.trip.id,
+        participantId: participant.id,
+      );
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.white,
+        builder: (context) {
+          return TripInviteValueSheet(
+            title: '${participant.displayName} 초대 링크',
+            value: invite.inviteUrl,
+            copiedMessage: '비회원 동행 초대 링크를 복사했습니다.',
+          );
+        },
+      );
+    });
+  }
+
   Future<void> _removeParticipant(TripParticipant participant) {
     return _run(() async {
       await widget.tripService.removeParticipant(
@@ -231,6 +252,7 @@ class _TripParticipantManagerSheetState
               const SizedBox(height: 16),
               ..._participants.map((participant) {
                 final isLeader = participant.participantRole == 'LEADER';
+                final isGuest = participant.userId == null;
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(participant.displayName),
@@ -243,13 +265,29 @@ class _TripParticipantManagerSheetState
                   ),
                   trailing: isLeader
                       ? null
-                      : IconButton(
-                          onPressed: _isBusy
-                              ? null
-                              : () => _removeParticipant(participant),
-                          icon: const Icon(Icons.remove_circle_outline),
-                          color: const Color(0xFFCC0000),
-                          tooltip: '제거',
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isGuest)
+                              IconButton(
+                                key: ValueKey(
+                                  'guestInviteLinkButton-${participant.id}',
+                                ),
+                                onPressed: _isBusy
+                                    ? null
+                                    : () => _createGuestInviteLink(participant),
+                                icon: const Icon(Icons.link, size: 20),
+                                tooltip: '이 동행 초대 링크',
+                              ),
+                            IconButton(
+                              onPressed: _isBusy
+                                  ? null
+                                  : () => _removeParticipant(participant),
+                              icon: const Icon(Icons.remove_circle_outline),
+                              color: const Color(0xFFCC0000),
+                              tooltip: '제거',
+                            ),
+                          ],
                         ),
                 );
               }),

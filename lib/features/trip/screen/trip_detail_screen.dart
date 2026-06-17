@@ -730,6 +730,13 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               icon: const Icon(Icons.notifications_none, size: 22),
               tooltip: '알림',
             ),
+            if (_canManageTrip)
+              IconButton(
+                key: const ValueKey('editTripButton'),
+                onPressed: _openEditTrip,
+                icon: const Icon(Icons.edit_outlined, size: 22),
+                tooltip: '여행 수정',
+              ),
             IconButton(
               onPressed: _openInfoSheet,
               icon: const Icon(Icons.info_outline, size: 22),
