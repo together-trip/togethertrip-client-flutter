@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'core/env/env.dart';
 import 'features/auth/screen/onboarding_screen.dart';
@@ -22,6 +23,9 @@ class TogetherTripApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'TogetherTrip',
+      locale: const Locale('ko'),
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [Locale('ko'), Locale('en')],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A1A1A)),
         useMaterial3: true,

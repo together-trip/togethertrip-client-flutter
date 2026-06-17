@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/widget/app_date_picker.dart';
 import '../../post/service/post_service.dart';
 import '../../post/widget/attachment_input_section.dart';
 import '../../trip/service/trip_service.dart';
@@ -83,11 +84,12 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    final picked = await showTogetherTripDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
+      helpText: '소비 날짜',
     );
     if (picked == null) return;
     setState(() => _selectedDate = picked);

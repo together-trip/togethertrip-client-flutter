@@ -1,45 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../trip/service/trip_service.dart';
+import '../../../core/widget/app_date_picker.dart';
 import '../model/exchange_rate_models.dart';
 import '../service/exchange_rate_service.dart';
 
+enum _ExchangePeriod { today, sevenDays, thirtyDays, custom }
+
 class ExchangeRateScreen extends StatefulWidget {
-  final TripService? tripService;
   final ExchangeRateService? exchangeRateService;
 
-  const ExchangeRateScreen({
-    super.key,
-    this.tripService,
-    this.exchangeRateService,
-  });
+  const ExchangeRateScreen({super.key, this.exchangeRateService});
 
   @override
   State<ExchangeRateScreen> createState() => _ExchangeRateScreenState();
 }
 
 class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
-  late final TripService _tripService;
   late final ExchangeRateService _exchangeRateService;
   final TextEditingController _amountController = TextEditingController(
-    text: '1000',
+    text: '1,000.00',
   );
 
-  List<TripSummary> _trips = [];
-  TripSummary? _selectedTrip;
-  String _selectedCurrency = 'JPY';
-  ExchangeRatePreview? _preview;
-  bool _isLoadingTrips = true;
-  bool _isLoadingRate = false;
+  ExchangeCountryOption _selectedCountry = exchangeCountryOptions.first;
+  _ExchangePeriod _selectedPeriod = _ExchangePeriod.today;
+  DateTimeRange? _customRange;
+  ExchangeRateSearchResult? _result;
+  bool _isLoading = true;
+  bool _isForeignToKrw = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _tripService = widget.tripService ?? TripService();
     _exchangeRateService = widget.exchangeRateService ?? ExchangeRateService();
-    _loadTrips();
+    _loadRates();
   }
 
   @override
@@ -48,90 +44,105 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
     super.dispose();
   }
 
-  Future<void> _loadTrips() async {
+  Future<void> _loadRates() async {
     setState(() {
-      _isLoadingTrips = true;
+      _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final page = await _tripService.getTrips(size: 50);
+      final query = _buildDateQuery();
+      final result = await _exchangeRateService.getExchangeRates(
+        targetCurrencies: [_selectedCountry.currencyCode],
+        date: query.date,
+        from: query.from,
+        to: query.to,
+      );
       if (!mounted) return;
-      final trips = page.items;
-      setState(() {
-        _trips = trips;
-        _selectedTrip = trips.isEmpty ? null : trips.first;
-        _selectedCurrency = _initialCurrencyFor(trips);
-      });
-      if (trips.isNotEmpty) {
-        await _loadRate();
-      }
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _errorMessage = e.message);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _errorMessage = '환율 화면을 불러오지 못했습니다: $e');
-    } finally {
-      if (mounted) setState(() => _isLoadingTrips = false);
-    }
-  }
-
-  Future<void> _loadRate() async {
-    final selectedTrip = _selectedTrip;
-    if (selectedTrip == null) return;
-
-    setState(() {
-      _isLoadingRate = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final preview = await _exchangeRateService
-          .getTransactionExchangeRatePreview(
-            tripId: selectedTrip.id,
-            currency: _selectedCurrency,
-          );
-      if (!mounted) return;
-      setState(() => _preview = preview);
+      setState(() => _result = result);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        _preview = null;
+        _result = null;
         _errorMessage = e.message;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _preview = null;
+        _result = null;
         _errorMessage = '환율을 불러오지 못했습니다: $e';
       });
     } finally {
-      if (mounted) setState(() => _isLoadingRate = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  String _initialCurrencyFor(List<TripSummary> trips) {
-    final defaultCurrency = trips.isEmpty ? null : trips.first.defaultCurrency;
-    if (defaultCurrency == null || defaultCurrency == 'KRW') return 'JPY';
-    return defaultCurrency;
+  _DateQuery _buildDateQuery() {
+    final today = DateTime.now();
+    return switch (_selectedPeriod) {
+      _ExchangePeriod.today => _DateQuery(date: _formatDate(today)),
+      _ExchangePeriod.sevenDays => _DateQuery(
+        from: _formatDate(today.subtract(const Duration(days: 6))),
+        to: _formatDate(today),
+      ),
+      _ExchangePeriod.thirtyDays => _DateQuery(
+        from: _formatDate(today.subtract(const Duration(days: 29))),
+        to: _formatDate(today),
+      ),
+      _ExchangePeriod.custom => _DateQuery(
+        from: _formatDate(_customRange?.start ?? today),
+        to: _formatDate(_customRange?.end ?? today),
+      ),
+    };
   }
 
-  void _selectTrip(TripSummary trip) {
-    if (_selectedTrip?.id == trip.id) return;
-    setState(() {
-      _selectedTrip = trip;
-      if (trip.defaultCurrency != 'KRW') {
-        _selectedCurrency = trip.defaultCurrency;
-      }
-    });
-    _loadRate();
+  Future<void> _selectPeriod(_ExchangePeriod period) async {
+    if (period == _ExchangePeriod.custom) {
+      final today = DateTime.now();
+      final picked = await showTogetherTripDateRangePicker(
+        context: context,
+        initialDateRange:
+            _customRange ??
+            DateTimeRange(
+              start: today.subtract(const Duration(days: 6)),
+              end: today,
+            ),
+        firstDate: DateTime(2000),
+        lastDate: today,
+        helpText: '환율 조회 기간',
+      );
+      if (picked == null) return;
+      setState(() {
+        _selectedPeriod = period;
+        _customRange = picked;
+      });
+      await _loadRates();
+      return;
+    }
+
+    if (_selectedPeriod == period) return;
+    setState(() => _selectedPeriod = period);
+    await _loadRates();
   }
 
-  void _selectCurrency(String currency) {
-    if (_selectedCurrency == currency) return;
-    setState(() => _selectedCurrency = currency);
-    _loadRate();
+  void _selectCountry(ExchangeCountryOption? country) {
+    if (country == null ||
+        country.currencyCode == _selectedCountry.currencyCode) {
+      return;
+    }
+    setState(() => _selectedCountry = country);
+    _loadRates();
+  }
+
+  List<ExchangeRateRecord> get _sortedRates {
+    final rates = [...?_result?.rates];
+    rates.sort((a, b) => b.rateDate.compareTo(a.rateDate));
+    return rates;
+  }
+
+  ExchangeRateRecord? get _latestRate {
+    final rates = _sortedRates;
+    return rates.isEmpty ? null : rates.first;
   }
 
   double get _inputAmount {
@@ -140,9 +151,97 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
   }
 
   double? get _convertedAmount {
-    final preview = _preview;
-    if (preview == null) return null;
-    return _inputAmount * preview.rate;
+    final rate = _latestRate;
+    if (rate == null) return null;
+    if (_isForeignToKrw) return _inputAmount * rate.rate;
+    if (rate.rate == 0) return null;
+    return _inputAmount / rate.rate;
+  }
+
+  void _swapDirection() {
+    final nextInput = _convertedAmount;
+    setState(() {
+      _isForeignToKrw = !_isForeignToKrw;
+      if (nextInput != null) {
+        final formatted = _formatInputAmount(nextInput);
+        _amountController.value = TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(offset: formatted.length),
+        );
+      }
+    });
+  }
+
+  void _showSettlementNotice() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0E0E0),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  '정산 환율 안내',
+                  style: TextStyle(
+                    color: Color(0xFF1A1A1A),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  '정산에서는 등록된 지출 금액에 앱의 환율 기준을 적용해 계산해요. 카드사 수수료나 실제 청구 시점의 환율 때문에 카드 명세서 금액과 다를 수 있습니다.',
+                  style: TextStyle(
+                    color: Color(0xFF4A4A4A),
+                    fontSize: 13,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A1A1A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                    child: const Text(
+                      '확인',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -164,7 +263,7 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
         actions: [
           IconButton(
             key: const ValueKey('exchangeRefreshButton'),
-            onPressed: _isLoadingTrips || _isLoadingRate ? null : _loadRate,
+            onPressed: _isLoading ? null : _loadRates,
             icon: const Icon(Icons.refresh, size: 22),
             color: const Color(0xFF1A1A1A),
             tooltip: '환율 새로고침',
@@ -172,82 +271,57 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isLoadingTrips) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-    }
-
-    if (_trips.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(20, 92, 20, 120),
-        children: [
-          const Icon(Icons.travel_explore, size: 36, color: Color(0xFF8A8A8A)),
-          const SizedBox(height: 14),
-          const Text(
-            '환율을 확인할 여행이 없습니다.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '여행을 만든 뒤 지출에 사용할 통화 환율을 확인할 수 있어요.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Color(0xFF6B6B6B)),
-          ),
-          const SizedBox(height: 20),
-          OutlinedButton(onPressed: _loadTrips, child: const Text('다시 불러오기')),
-        ],
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadRate,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
-        children: [
-          _TripSelector(
-            trips: _trips,
-            selectedTrip: _selectedTrip,
-            onSelect: _selectTrip,
-          ),
-          const SizedBox(height: 14),
-          _CurrencySelector(
-            selectedCurrency: _selectedCurrency,
-            onSelect: _selectCurrency,
-          ),
-          const SizedBox(height: 14),
-          _ConverterCard(
-            amountController: _amountController,
-            preview: _preview,
-            convertedAmount: _convertedAmount,
-            isLoading: _isLoadingRate,
-            onChanged: () => setState(() {}),
-          ),
-          if (_errorMessage != null) ...[
+      body: RefreshIndicator(
+        onRefresh: _loadRates,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
+          children: [
+            _CountrySelector(
+              selectedCountry: _selectedCountry,
+              onChanged: _isLoading ? null : _selectCountry,
+            ),
             const SizedBox(height: 12),
-            _ErrorCard(message: _errorMessage!, onRetry: _loadRate),
+            _PeriodSelector(
+              selectedPeriod: _selectedPeriod,
+              customRange: _customRange,
+              onSelect: _isLoading ? null : _selectPeriod,
+            ),
+            const SizedBox(height: 14),
+            _RateSummaryCard(
+              country: _selectedCountry,
+              latestRate: _latestRate,
+              isLoading: _isLoading,
+              amountController: _amountController,
+              convertedAmount: _convertedAmount,
+              isForeignToKrw: _isForeignToKrw,
+              onAmountChanged: () => setState(() {}),
+              onSwapDirection: _swapDirection,
+              onShowSettlementNotice: _showSettlementNotice,
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              _ErrorCard(message: _errorMessage!, onRetry: _loadRates),
+            ],
+            const SizedBox(height: 14),
+            _RateHistorySection(
+              rates: _sortedRates,
+              isLoading: _isLoading,
+              currencyCode: _selectedCountry.currencyCode,
+            ),
           ],
-          const SizedBox(height: 14),
-          _RateInfoCard(preview: _preview, isLoading: _isLoadingRate),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _TripSelector extends StatelessWidget {
-  final List<TripSummary> trips;
-  final TripSummary? selectedTrip;
-  final ValueChanged<TripSummary> onSelect;
+class _CountrySelector extends StatelessWidget {
+  final ExchangeCountryOption selectedCountry;
+  final ValueChanged<ExchangeCountryOption?>? onChanged;
 
-  const _TripSelector({
-    required this.trips,
-    required this.selectedTrip,
-    required this.onSelect,
+  const _CountrySelector({
+    required this.selectedCountry,
+    required this.onChanged,
   });
 
   @override
@@ -264,7 +338,7 @@ class _TripSelector extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '여행',
+              '국가',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -273,28 +347,26 @@ class _TripSelector extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             DropdownButtonHideUnderline(
-              child: DropdownButton<TripSummary>(
-                value: selectedTrip,
+              child: DropdownButton<ExchangeCountryOption>(
+                value: selectedCountry,
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down),
-                items: trips
+                items: exchangeCountryOptions
                     .map(
-                      (trip) => DropdownMenuItem<TripSummary>(
-                        value: trip,
+                      (country) => DropdownMenuItem<ExchangeCountryOption>(
+                        value: country,
                         child: Text(
-                          '${trip.title} · ${trip.defaultCurrency}',
+                          '${country.countryName} · ${country.currencyCode}',
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 15,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
                     )
                     .toList(),
-                onChanged: (trip) {
-                  if (trip != null) onSelect(trip);
-                },
+                onChanged: onChanged,
               ),
             ),
           ],
@@ -304,31 +376,41 @@ class _TripSelector extends StatelessWidget {
   }
 }
 
-class _CurrencySelector extends StatelessWidget {
-  final String selectedCurrency;
-  final ValueChanged<String> onSelect;
+class _PeriodSelector extends StatelessWidget {
+  final _ExchangePeriod selectedPeriod;
+  final DateTimeRange? customRange;
+  final ValueChanged<_ExchangePeriod>? onSelect;
 
-  const _CurrencySelector({
-    required this.selectedCurrency,
+  const _PeriodSelector({
+    required this.selectedPeriod,
+    required this.customRange,
     required this.onSelect,
   });
 
   @override
   Widget build(BuildContext context) {
+    final options = <(_ExchangePeriod, String)>[
+      (_ExchangePeriod.today, '오늘'),
+      (_ExchangePeriod.sevenDays, '7일'),
+      (_ExchangePeriod.thirtyDays, '30일'),
+      (_ExchangePeriod.custom, _customLabel),
+    ];
+
     return SizedBox(
       height: 42,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: exchangeCurrencyOptions.length,
+        itemCount: options.length,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final option = exchangeCurrencyOptions[index];
-          final selected = selectedCurrency == option.code;
+          final option = options[index];
+          final selected = selectedPeriod == option.$1;
           return ChoiceChip(
-            label: Text(option.code),
+            label: Text(option.$2),
             selected: selected,
-            onSelected: (_) => onSelect(option.code),
+            onSelected: onSelect == null ? null : (_) => onSelect!(option.$1),
             selectedColor: const Color(0xFF1A1A1A),
+            backgroundColor: Colors.white,
             labelStyle: TextStyle(
               color: selected ? Colors.white : const Color(0xFF1A1A1A),
               fontWeight: FontWeight.w700,
@@ -342,103 +424,45 @@ class _CurrencySelector extends StatelessWidget {
       ),
     );
   }
+
+  String get _customLabel {
+    final range = customRange;
+    if (range == null) return '직접 선택';
+    return '${_formatShortDate(range.start)}-${_formatShortDate(range.end)}';
+  }
 }
 
-class _ConverterCard extends StatelessWidget {
-  final TextEditingController amountController;
-  final ExchangeRatePreview? preview;
-  final double? convertedAmount;
+class _RateSummaryCard extends StatelessWidget {
+  final ExchangeCountryOption country;
+  final ExchangeRateRecord? latestRate;
   final bool isLoading;
-  final VoidCallback onChanged;
+  final TextEditingController amountController;
+  final double? convertedAmount;
+  final bool isForeignToKrw;
+  final VoidCallback onAmountChanged;
+  final VoidCallback onSwapDirection;
+  final VoidCallback onShowSettlementNotice;
 
-  const _ConverterCard({
-    required this.amountController,
-    required this.preview,
-    required this.convertedAmount,
+  const _RateSummaryCard({
+    required this.country,
+    required this.latestRate,
     required this.isLoading,
-    required this.onChanged,
+    required this.amountController,
+    required this.convertedAmount,
+    required this.isForeignToKrw,
+    required this.onAmountChanged,
+    required this.onSwapDirection,
+    required this.onShowSettlementNotice,
   });
 
   @override
   Widget build(BuildContext context) {
-    final targetCurrency = preview?.targetCurrency ?? '외화';
-    final baseCurrency = preview?.baseCurrency ?? 'KRW';
+    final rate = latestRate;
+    final inputCurrency = isForeignToKrw ? country.currencyCode : 'KRW';
+    final outputCurrency = isForeignToKrw ? 'KRW' : country.currencyCode;
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E2E2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '간단 환산',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            key: const ValueKey('exchangeAmountField'),
-            controller: amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: (_) => onChanged(),
-            decoration: InputDecoration(
-              labelText: '$targetCurrency 금액',
-              border: const OutlineInputBorder(),
-              suffixText: targetCurrency,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F7),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$baseCurrency 환산',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF6B6B6B),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  isLoading
-                      ? '불러오는 중...'
-                      : _formatMoney(convertedAmount, baseCurrency),
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RateInfoCard extends StatelessWidget {
-  final ExchangeRatePreview? preview;
-  final bool isLoading;
-
-  const _RateInfoCard({required this.preview, required this.isLoading});
-
-  @override
-  Widget build(BuildContext context) {
-    final preview = this.preview;
-    return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(8),
@@ -446,42 +470,235 @@ class _RateInfoCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '적용 환율',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${country.countryName} ${country.currencyCode}',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (!isLoading && rate != null) ...[
+                IconButton(
+                  key: const ValueKey('exchangeSettlementNoticeButton'),
+                  onPressed: onShowSettlementNotice,
+                  icon: const Icon(Icons.info_outline),
+                  color: Colors.white,
+                  tooltip: '정산 환율 안내',
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
+                  key: const ValueKey('exchangeSwapDirectionButton'),
+                  onPressed: onSwapDirection,
+                  icon: const Icon(Icons.swap_vert),
+                  color: Colors.white,
+                  tooltip: '계산 방향 바꾸기',
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           if (isLoading)
             const Text(
               '환율을 불러오는 중입니다.',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: Colors.white, fontSize: 15),
             )
-          else if (preview == null)
+          else if (rate == null)
             const Text(
-              '통화를 선택하면 여행 지출에 적용할 환율을 확인할 수 있어요.',
-              style: TextStyle(color: Colors.white70, height: 1.4),
+              '선택한 기간의 환율이 없습니다.',
+              style: TextStyle(color: Colors.white, fontSize: 15),
             )
           else ...[
             Text(
-              '1 ${preview.targetCurrency} = ${_formatRate(preview.rate)} ${preview.baseCurrency}',
+              '1 ${rate.targetCurrency} = ${_formatRate(rate.rate)} KRW',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 22,
+                fontSize: 24,
                 fontWeight: FontWeight.w900,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              '${preview.rateDate} 기준${preview.source == null ? '' : ' · ${preview.source}'}',
+              '${rate.rateDate} 기준${rate.source == null ? '' : ' · ${rate.source}'}',
               style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              key: const ValueKey('exchangeAmountField'),
+              controller: amountController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: const [_MoneyInputFormatter()],
+              onChanged: (_) => onAmountChanged(),
+              style: const TextStyle(
+                color: Color(0xFF1A1A1A),
+                fontWeight: FontWeight.w800,
+              ),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                isDense: true,
+                hintText: '금액 입력',
+                suffixText: inputCurrency,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Row(
+                children: [
+                  const Text(
+                    '계산 결과',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _formatMoney(convertedAmount, outputCurrency),
+                      textAlign: TextAlign.end,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _RateHistorySection extends StatelessWidget {
+  final List<ExchangeRateRecord> rates;
+  final bool isLoading;
+  final String currencyCode;
+
+  const _RateHistorySection({
+    required this.rates,
+    required this.isLoading,
+    required this.currencyCode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 36),
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (rates.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F7F7),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE2E2E2)),
+        ),
+        child: const Text(
+          '기간이나 국가를 바꿔 다시 조회해보세요.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Color(0xFF6B6B6B),
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '기간별 환율',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE2E2E2)),
+          ),
+          child: Column(
+            children: List.generate(rates.length, (index) {
+              final rate = rates[index];
+              final isLast = index == rates.length - 1;
+              return DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: isLast
+                        ? BorderSide.none
+                        : const BorderSide(color: Color(0xFFEDEDED)),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 13,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          rate.rateDate,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1A1A1A),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${_formatRate(rate.rate)} KRW',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -518,6 +735,26 @@ class _ErrorCard extends StatelessWidget {
   }
 }
 
+class _DateQuery {
+  final String? date;
+  final String? from;
+  final String? to;
+
+  const _DateQuery({this.date, this.from, this.to});
+}
+
+String _formatDate(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
+}
+
+String _formatShortDate(DateTime date) {
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '$month.$day';
+}
+
 String _formatRate(double value) {
   final text = value.toStringAsFixed(6);
   return text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
@@ -525,8 +762,13 @@ String _formatRate(double value) {
 
 String _formatMoney(double? value, String currency) {
   if (value == null) return '-';
-  final rounded = value.round();
-  final digits = rounded.toString();
+  return '${_formatInputAmount(value)} $currency';
+}
+
+String _formatInputAmount(double value) {
+  final fixed = value.toStringAsFixed(2);
+  final parts = fixed.split('.');
+  final digits = parts.first;
   final buffer = StringBuffer();
   for (var i = 0; i < digits.length; i++) {
     final remaining = digits.length - i;
@@ -535,5 +777,46 @@ String _formatMoney(double? value, String currency) {
       buffer.write(',');
     }
   }
-  return '${buffer.toString()} $currency';
+  return '${buffer.toString()}.${parts[1]}';
+}
+
+String _formatThousands(String value) {
+  final buffer = StringBuffer();
+  for (var i = 0; i < value.length; i++) {
+    if (i > 0 && (value.length - i) % 3 == 0) {
+      buffer.write(',');
+    }
+    buffer.write(value[i]);
+  }
+  return buffer.toString();
+}
+
+class _MoneyInputFormatter extends TextInputFormatter {
+  const _MoneyInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final raw = newValue.text.replaceAll(',', '');
+    if (raw.isEmpty) return newValue;
+    if (!RegExp(r'^\d*\.?\d{0,2}$').hasMatch(raw)) {
+      return oldValue;
+    }
+
+    final parts = raw.split('.');
+    final integerPart = parts.first.isEmpty ? '0' : parts.first;
+    final formattedInteger = _formatThousands(
+      integerPart.replaceFirst(RegExp(r'^0+(?=\d)'), ''),
+    );
+    final formatted = parts.length > 1
+        ? '$formattedInteger.${parts[1]}'
+        : formattedInteger;
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
 }

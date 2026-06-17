@@ -61,10 +61,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
               tripService: tripService,
               onClose: _closeTripDetail,
             ),
-      ExchangeRateScreen(
-        tripService: tripService,
-        exchangeRateService: exchangeRateService,
-      ),
+      ExchangeRateScreen(exchangeRateService: exchangeRateService),
       MyPlaceholderScreen(
         authService: authService,
         onBack: () => _selectTab(0),
