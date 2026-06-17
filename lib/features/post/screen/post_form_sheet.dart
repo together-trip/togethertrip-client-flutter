@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_date_picker.dart';
 import '../service/post_service.dart';
 import '../widget/attachment_input_section.dart';
 
@@ -66,11 +67,12 @@ class _PostFormSheetState extends State<PostFormSheet> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    final picked = await showTogetherTripDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
+      helpText: '기록 날짜',
     );
     if (picked == null) return;
     setState(() => _selectedDate = picked);
