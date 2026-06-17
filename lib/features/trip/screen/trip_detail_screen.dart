@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/widget/app_design.dart';
 import '../../notification/screen/notification_list_screen.dart';
 import '../../post/screen/post_form_sheet.dart';
 import '../../post/service/post_service.dart';
@@ -230,11 +231,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final trip = _trip;
     if (trip == null) return;
 
-    await showModalBottomSheet<void>(
+    await showAppBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
       builder: (context) {
         return _TransactionInfoSheet(
           transaction: transaction,
@@ -280,10 +280,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   Future<void> _openInfoSheet() async {
     final trip = _trip;
     if (trip == null) return;
-    final changed = await showModalBottomSheet<bool>(
+    final changed = await showAppBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       builder: (context) {
         return _TripInfoSheet(
           trip: trip,
@@ -353,9 +352,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     required String value,
     required String copiedMessage,
   }) {
-    return showModalBottomSheet<void>(
+    return showAppBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
       builder: (context) {
         return TripInviteValueSheet(
           title: title,
@@ -370,11 +368,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final trip = _trip;
     if (trip == null) return;
 
-    final changed = await showModalBottomSheet<bool>(
+    final changed = await showAppBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
       builder: (context) {
         return TripParticipantManagerSheet(
           trip: trip,
@@ -420,9 +417,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFCC0000),
-              ),
+              style: AppButtonStyles.dangerText(),
               child: const Text('삭제'),
             ),
           ],
@@ -447,9 +442,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final defaultPostType = _selectedFilter == _PostFeedFilter.expense
         ? 'EXPENSE'
         : 'RECORD';
-    final selected = await showModalBottomSheet<String>(
+    final selected = await showAppBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.white,
       builder: (context) {
         return SafeArea(
           child: Padding(
@@ -494,11 +488,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final trip = _trip;
     if (trip == null) return;
 
-    final changed = await showModalBottomSheet<bool>(
+    final changed = await showAppBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
       builder: (context) {
         return ExpenseFormSheet(
           trip: trip,
@@ -541,11 +534,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     required String postType,
     PostDetail? initialPost,
   }) async {
-    final changed = await showModalBottomSheet<bool>(
+    final changed = await showAppBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
       builder: (context) {
         return PostFormSheet(
           postType: postType,
@@ -576,9 +568,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _openPostActions(PostSummary post) async {
-    final action = await showModalBottomSheet<String>(
+    final action = await showAppBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.white,
       builder: (context) {
         return SafeArea(
           child: Padding(
@@ -594,11 +585,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 ListTile(
                   leading: const Icon(
                     Icons.delete_outline,
-                    color: Color(0xFFCC0000),
+                    color: AppColors.danger,
                   ),
                   title: const Text(
                     '삭제',
-                    style: TextStyle(color: Color(0xFFCC0000)),
+                    style: TextStyle(color: AppColors.danger),
                   ),
                   onTap: () => Navigator.of(context).pop('delete'),
                 ),
@@ -643,9 +634,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFCC0000),
-              ),
+              style: AppButtonStyles.dangerText(),
               child: const Text('삭제'),
             ),
           ],
@@ -667,11 +656,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _openComments(PostSummary post) async {
-    final changed = await showModalBottomSheet<bool>(
+    final changed = await showAppBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
       builder: (context) {
         return _CommentsSheet(
           tripId: widget.tripId,
@@ -756,7 +744,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           padding: const EdgeInsets.only(bottom: 112),
           child: FloatingActionButton(
             onPressed: _openCreateChooser,
-            backgroundColor: const Color(0xFF1A1A1A),
+            backgroundColor: AppColors.ink,
             foregroundColor: Colors.white,
             child: const Icon(Icons.add),
           ),
@@ -807,11 +795,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           else
             SliverList.separated(
               itemCount: _posts.length + (_isLoadingMore ? 1 : 0),
-              separatorBuilder: (_, index) => const Divider(
-                height: 1,
-                thickness: 1,
-                color: Color(0xFFF0F0F0),
-              ),
+              separatorBuilder: (_, index) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 if (index >= _posts.length) {
                   return const Padding(
@@ -872,13 +856,13 @@ class _CreateOptionTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? const Color(0xFFF4F4F4) : Colors.white,
           border: Border.all(
-            color: selected ? const Color(0xFF1A1A1A) : const Color(0xFFE0E0E0),
+            color: selected ? AppColors.ink : const Color(0xFFE0E0E0),
           ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           children: [
-            Icon(icon, color: const Color(0xFF1A1A1A)),
+            Icon(icon, color: AppColors.ink),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -909,7 +893,7 @@ class _TripFeedHeader extends StatelessWidget {
         children: [
           Text(
             '${_dateRangeLabel(trip.startDate, trip.endDate)} · ${_countrySummary(trip)}',
-            style: const TextStyle(fontSize: 13, color: Color(0xFF6B6B6B)),
+            style: const TextStyle(fontSize: 13, color: AppColors.textSubtle),
           ),
           const SizedBox(height: 12),
           InkWell(
@@ -954,9 +938,6 @@ class _PostFeedTabs extends StatelessWidget {
     return Container(
       height: 56,
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFEDEDED))),
-      ),
       child: Row(
         spacing: 8,
         children: _PostFeedFilter.values.map((filter) {
@@ -969,11 +950,9 @@ class _PostFeedTabs extends StatelessWidget {
                 height: 38,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: selected ? const Color(0xFF1A1A1A) : Colors.white,
+                  color: selected ? AppColors.ink : Colors.white,
                   border: Border.all(
-                    color: selected
-                        ? const Color(0xFF1A1A1A)
-                        : const Color(0xFFE2E2E2),
+                    color: selected ? AppColors.ink : const Color(0xFFE2E2E2),
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1057,7 +1036,10 @@ class _PostFeedCardState extends State<_PostFeedCard> {
               ),
               Text(
                 widget.post.category,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B6B)),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSubtle,
+                ),
               ),
               if (widget.showActions) ...[
                 const SizedBox(width: 4),
@@ -1093,11 +1075,7 @@ class _PostFeedCardState extends State<_PostFeedCard> {
             if (shouldClamp)
               TextButton(
                 onPressed: () => setState(() => _isExpanded = !_isExpanded),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 32),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+                style: AppButtonStyles.inlineText(),
                 child: Text(_isExpanded ? '접기' : '더 보기'),
               ),
           ],
@@ -1317,11 +1295,11 @@ class _MetaChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 15, color: const Color(0xFF6B6B6B)),
+        Icon(icon, size: 15, color: AppColors.textSubtle),
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B6B)),
+          style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
         ),
       ],
     );
@@ -1446,9 +1424,12 @@ class _TripInfoSheet extends StatelessWidget {
                   onPressed: onDelete,
                   icon: const Icon(Icons.delete_outline, size: 18),
                   label: const Text('여행 삭제'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFCC0000),
-                  ),
+                  style: AppButtonStyles.outlined(sideColor: AppColors.danger)
+                      .copyWith(
+                        foregroundColor: const WidgetStatePropertyAll(
+                          AppColors.danger,
+                        ),
+                      ),
                 ),
               ],
             ],
@@ -1525,7 +1506,7 @@ class _TransactionInfoSheet extends StatelessWidget {
                     _moneyLabel(transaction.summary),
                     style: const TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
@@ -1883,9 +1864,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                           enabled: !_isSubmitting,
                           minLines: 1,
                           maxLines: 4,
-                          decoration: const InputDecoration(
+                          decoration: AppInputDecorations.filled(
                             hintText: '댓글을 입력하세요',
-                            border: OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
@@ -1963,7 +1943,7 @@ class _InfoRow extends StatelessWidget {
             width: 82,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B6B)),
+              style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
             ),
           ),
           Expanded(
@@ -2018,7 +1998,7 @@ class _EmptyFeedState extends StatelessWidget {
             Text(
               filter.emptyDescription,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF6B6B6B)),
+              style: const TextStyle(fontSize: 13, color: AppColors.textSubtle),
             ),
           ],
         ),
@@ -2047,7 +2027,7 @@ class _FullErrorState extends StatelessWidget {
         Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B6B)),
+          style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
         ),
         const SizedBox(height: 18),
         OutlinedButton(onPressed: onRetry, child: const Text('다시 시도')),

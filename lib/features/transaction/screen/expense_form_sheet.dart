@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widget/app_design.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
@@ -284,7 +286,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A1A1A),
+                        color: AppColors.ink,
                       ),
                     ),
                   ),
@@ -315,10 +317,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                       ),
                       inputFormatters: const [_MoneyInputFormatter()],
                       onChanged: (_) => _syncAmountDefaults(),
-                      decoration: const InputDecoration(
-                        labelText: '금액',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: AppInputDecorations.filled(labelText: '금액'),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -340,10 +339,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                               if (value == null) return;
                               setState(() => _currency = value);
                             },
-                      decoration: const InputDecoration(
-                        labelText: '통화',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: AppInputDecorations.filled(labelText: '통화'),
                     ),
                   ),
                 ],
@@ -418,10 +414,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
               TextField(
                 controller: _titleController,
                 enabled: !_isSubmitting,
-                decoration: const InputDecoration(
-                  labelText: '제목',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: AppInputDecorations.filled(labelText: '제목'),
               ),
               const SizedBox(height: 14),
               SingleChildScrollView(
@@ -434,13 +427,11 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                       child: ChoiceChip(
                         label: Text(category),
                         selected: selected,
-                        selectedColor: const Color(0xFF1A1A1A),
+                        selectedColor: AppColors.ink,
                         backgroundColor: Colors.white,
                         side: const BorderSide(color: Color(0xFFE0E0E0)),
                         labelStyle: TextStyle(
-                          color: selected
-                              ? Colors.white
-                              : const Color(0xFF1A1A1A),
+                          color: selected ? Colors.white : AppColors.ink,
                           fontWeight: FontWeight.w700,
                         ),
                         onSelected: _isSubmitting
@@ -457,10 +448,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                 TextField(
                   controller: _otherCategoryController,
                   enabled: !_isSubmitting,
-                  decoration: const InputDecoration(
-                    labelText: '기타 카테고리',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: AppInputDecorations.filled(labelText: '기타 카테고리'),
                 ),
               ],
               const SizedBox(height: 14),
@@ -476,10 +464,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
               TextField(
                 controller: _placeController,
                 enabled: !_isSubmitting,
-                decoration: const InputDecoration(
-                  labelText: '장소',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: AppInputDecorations.filled(labelText: '장소'),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -487,10 +472,9 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                 enabled: !_isSubmitting,
                 minLines: 4,
                 maxLines: 8,
-                decoration: const InputDecoration(
+                decoration: AppInputDecorations.filled(
                   labelText: '내용',
                   alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 18),
@@ -503,10 +487,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                 const SizedBox(height: 12),
                 Text(
                   _errorMessage!,
-                  style: const TextStyle(
-                    color: Color(0xFFCC0000),
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: AppColors.danger, fontSize: 12),
                 ),
               ],
               const SizedBox(height: 20),
@@ -559,10 +540,7 @@ class _ParticipantAmountRow extends StatelessWidget {
               inputFormatters: const [_MoneyInputFormatter()],
               onChanged: (_) => onChanged(),
               textAlign: TextAlign.end,
-              decoration: const InputDecoration(
-                isDense: true,
-                border: OutlineInputBorder(),
-              ),
+              decoration: AppInputDecorations.filled(isDense: true),
             ),
           ),
         ],
@@ -597,9 +575,7 @@ class _AmountTotalRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: matched
-                  ? const Color(0xFF1A7F37)
-                  : const Color(0xFF6B6B6B),
+              color: matched ? AppColors.ink : AppColors.textSubtle,
             ),
           ),
         ],

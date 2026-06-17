@@ -2,24 +2,79 @@ import 'package:flutter/material.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/widget/app_design.dart';
 import '../../main/screen/main_shell_screen.dart';
 import '../../trip/service/trip_service.dart';
 import '../service/auth_service.dart';
-import 'sign_up_profile_screen.dart';
+import '../service/terms_agreement_service.dart';
+import 'terms_agreement_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final AuthService authService;
   final TripService? tripService;
+  final TermsAgreementService? termsAgreementService;
 
-  const OnboardingScreen({super.key, required this.authService, this.tripService});
+  const OnboardingScreen({
+    super.key,
+    required this.authService,
+    this.tripService,
+    this.termsAgreementService,
+  });
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
+  late final PageController _pageController;
   bool _isLoading = false;
+  int _pageIndex = 0;
   String? _errorMessage;
+
+  static const _pages = [
+    _OnboardingPageData(
+      icon: Icons.edit_note_outlined,
+      title: '함께 떠나는 여행을\n가볍게 기록하세요',
+      description: '동행자와 일정, 지출, 기록을 한 곳에서 관리합니다.',
+      visualTitle: '오사카 3박4일',
+      rows: [('항공권', '320,000원'), ('숙소', '180,000원')],
+      footerIcon: Icons.payments_outlined,
+      footerLabel: '민서에게 보낼 돈',
+      footerValue: '42,000원',
+    ),
+    _OnboardingPageData(
+      icon: Icons.photo_camera_outlined,
+      title: '순간은 피드처럼\n자연스럽게 남겨요',
+      description: '사진, 장소, 메모를 여행 기록과 소비 내역으로 이어서 봅니다.',
+      visualTitle: '오늘의 기록',
+      rows: [('도톤보리 산책', '사진 4장'), ('라멘 저녁', '소비 연결')],
+      footerIcon: Icons.chat_bubble_outline,
+      footerLabel: '댓글과 반응',
+      footerValue: '함께 보기',
+    ),
+    _OnboardingPageData(
+      icon: Icons.currency_exchange_outlined,
+      title: '환율과 정산까지\n끝까지 맞춰요',
+      description: '여행 중 쓴 돈을 통화별로 기록하고 정산 흐름까지 확인합니다.',
+      visualTitle: '정산 미리보기',
+      rows: [('JPY 환율', '9.18 KRW'), ('총 지출', '582,000원')],
+      footerIcon: Icons.check_circle_outline,
+      footerLabel: '정산 준비',
+      footerValue: '완료',
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   Future<void> _startWithKakao() async {
     if (_isLoading) return;
@@ -46,28 +101,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
 
       if (result.isProfileRequired) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => SignUpProfileScreen(
-              authService: widget.authService,
-              tripService: widget.tripService,
-              temporaryToken: null,
-            ),
-          ),
-        );
+        _openTermsAgreement(result);
         return;
       }
 
       if (result.isPhoneVerificationRequired && result.temporaryToken != null) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => SignUpProfileScreen(
-              authService: widget.authService,
-              tripService: widget.tripService,
-              temporaryToken: result.temporaryToken!,
-            ),
-          ),
-        );
+        _openTermsAgreement(result);
         return;
       }
 
@@ -89,6 +128,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
+  void _openTermsAgreement(AuthLoginResult result) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TermsAgreementScreen(
+          authService: widget.authService,
+          tripService: widget.tripService,
+          termsAgreementService:
+              widget.termsAgreementService ?? TermsAgreementService(),
+          loginResult: result,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,33 +153,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             children: [
               const _BrandHeader(),
               const Spacer(),
-              const _OnboardingVisual(),
-              const SizedBox(height: 28),
-              const _OnboardingCopy(),
+              SizedBox(
+                height: 338,
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: _pages.length,
+                  onPageChanged: (index) => setState(() => _pageIndex = index),
+                  itemBuilder: (context, index) {
+                    return _OnboardingPage(data: _pages[index]);
+                  },
+                ),
+              ),
               const Spacer(),
-              const _PageDots(),
+              _PageDots(count: _pages.length, activeIndex: _pageIndex),
               const SizedBox(height: 18),
               if (_errorMessage != null) ...[
-                Text(
-                  _errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red, fontSize: 12),
-                ),
+                AppErrorText(_errorMessage!, textAlign: TextAlign.center),
                 const SizedBox(height: 10),
               ],
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _startWithKakao,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFEE500),
-                    foregroundColor: Colors.black,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Color(0xFF1A1A1A)),
-                    ),
-                  ),
+                  style: AppButtonStyles.kakao(),
                   child: _isLoading
                       ? const SizedBox(
                           width: 18,
@@ -150,6 +199,45 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
+class _OnboardingPageData {
+  final IconData icon;
+  final String title;
+  final String description;
+  final String visualTitle;
+  final List<(String, String)> rows;
+  final IconData footerIcon;
+  final String footerLabel;
+  final String footerValue;
+
+  const _OnboardingPageData({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.visualTitle,
+    required this.rows,
+    required this.footerIcon,
+    required this.footerLabel,
+    required this.footerValue,
+  });
+}
+
+class _OnboardingPage extends StatelessWidget {
+  final _OnboardingPageData data;
+
+  const _OnboardingPage({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _OnboardingVisual(data: data),
+        const SizedBox(height: 24),
+        _OnboardingCopy(data: data),
+      ],
+    );
+  }
+}
+
 class _BrandHeader extends StatelessWidget {
   const _BrandHeader();
 
@@ -162,9 +250,7 @@ class _BrandHeader extends StatelessWidget {
           height: 32,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              border: Border.fromBorderSide(
-                BorderSide(color: Color(0xFF1A1A1A)),
-              ),
+              border: Border.fromBorderSide(BorderSide(color: AppColors.ink)),
             ),
             child: Center(
               child: Text('T', style: TextStyle(fontWeight: FontWeight.w800)),
@@ -177,7 +263,7 @@ class _BrandHeader extends StatelessWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF1A1A1A),
+            color: AppColors.ink,
           ),
         ),
       ],
@@ -186,44 +272,95 @@ class _BrandHeader extends StatelessWidget {
 }
 
 class _OnboardingVisual extends StatelessWidget {
-  const _OnboardingVisual();
+  final _OnboardingPageData data;
+
+  const _OnboardingVisual({required this.data});
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 280),
-        child: AspectRatio(
-          aspectRatio: 1,
+        child: SizedBox(
+          height: 204,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: const Color(0xFFFAFAFA),
-              border: Border.all(color: const Color(0xFF1A1A1A)),
+              border: Border.all(color: AppColors.ink),
+              borderRadius: AppRadii.controlRadius,
             ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(painter: _PlaceholderPainter()),
-                ),
-                const Center(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(color: Colors.white),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      _VisualIcon(icon: data.icon),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          data.visualTitle,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'D-12',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSubtle,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  for (final row in data.rows) ...[
+                    _VisualRow(label: row.$1, value: row.$2),
+                    const SizedBox(height: 8),
+                  ],
+                  const Spacer(),
+                  DecoratedBox(
+                    decoration: const BoxDecoration(
+                      color: AppColors.ink,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
                     child: Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 4,
+                        vertical: 10,
                       ),
-                      child: Text(
-                        '여행 이미지',
-                        style: TextStyle(
-                          color: Color(0xFF9E9E9E),
-                          fontSize: 12,
-                        ),
+                      child: Row(
+                        children: [
+                          Icon(data.footerIcon, size: 16, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              data.footerLabel,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            data.footerValue,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -232,27 +369,97 @@ class _OnboardingVisual extends StatelessWidget {
   }
 }
 
-class _OnboardingCopy extends StatelessWidget {
-  const _OnboardingCopy();
+class _VisualIcon extends StatelessWidget {
+  final IconData icon;
+
+  const _VisualIcon({required this.icon});
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return SizedBox(
+      width: 30,
+      height: 30,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppColors.line),
+          borderRadius: AppRadii.controlRadius,
+        ),
+        child: Icon(icon, size: 17, color: AppColors.ink),
+      ),
+    );
+  }
+}
+
+class _VisualRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _VisualRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.lineSoft),
+        borderRadius: AppRadii.controlRadius,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSubtle,
+                ),
+              ),
+            ),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: AppColors.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingCopy extends StatelessWidget {
+  final _OnboardingPageData data;
+
+  const _OnboardingCopy({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '함께 떠나는 여행을\n가볍게 기록하세요',
-          style: TextStyle(
-            fontSize: 26,
+          data.title,
+          style: const TextStyle(
+            fontSize: 24,
             height: 1.25,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF1A1A1A),
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink,
           ),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         Text(
-          '동행자와 일정, 지출, 기록을 한 곳에서 관리합니다.',
-          style: TextStyle(fontSize: 14, height: 1.5, color: Color(0xFF6B6B6B)),
+          data.description,
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1.5,
+            color: AppColors.textSubtle,
+          ),
         ),
       ],
     );
@@ -260,19 +467,21 @@ class _OnboardingCopy extends StatelessWidget {
 }
 
 class _PageDots extends StatelessWidget {
-  const _PageDots();
+  final int count;
+  final int activeIndex;
+
+  const _PageDots({required this.count, required this.activeIndex});
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _Dot(isActive: true),
-        SizedBox(width: 6),
-        _Dot(isActive: false),
-        SizedBox(width: 6),
-        _Dot(isActive: false),
-      ],
+      children: List.generate(count, (index) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3),
+          child: _Dot(isActive: index == activeIndex),
+        );
+      }),
     );
   }
 }
@@ -289,25 +498,10 @@ class _Dot extends StatelessWidget {
       height: 6,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF1A1A1A) : const Color(0xFFC7C7C7),
+          color: isActive ? AppColors.ink : const Color(0xFFC7C7C7),
           borderRadius: BorderRadius.circular(3),
         ),
       ),
     );
   }
-}
-
-class _PlaceholderPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFE5E5E5)
-      ..strokeWidth = 1;
-
-    canvas.drawLine(Offset.zero, Offset(size.width, size.height), paint);
-    canvas.drawLine(Offset(size.width, 0), Offset(0, size.height), paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

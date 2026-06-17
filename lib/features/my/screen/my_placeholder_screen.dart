@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/widget/app_design.dart';
 import '../../auth/screen/onboarding_screen.dart';
 import '../../auth/screen/sign_up_profile_screen.dart';
+import '../../auth/screen/terms_list_screen.dart';
 import '../../auth/service/auth_service.dart';
 import '../../notification/screen/notification_list_screen.dart';
 import '../widget/my_menu_row.dart';
@@ -89,9 +91,7 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFCC0000),
-              ),
+              style: AppButtonStyles.dangerText(),
               child: const Text('탈퇴'),
             ),
           ],
@@ -158,6 +158,12 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
     );
   }
 
+  void _openTerms() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const TermsListScreen()));
+  }
+
   void _showPreparingMessage(String featureName) {
     ScaffoldMessenger.of(
       context,
@@ -202,7 +208,7 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
         leading: IconButton(
           onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
           icon: const Icon(Icons.chevron_left, size: 24),
-          color: const Color(0xFF1A1A1A),
+          color: AppColors.ink,
           tooltip: '뒤로',
         ),
         title: const Text(
@@ -210,14 +216,14 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF1A1A1A),
+            color: AppColors.ink,
           ),
         ),
         actions: [
           IconButton(
             onPressed: _openNotifications,
             icon: const Icon(Icons.notifications_none, size: 22),
-            color: const Color(0xFF1A1A1A),
+            color: AppColors.ink,
             tooltip: '알림',
           ),
           const SizedBox(width: 8),
@@ -235,12 +241,7 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontSize: 12),
-                    ),
-                  ),
+                  Expanded(child: AppErrorText(_errorMessage!)),
                   TextButton(
                     onPressed: _isLoading ? null : _loadProfile,
                     child: const Text('다시 시도'),
@@ -262,13 +263,13 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
           MyMenuRow(
             icon: Icons.article_outlined,
             label: '약관',
-            onTap: () => _showPreparingMessage('약관'),
+            onTap: _openTerms,
           ),
           MyMenuRow(icon: Icons.logout, label: '로그아웃', onTap: _confirmLogout),
           MyMenuRow(
             icon: Icons.person_remove_outlined,
             label: _isWithdrawing ? '탈퇴 처리 중…' : '회원 탈퇴',
-            labelColor: const Color(0xFFCC0000),
+            labelColor: AppColors.danger,
             onTap: _isWithdrawing ? null : _confirmWithdraw,
           ),
         ],

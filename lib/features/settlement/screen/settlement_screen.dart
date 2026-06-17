@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
 import '../model/settlement_models.dart';
 import '../service/settlement_service.dart';
 import '../widget/settlement_balance_card.dart';
@@ -169,10 +170,7 @@ class _SettlementScreenState extends State<SettlementScreen> {
             FilledButton(
               key: const ValueKey('confirmSettlementButton'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1A1A1A),
-                foregroundColor: Colors.white,
-              ),
+              style: AppButtonStyles.primary(),
               child: const Text('정산하기'),
             ),
           ],
@@ -203,11 +201,10 @@ class _SettlementScreenState extends State<SettlementScreen> {
   }
 
   void _showExplanation() {
-    showModalBottomSheet<void>(
+    showAppBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
       builder: (_) => const SettlementExplanationSheet(),
     );
   }
@@ -248,12 +245,7 @@ class _SettlementScreenState extends State<SettlementScreen> {
                 key: const ValueKey('settlementHelpButton'),
                 onPressed: _showExplanation,
                 tooltip: '정산 계산 방법',
-                style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFFF2F2F2),
-                  foregroundColor: const Color(0xFF6B6B6B),
-                  fixedSize: const Size(32, 32),
-                  minimumSize: const Size(32, 32),
-                ),
+                style: AppIconButtonStyles.neutral(),
                 icon: const Icon(Icons.question_mark, size: 17),
               ),
             ),
@@ -348,9 +340,6 @@ class _MockCaseSelector extends StatelessWidget {
     return Container(
       height: 52,
       padding: const EdgeInsets.fromLTRB(16, 8, 0, 8),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFEDEDED))),
-      ),
       child: ListView.separated(
         key: const ValueKey('settlementMockCaseList'),
         scrollDirection: Axis.horizontal,
@@ -370,12 +359,10 @@ class _MockCaseSelector extends StatelessWidget {
               fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
               color: selected ? Colors.white : const Color(0xFF4A4A4A),
             ),
-            selectedColor: const Color(0xFF1A1A1A),
+            selectedColor: AppColors.ink,
             backgroundColor: Colors.white,
             side: BorderSide(
-              color: selected
-                  ? const Color(0xFF1A1A1A)
-                  : const Color(0xFFE2E2E2),
+              color: selected ? AppColors.ink : const Color(0xFFE2E2E2),
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(999),
@@ -398,9 +385,6 @@ class _SettlementTabs extends StatelessWidget {
     return Container(
       height: 54,
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFEDEDED))),
-      ),
       child: Row(
         spacing: 8,
         children: _SettlementTab.values.map((tab) {
@@ -414,11 +398,9 @@ class _SettlementTabs extends StatelessWidget {
                 height: 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: selected ? const Color(0xFF1A1A1A) : Colors.white,
+                  color: selected ? AppColors.ink : Colors.white,
                   border: Border.all(
-                    color: selected
-                        ? const Color(0xFF1A1A1A)
-                        : const Color(0xFFE2E2E2),
+                    color: selected ? AppColors.ink : const Color(0xFFE2E2E2),
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -466,7 +448,7 @@ class _TransferList extends StatelessWidget {
       return Center(
         child: Text(
           emptyMessage,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF6B6B6B)),
+          style: const TextStyle(fontSize: 13, color: AppColors.textSubtle),
         ),
       );
     }
@@ -504,7 +486,7 @@ class _SettlementErrorState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF6B6B6B)),
+              style: const TextStyle(fontSize: 14, color: AppColors.textSubtle),
             ),
             const SizedBox(height: 12),
             OutlinedButton(onPressed: onRetry, child: const Text('다시 시도')),

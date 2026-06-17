@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 class LabeledField extends StatelessWidget {
   final String label;
   final Widget child;
@@ -18,7 +20,7 @@ class LabeledField extends StatelessWidget {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF6B6B6B),
+              color: AppColors.textSubtle,
             ),
           ),
           const SizedBox(height: 6),
@@ -47,12 +49,7 @@ class GenderButton extends StatelessWidget {
       height: 44,
       child: OutlinedButton(
         onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: isSelected ? const Color(0xFF1A1A1A) : Colors.white,
-          foregroundColor: isSelected ? Colors.white : const Color(0xFF1A1A1A),
-          side: const BorderSide(color: Color(0xFF1A1A1A)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
+        style: AppButtonStyles.outlinedSelected(selected: isSelected),
         child: Text(label),
       ),
     );

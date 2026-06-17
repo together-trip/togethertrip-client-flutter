@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 import '../../../core/widget/app_date_picker.dart';
 import '../service/post_service.dart';
 import '../widget/attachment_input_section.dart';
@@ -168,7 +170,7 @@ class _PostFormSheetState extends State<PostFormSheet> {
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A1A1A),
+                        color: AppColors.ink,
                       ),
                     ),
                   ),
@@ -188,10 +190,7 @@ class _PostFormSheetState extends State<PostFormSheet> {
               TextField(
                 controller: _titleController,
                 enabled: !_isSubmitting,
-                decoration: const InputDecoration(
-                  labelText: '제목',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: AppInputDecorations.filled(labelText: '제목'),
               ),
               const SizedBox(height: 14),
               SingleChildScrollView(
@@ -204,13 +203,11 @@ class _PostFormSheetState extends State<PostFormSheet> {
                       child: ChoiceChip(
                         label: Text(category),
                         selected: selected,
-                        selectedColor: const Color(0xFF1A1A1A),
+                        selectedColor: AppColors.ink,
                         backgroundColor: Colors.white,
                         side: const BorderSide(color: Color(0xFFE0E0E0)),
                         labelStyle: TextStyle(
-                          color: selected
-                              ? Colors.white
-                              : const Color(0xFF1A1A1A),
+                          color: selected ? Colors.white : AppColors.ink,
                           fontWeight: FontWeight.w700,
                         ),
                         onSelected: _isSubmitting
@@ -227,10 +224,7 @@ class _PostFormSheetState extends State<PostFormSheet> {
                 TextField(
                   controller: _otherCategoryController,
                   enabled: !_isSubmitting,
-                  decoration: const InputDecoration(
-                    labelText: '기타 카테고리',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: AppInputDecorations.filled(labelText: '기타 카테고리'),
                 ),
               ],
               const SizedBox(height: 14),
@@ -246,10 +240,7 @@ class _PostFormSheetState extends State<PostFormSheet> {
               TextField(
                 controller: _placeController,
                 enabled: !_isSubmitting,
-                decoration: const InputDecoration(
-                  labelText: '장소',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: AppInputDecorations.filled(labelText: '장소'),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -257,10 +248,9 @@ class _PostFormSheetState extends State<PostFormSheet> {
                 enabled: !_isSubmitting,
                 minLines: 6,
                 maxLines: 10,
-                decoration: const InputDecoration(
+                decoration: AppInputDecorations.filled(
                   labelText: '내용',
                   alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 18),
@@ -278,10 +268,7 @@ class _PostFormSheetState extends State<PostFormSheet> {
                 const SizedBox(height: 12),
                 Text(
                   _errorMessage!,
-                  style: const TextStyle(
-                    color: Color(0xFFCC0000),
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: AppColors.danger, fontSize: 12),
                 ),
               ],
               const SizedBox(height: 20),

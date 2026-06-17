@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 import '../model/settlement_models.dart';
 
 class SettlementTransferCard extends StatelessWidget {
@@ -31,7 +33,7 @@ class SettlementTransferCard extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFF1A1A1A)),
+        border: Border.all(color: AppColors.ink),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -41,7 +43,7 @@ class SettlementTransferCard extends StatelessWidget {
             backgroundColor: const Color(0xFFF2F2F2),
             child: Text(
               targetName.substring(0, 1),
-              style: const TextStyle(fontSize: 11, color: Color(0xFF6B6B6B)),
+              style: const TextStyle(fontSize: 11, color: AppColors.textSubtle),
             ),
           ),
           const SizedBox(width: 10),
@@ -61,14 +63,14 @@ class SettlementTransferCard extends StatelessWidget {
                   '${formatSettlementAmount(transfer.amount, transfer.currency)} ${_statusText(doneByMe)}',
                   style: const TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF6B6B6B),
+                    color: AppColors.textSubtle,
                   ),
                 ),
                 if (transfer.autoConfirmed) ...[
                   const SizedBox(height: 3),
                   const Text(
                     '자동 확인됨',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF6B6B6B)),
+                    style: TextStyle(fontSize: 11, color: AppColors.textSubtle),
                   ),
                 ],
               ],
@@ -78,15 +80,16 @@ class SettlementTransferCard extends StatelessWidget {
             onPressed: canConfirm && !doneByMe && !transfer.isCompleted
                 ? onConfirm
                 : null,
-            style: OutlinedButton.styleFrom(
-              backgroundColor: canConfirm && !doneByMe && !transfer.isCompleted
-                  ? const Color(0xFF1A1A1A)
-                  : Colors.white,
-              foregroundColor: canConfirm && !doneByMe && !transfer.isCompleted
-                  ? Colors.white
-                  : const Color(0xFF9E9E9E),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            style: AppButtonStyles.outlined().copyWith(
+              backgroundColor: WidgetStatePropertyAll(
+                canConfirm && !doneByMe && !transfer.isCompleted
+                    ? AppColors.ink
+                    : Colors.white,
+              ),
+              foregroundColor: WidgetStatePropertyAll(
+                canConfirm && !doneByMe && !transfer.isCompleted
+                    ? Colors.white
+                    : AppColors.textMuted,
               ),
             ),
             child: Text(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 class MainPlaceholderScreen extends StatelessWidget {
   const MainPlaceholderScreen({super.key});
 
@@ -13,7 +15,7 @@ class MainPlaceholderScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF1A1A1A),
+              color: AppColors.ink,
             ),
           ),
         ),

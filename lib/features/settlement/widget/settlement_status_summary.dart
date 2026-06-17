@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 import '../model/settlement_models.dart';
 
 class SettlementStatusSummary extends StatelessWidget {
@@ -22,9 +24,6 @@ class SettlementStatusSummary extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF1A1A1A))),
-      ),
       child: Row(
         children: [
           Expanded(
@@ -33,7 +32,7 @@ class SettlementStatusSummary extends StatelessWidget {
               children: [
                 const Text(
                   '정산 상태',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6B6B6B)),
+                  style: TextStyle(fontSize: 11, color: AppColors.textSubtle),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -41,7 +40,7 @@ class SettlementStatusSummary extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF1A1A1A),
+                    color: AppColors.ink,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -49,7 +48,7 @@ class SettlementStatusSummary extends StatelessWidget {
                   _statusDescription,
                   style: const TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF6B6B6B),
+                    color: AppColors.textSubtle,
                   ),
                 ),
               ],
@@ -65,13 +64,7 @@ class SettlementStatusSummary extends StatelessWidget {
             ElevatedButton(
               key: const ValueKey('settlementPrimaryButton'),
               onPressed: isBusy ? null : onPrimaryAction,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A1A1A),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+              style: AppButtonStyles.elevatedPrimary(),
               child: Text(primaryLabel),
             ),
         ],

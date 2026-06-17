@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_design.dart';
+
 Future<DateTime?> showTogetherTripDatePicker({
   required BuildContext context,
   required DateTime initialDate,
@@ -57,24 +59,22 @@ Widget _datePickerBuilder(BuildContext context, Widget? child) {
   return Theme(
     data: baseTheme.copyWith(
       colorScheme: const ColorScheme.light(
-        primary: Color(0xFF1A1A1A),
+        primary: AppColors.ink,
         onPrimary: Colors.white,
         surface: Colors.white,
-        onSurface: Color(0xFF1A1A1A),
+        onSurface: AppColors.ink,
       ),
       datePickerTheme: DatePickerThemeData(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        headerBackgroundColor: const Color(0xFF1A1A1A),
+        headerBackgroundColor: AppColors.ink,
         headerForegroundColor: Colors.white,
         dayShape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        todayBorder: const BorderSide(color: Color(0xFF1A1A1A)),
+        todayBorder: const BorderSide(color: AppColors.ink),
       ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: const Color(0xFF1A1A1A)),
-      ),
+      textButtonTheme: TextButtonThemeData(style: AppButtonStyles.inkText()),
     ),
     child: child ?? const SizedBox.shrink(),
   );

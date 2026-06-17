@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widget/app_design.dart';
 import '../../auth/service/auth_service.dart';
 import '../../exchange/screen/exchange_rate_screen.dart';
 import '../../exchange/service/exchange_rate_service.dart';
@@ -150,9 +152,7 @@ class _TabItem extends StatelessWidget {
             Icon(
               isActive ? activeIcon : icon,
               size: 22,
-              color: isActive
-                  ? const Color(0xFF1A1A1A)
-                  : const Color(0xFF8A8A8A),
+              color: isActive ? AppColors.ink : const Color(0xFF8A8A8A),
             ),
             const SizedBox(height: 3),
             Text(
@@ -160,9 +160,7 @@ class _TabItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
-                color: isActive
-                    ? const Color(0xFF1A1A1A)
-                    : const Color(0xFF6B6B6B),
+                color: isActive ? AppColors.ink : AppColors.textSubtle,
               ),
             ),
           ],

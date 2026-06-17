@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+
+import '../../../core/widget/app_design.dart';
 import '../service/auth_service.dart';
 
 class KakaoLoginTestScreen extends StatefulWidget {
@@ -106,12 +108,9 @@ class _KakaoLoginTestScreenState extends State<KakaoLoginTestScreen> {
               if (!_isLoggedIn)
                 ElevatedButton(
                   onPressed: _login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFEE500),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                  style: AppButtonStyles.kakao().copyWith(
+                    padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
                   child: const Text(
@@ -122,8 +121,10 @@ class _KakaoLoginTestScreenState extends State<KakaoLoginTestScreen> {
               if (_isLoggedIn)
                 OutlinedButton(
                   onPressed: _logout,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  style: AppButtonStyles.outlined().copyWith(
+                    padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(vertical: 14),
+                    ),
                   ),
                   child: const Text('로그아웃'),
                 ),
@@ -149,7 +150,7 @@ class _StatusCard extends StatelessWidget {
           children: [
             Icon(
               isLoggedIn ? Icons.check_circle : Icons.cancel,
-              color: isLoggedIn ? Colors.green : Colors.grey,
+              color: isLoggedIn ? AppColors.ink : AppColors.textMuted,
             ),
             const SizedBox(width: 8),
             Text(
@@ -197,19 +198,14 @@ class _ErrorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.red.shade50,
+      color: const Color(0xFFFFF1F1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            const Icon(Icons.error_outline, color: Colors.red),
+            const Icon(Icons.error_outline, color: AppColors.danger),
             const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.red),
-              ),
-            ),
+            Expanded(child: AppErrorText(message)),
           ],
         ),
       ),

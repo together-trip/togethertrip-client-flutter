@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/widget/app_design.dart';
 import '../service/trip_service.dart';
 
 class TripInviteValueSheet extends StatelessWidget {
@@ -25,6 +26,8 @@ class TripInviteValueSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const AppSheetHandle(),
+            const SizedBox(height: 18),
             Text(
               title,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
@@ -42,10 +45,7 @@ class TripInviteValueSheet extends StatelessWidget {
               },
               icon: const Icon(Icons.copy, size: 18),
               label: const Text('복사'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A1A1A),
-                foregroundColor: Colors.white,
-              ),
+              style: AppButtonStyles.elevatedPrimary(),
             ),
           ],
         ),
@@ -186,9 +186,8 @@ class _TripParticipantManagerSheetState
         participantId: participant.id,
       );
       if (!mounted) return;
-      await showModalBottomSheet<void>(
+      await showAppBottomSheet<void>(
         context: context,
-        backgroundColor: Colors.white,
         builder: (context) {
           return TripInviteValueSheet(
             title: '${participant.displayName} 초대 링크',
@@ -284,14 +283,14 @@ class _TripParticipantManagerSheetState
                                   ? null
                                   : () => _removeParticipant(participant),
                               icon: const Icon(Icons.remove_circle_outline),
-                              color: const Color(0xFFCC0000),
+                              color: AppColors.danger,
                               tooltip: '제거',
                             ),
                           ],
                         ),
                 );
               }),
-              const Divider(height: 28),
+              const SizedBox(height: 24),
               const Text(
                 '비회원 동행 추가',
                 style: TextStyle(fontWeight: FontWeight.w800),
@@ -300,10 +299,7 @@ class _TripParticipantManagerSheetState
               TextField(
                 key: const ValueKey('guestParticipantNameField'),
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  hintText: '이름',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: AppInputDecorations.filled(hintText: '이름'),
                 onSubmitted: (_) => _addGuest(),
               ),
               const SizedBox(height: 8),
@@ -319,7 +315,7 @@ class _TripParticipantManagerSheetState
                   _message!,
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF6B6B6B),
+                    color: AppColors.textSubtle,
                   ),
                 ),
               ],
@@ -341,7 +337,7 @@ class _TripParticipantManagerSheetState
                   subtitle: const Text('방금 추가한 비회원 동행'),
                 ),
               ],
-              const Divider(height: 28),
+              const SizedBox(height: 24),
               const Text(
                 '비회원을 실제 사용자와 연결',
                 style: TextStyle(fontWeight: FontWeight.w800),
@@ -349,10 +345,7 @@ class _TripParticipantManagerSheetState
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
                 initialValue: _selectedGuestParticipantId,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: '비회원 동행 선택',
-                ),
+                decoration: AppInputDecorations.filled(hintText: '비회원 동행 선택'),
                 items: guestParticipants
                     .map(
                       (participant) => DropdownMenuItem<int>(
@@ -370,10 +363,7 @@ class _TripParticipantManagerSheetState
               TextField(
                 key: const ValueKey('participantManagerNicknameField'),
                 controller: _nicknameController,
-                decoration: const InputDecoration(
-                  hintText: '닉네임 검색',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: AppInputDecorations.filled(hintText: '닉네임 검색'),
                 onSubmitted: (_) => _searchUser(),
               ),
               const SizedBox(height: 8),
@@ -398,10 +388,7 @@ class _TripParticipantManagerSheetState
               const SizedBox(height: 14),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A1A1A),
-                  foregroundColor: Colors.white,
-                ),
+                style: AppButtonStyles.elevatedPrimary(),
                 child: const Text('완료'),
               ),
             ],

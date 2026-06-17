@@ -23,6 +23,12 @@ void main() {
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
 
+    expect(find.text('약관 동의'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('continueTermsButton')));
+    await tester.pumpAndSettle();
+
     expect(find.text('프로필 설정'), findsOneWidget);
     expect(find.text('프로필 이미지'), findsOneWidget);
     expect(
@@ -83,6 +89,12 @@ void main() {
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
 
+    expect(find.text('약관 동의'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('continueTermsButton')));
+    await tester.pumpAndSettle();
+
     expect(find.text('프로필 설정'), findsOneWidget);
 
     await tester.enterText(
@@ -113,6 +125,12 @@ void main() {
     );
 
     await tester.tap(find.text('카카오로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('약관 동의'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('continueTermsButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('프로필 설정'), findsOneWidget);
@@ -148,6 +166,25 @@ void main() {
     expect(find.text('전화번호'), findsOneWidget);
     expect(find.text('010-****-5678'), findsOneWidget);
     expect(find.text('인증 완료'), findsOneWidget);
+  });
+
+  testWidgets('마이페이지 약관 메뉴에서 약관을 확인한다', (WidgetTester tester) async {
+    final authService = _FakeAuthService();
+    await tester.pumpWidget(
+      MaterialApp(home: MyPlaceholderScreen(authService: authService)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('약관'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('서비스 이용약관'), findsOneWidget);
+    expect(find.text('개인정보 처리방침'), findsOneWidget);
+
+    await tester.tap(find.text('서비스 이용약관'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('TogetherTrip 서비스 이용을 위한 기본 약관입니다.'), findsOneWidget);
   });
 }
 

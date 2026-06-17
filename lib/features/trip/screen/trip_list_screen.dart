@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 import '../../../core/network/api_client.dart';
 import '../../notification/screen/notification_list_screen.dart';
 import '../service/trip_service.dart';
@@ -180,7 +182,7 @@ class _TripListScreenState extends State<TripListScreen> {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF1A1A1A),
+            color: AppColors.ink,
           ),
         ),
         actions: [
@@ -188,14 +190,14 @@ class _TripListScreenState extends State<TripListScreen> {
             key: const ValueKey('notificationButton'),
             onPressed: _openNotifications,
             icon: const Icon(Icons.notifications_none, size: 22),
-            color: const Color(0xFF1A1A1A),
+            color: AppColors.ink,
             tooltip: '알림',
           ),
           IconButton(
             key: const ValueKey('joinTripByInviteCodeButton'),
             onPressed: _openJoinByInviteCode,
             icon: const Icon(Icons.pin_outlined, size: 22),
-            color: const Color(0xFF1A1A1A),
+            color: AppColors.ink,
             tooltip: '초대 코드 입력',
           ),
           Padding(
@@ -204,7 +206,7 @@ class _TripListScreenState extends State<TripListScreen> {
               key: const ValueKey('createTripButton'),
               onPressed: _openCreate,
               icon: const Icon(Icons.add, size: 24),
-              color: const Color(0xFF1A1A1A),
+              color: AppColors.ink,
               tooltip: '여행 만들기',
             ),
           ),
@@ -239,7 +241,7 @@ class _TripListScreenState extends State<TripListScreen> {
           Text(
             _errorMessage!,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B6B)),
+            style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
           ),
           const SizedBox(height: 18),
           OutlinedButton(onPressed: _loadTrips, child: const Text('다시 시도')),
@@ -260,18 +262,12 @@ class _TripListScreenState extends State<TripListScreen> {
           const Text(
             '함께 떠날 여행을 만들고 동행자를 기록해 보세요.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Color(0xFF6B6B6B)),
+            style: TextStyle(fontSize: 13, color: AppColors.textSubtle),
           ),
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: _openCreate,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A1A1A),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
+            style: AppButtonStyles.elevatedPrimary(),
             child: const Text('첫 여행 만들기'),
           ),
         ],
@@ -418,7 +414,7 @@ class _JoinByInviteCodeDialogState extends State<_JoinByInviteCodeDialog> {
               const SizedBox(height: 10),
               Text(
                 _errorMessage!,
-                style: const TextStyle(color: Color(0xFFCC0000), fontSize: 12),
+                style: const TextStyle(color: AppColors.danger, fontSize: 12),
               ),
             ],
           ],
@@ -477,8 +473,8 @@ class _TripHomeTabs extends StatelessWidget {
                               ? FontWeight.w800
                               : FontWeight.w400,
                           color: isActive
-                              ? const Color(0xFF1A1A1A)
-                              : const Color(0xFF6B6B6B),
+                              ? AppColors.ink
+                              : AppColors.textSubtle,
                         ),
                       ),
                     ),
@@ -486,7 +482,7 @@ class _TripHomeTabs extends StatelessWidget {
                   Container(
                     height: 2,
                     width: isActive ? 52 : 0,
-                    color: const Color(0xFF1A1A1A),
+                    color: AppColors.ink,
                   ),
                 ],
               ),
@@ -513,7 +509,7 @@ class _TripCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: const Color(0xFFFAFAFA),
-          border: Border.all(color: const Color(0xFF1A1A1A)),
+          border: Border.all(color: const Color(0xFFE2E2E2)),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -529,7 +525,7 @@ class _TripCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF1A1A1A),
+                      color: AppColors.ink,
                     ),
                   ),
                 ),
@@ -545,7 +541,7 @@ class _TripCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '${trip.defaultCurrency} · 정산 ${_settlementStatusLabel(trip.settlementStatus)}',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B6B)),
+              style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
             ),
           ],
         ),
@@ -565,7 +561,7 @@ class _StatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0xFFC7C7C7)),
+        border: Border.all(color: const Color(0xFFE2E2E2)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(

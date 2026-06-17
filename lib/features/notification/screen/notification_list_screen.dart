@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 class NotificationListScreen extends StatelessWidget {
   const NotificationListScreen({super.key});
 
@@ -14,13 +16,13 @@ class NotificationListScreen extends StatelessWidget {
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.chevron_left, size: 24),
-          color: const Color(0xFF1A1A1A),
+          color: AppColors.ink,
           tooltip: '뒤로',
         ),
         title: const Text(
           '알림',
           style: TextStyle(
-            color: Color(0xFF1A1A1A),
+            color: AppColors.ink,
             fontSize: 16,
             fontWeight: FontWeight.w800,
           ),
@@ -35,7 +37,7 @@ class NotificationListScreen extends StatelessWidget {
               Icon(
                 Icons.notifications_none,
                 size: 36,
-                color: Color(0xFF6B6B6B),
+                color: AppColors.textSubtle,
               ),
               SizedBox(height: 14),
               Text(
@@ -44,14 +46,14 @@ class NotificationListScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF1A1A1A),
+                  color: AppColors.ink,
                 ),
               ),
               SizedBox(height: 8),
               Text(
                 '초대, 정산, 여행 변경 알림이 생기면 여기에 표시됩니다.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Color(0xFF6B6B6B)),
+                style: TextStyle(fontSize: 13, color: AppColors.textSubtle),
               ),
             ],
           ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'core/widget/app_design.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'core/env/env.dart';
@@ -27,7 +29,7 @@ class TogetherTripApp extends StatelessWidget {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [Locale('ko'), Locale('en')],
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A1A1A)),
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.ink),
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
       ),

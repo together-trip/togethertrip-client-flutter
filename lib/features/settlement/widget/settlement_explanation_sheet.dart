@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 class SettlementExplanationSheet extends StatelessWidget {
   const SettlementExplanationSheet({super.key});
 
@@ -11,21 +13,11 @@ class SettlementExplanationSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 34,
-              height: 3,
-              decoration: BoxDecoration(
-                color: const Color(0xFFC7C7C7),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
+            const AppSheetHandle(),
             const SizedBox(height: 14),
             const Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                '정산은 어떻게 계산되나요?',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-              ),
+              child: Text('정산은 어떻게 계산되나요?', style: AppTextStyles.sectionTitle),
             ),
             const SizedBox(height: 14),
             Flexible(
@@ -66,13 +58,7 @@ class SettlementExplanationSheet extends StatelessWidget {
               height: 48,
               child: ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A1A1A),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+                style: AppButtonStyles.elevatedPrimary(),
                 child: const Text('확인'),
               ),
             ),
@@ -94,7 +80,7 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(top: 16, bottom: 6),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
       ),
     );
   }
