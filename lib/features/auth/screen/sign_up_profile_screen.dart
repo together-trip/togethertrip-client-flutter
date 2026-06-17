@@ -1,12 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../main/screen/main_shell_screen.dart';
 import '../../trip/service/trip_service.dart';
 import '../service/auth_service.dart';
+import '../service/profile_image_input_helper.dart';
+import '../widget/profile_form_fields.dart';
+import '../widget/profile_image_picker.dart';
+import '../widget/profile_input_formatters.dart';
 
 enum _Gender {
   male('남자', 'MALE'),
@@ -45,11 +49,13 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
   final _birthDateController = TextEditingController();
   final _phoneController = TextEditingController();
   final _codeController = TextEditingController();
+  final _imagePicker = ImagePicker();
 
   _Gender _gender = _Gender.male;
   Timer? _timer;
   int _remainingSeconds = 0;
   String? _requestedPhoneNumber;
+  ProfileImageInput? _selectedProfileImage;
   String? _checkedNickname;
   bool? _isNicknameAvailable;
   bool _isCheckingNickname = false;
@@ -124,14 +130,15 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     });
 
     try {
+      final requestedPhoneNumber = _toApiPhoneNumber(_phoneController.text);
       final result = await widget.authService.requestPhoneVerification(
         temporaryToken: temporaryToken,
-        phoneNumber: _toApiPhoneNumber(_phoneController.text),
+        phoneNumber: requestedPhoneNumber,
       );
       if (!mounted) return;
 
       setState(() {
-        _requestedPhoneNumber = result.phoneNumber;
+        _requestedPhoneNumber = requestedPhoneNumber;
         _isPhoneVerified = false;
         _codeController.clear();
       });
@@ -235,6 +242,33 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     }
   }
 
+  Future<void> _pickProfileImage() async {
+    final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+
+    final mimeType = picked.mimeType ?? inferProfileImageMimeType(picked.name);
+    final hasAllowedNameAndMime = isSupportedProfileImageNameAndMime(
+      picked.name,
+      mimeType,
+    );
+    final hasAllowedSignature = await hasSupportedProfileImageSignature(
+      picked.path,
+    );
+    if (!hasAllowedNameAndMime || !hasAllowedSignature) {
+      setState(() => _errorMessage = '프로필 이미지는 JPG 또는 PNG만 사용할 수 있습니다.');
+      return;
+    }
+
+    setState(() {
+      _selectedProfileImage = ProfileImageInput(
+        path: picked.path,
+        filename: picked.name,
+        mimeType: mimeType,
+      );
+      _errorMessage = null;
+    });
+  }
+
   Future<void> _submit() async {
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
@@ -260,6 +294,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
         gender: _gender.apiValue,
         birthDate: _toApiBirthDate(_birthDateController.text),
         profileImageUrl: widget.initialProfile?.profileImageUrl,
+        profileImage: _selectedProfileImage,
       );
       if (!mounted) return;
 
@@ -324,7 +359,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     if (_requestedPhoneNumber == null && !_isPhoneVerified) return;
 
     final currentPhone = _phoneController.text.trim();
-    if (currentPhone == _requestedPhoneNumber) return;
+    if (_toApiPhoneNumber(currentPhone) == _requestedPhoneNumber) return;
 
     _timer?.cancel();
     setState(() {
@@ -380,7 +415,17 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _LabeledField(
+                      LabeledField(
+                        label: '프로필 이미지',
+                        child: ProfileImagePicker(
+                          nickname: _nicknameController.text.trim(),
+                          currentImageUrl:
+                              widget.initialProfile?.profileImageUrl,
+                          selectedImage: _selectedProfileImage,
+                          onPick: _pickProfileImage,
+                        ),
+                      ),
+                      LabeledField(
                         label: '닉네임',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -393,7 +438,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                     key: const ValueKey('nicknameField'),
                                     controller: _nicknameController,
                                     decoration: const InputDecoration(
-                                      hintText: '2~12자, 한글/영문/숫자',
+                                      hintText: '2~20자, 한글/영문/숫자',
                                     ),
                                     textInputAction: TextInputAction.next,
                                     validator: _validateNickname,
@@ -446,12 +491,12 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                           ],
                         ),
                       ),
-                      _LabeledField(
+                      LabeledField(
                         label: '성별',
                         child: Row(
                           children: [
                             Expanded(
-                              child: _GenderButton(
+                              child: GenderButton(
                                 label: _Gender.male.label,
                                 isSelected: _gender == _Gender.male,
                                 onPressed: () =>
@@ -460,7 +505,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: _GenderButton(
+                              child: GenderButton(
                                 label: _Gender.female.label,
                                 isSelected: _gender == _Gender.female,
                                 onPressed: () =>
@@ -470,7 +515,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                           ],
                         ),
                       ),
-                      _LabeledField(
+                      LabeledField(
                         label: '생년월일',
                         child: TextFormField(
                           key: const ValueKey('birthDateField'),
@@ -480,12 +525,22 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                           ),
                           keyboardType: TextInputType.datetime,
                           textInputAction: TextInputAction.next,
-                          inputFormatters: const [_BirthDateInputFormatter()],
+                          inputFormatters: const [BirthDateInputFormatter()],
                           validator: _validateBirthDate,
                         ),
                       ),
+                      if (_isEditMode)
+                        LabeledField(
+                          label: '전화번호',
+                          child: _ReadOnlyPhoneInfo(
+                            phoneNumberMasked:
+                                widget.initialProfile?.phoneNumberMasked,
+                            phoneVerified:
+                                widget.initialProfile?.phoneVerified ?? false,
+                          ),
+                        ),
                       if (_requiresPhoneVerification)
-                        _LabeledField(
+                        LabeledField(
                           label: '전화번호',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -503,7 +558,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                       keyboardType: TextInputType.phone,
                                       textInputAction: TextInputAction.next,
                                       inputFormatters: const [
-                                        _PhoneNumberInputFormatter(),
+                                        PhoneNumberInputFormatter(),
                                       ],
                                       validator: _validatePhoneNumber,
                                       enabled: !_isPhoneVerified,
@@ -643,59 +698,52 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
   }
 }
 
-class _LabeledField extends StatelessWidget {
-  final String label;
-  final Widget child;
+class _ReadOnlyPhoneInfo extends StatelessWidget {
+  final String? phoneNumberMasked;
+  final bool phoneVerified;
 
-  const _LabeledField({required this.label, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF6B6B6B),
-            ),
-          ),
-          const SizedBox(height: 6),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _GenderButton extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onPressed;
-
-  const _GenderButton({
-    required this.label,
-    required this.isSelected,
-    required this.onPressed,
+  const _ReadOnlyPhoneInfo({
+    required this.phoneNumberMasked,
+    required this.phoneVerified,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: isSelected ? const Color(0xFF1A1A1A) : Colors.white,
-          foregroundColor: isSelected ? Colors.white : const Color(0xFF1A1A1A),
-          side: const BorderSide(color: Color(0xFF1A1A1A)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        child: Text(label),
+    final phoneText = phoneNumberMasked != null && phoneNumberMasked!.isNotEmpty
+        ? phoneNumberMasked!
+        : '인증된 전화번호 없음';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F8F8),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E5E5)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              phoneText,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+          ),
+          Text(
+            phoneVerified ? '인증 완료' : '미인증',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: phoneVerified
+                  ? const Color(0xFF16833C)
+                  : const Color(0xFF9E9E9E),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -704,8 +752,8 @@ class _GenderButton extends StatelessWidget {
 String? _validateNickname(String? value) {
   final nickname = value?.trim() ?? '';
   if (nickname.isEmpty) return '닉네임을 입력해주세요.';
-  if (nickname.length < 2 || nickname.length > 12) {
-    return '닉네임은 2~12자로 입력해주세요.';
+  if (nickname.length < 2 || nickname.length > 20) {
+    return '닉네임은 2~20자로 입력해주세요.';
   }
   if (!RegExp(r'^[가-힣a-zA-Z0-9]+$').hasMatch(nickname)) {
     return '닉네임은 한글, 영문, 숫자만 사용할 수 있습니다.';
@@ -723,19 +771,19 @@ String? _validateBirthDate(String? value) {
 }
 
 String _toApiBirthDate(String value) {
-  final digits = _digitsOnly(value);
+  final digits = digitsOnly(value);
   if (digits.length != 8) return value.trim().replaceAll('.', '-');
   return '${digits.substring(0, 4)}-${digits.substring(4, 6)}-${digits.substring(6, 8)}';
 }
 
 String _toDisplayBirthDate(String value) {
-  final digits = _digitsOnly(value);
+  final digits = digitsOnly(value);
   if (digits.length != 8) return value.trim().replaceAll('-', '.');
   return '${digits.substring(0, 4)}.${digits.substring(4, 6)}.${digits.substring(6, 8)}';
 }
 
 String _toApiPhoneNumber(String value) {
-  return _digitsOnly(value);
+  return digitsOnly(value);
 }
 
 String? _validatePhoneNumber(String? value) {
@@ -745,64 +793,4 @@ String? _validatePhoneNumber(String? value) {
     return '전화번호는 010-0000-0000 형식으로 입력해주세요.';
   }
   return null;
-}
-
-String _digitsOnly(String value) {
-  return value.replaceAll(RegExp(r'\D'), '');
-}
-
-class _BirthDateInputFormatter extends TextInputFormatter {
-  const _BirthDateInputFormatter();
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = _digitsOnly(newValue.text);
-    final limited = digits.length > 8 ? digits.substring(0, 8) : digits;
-    final formatted = _formatBirthDate(limited);
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-
-  String _formatBirthDate(String digits) {
-    if (digits.length <= 4) return digits;
-    if (digits.length <= 6) {
-      return '${digits.substring(0, 4)}.${digits.substring(4)}';
-    }
-
-    return '${digits.substring(0, 4)}.${digits.substring(4, 6)}.${digits.substring(6)}';
-  }
-}
-
-class _PhoneNumberInputFormatter extends TextInputFormatter {
-  const _PhoneNumberInputFormatter();
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = _digitsOnly(newValue.text);
-    final limited = digits.length > 11 ? digits.substring(0, 11) : digits;
-    final formatted = _formatPhoneNumber(limited);
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-
-  String _formatPhoneNumber(String digits) {
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 7) {
-      return '${digits.substring(0, 3)}-${digits.substring(3)}';
-    }
-
-    return '${digits.substring(0, 3)}-${digits.substring(3, 7)}-${digits.substring(7)}';
-  }
 }

@@ -5,6 +5,8 @@ import '../../auth/screen/onboarding_screen.dart';
 import '../../auth/screen/sign_up_profile_screen.dart';
 import '../../auth/service/auth_service.dart';
 import '../../notification/screen/notification_list_screen.dart';
+import '../widget/my_menu_row.dart';
+import '../widget/my_profile_header.dart';
 
 class MyPlaceholderScreen extends StatefulWidget {
   final AuthService? authService;
@@ -191,8 +193,6 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final nickname = _profile?.nickname;
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -225,69 +225,10 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
       ),
       body: Column(
         children: [
-          // 프로필 헤더
-          GestureDetector(
-            onTap: _isLoading || _profile == null ? null : _openProfileEdit,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0xFF1A1A1A))),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFFF2F2F2),
-                      border: Border.all(color: const Color(0xFFC7C7C7)),
-                    ),
-                    child: Center(
-                      child: Text(
-                        (nickname != null && nickname.isNotEmpty)
-                            ? nickname.substring(0, 1)
-                            : '나',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Color(0xFF6B6B6B),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _isLoading ? '불러오는 중…' : (nickname ?? '닉네임 없음'),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1A1A1A),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          '프로필 보기',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF6B6B6B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right,
-                    size: 22,
-                    color: Color(0xFF9E9E9E),
-                  ),
-                ],
-              ),
-            ),
+          MyProfileHeader(
+            profile: _profile,
+            isLoading: _isLoading,
+            onTap: _openProfileEdit,
           ),
           if (_errorMessage != null)
             Padding(
@@ -308,66 +249,29 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
               ),
             ),
           // 메뉴 목록
-          _MenuRow(
+          MyMenuRow(
             icon: Icons.manage_accounts_outlined,
             label: '개인정보 수정',
             onTap: _isLoading || _profile == null ? null : _openProfileEdit,
           ),
-          _MenuRow(
+          MyMenuRow(
             icon: Icons.notifications_none,
             label: '알림 설정',
             onTap: () => _showPreparingMessage('알림 설정'),
           ),
-          _MenuRow(
+          MyMenuRow(
             icon: Icons.article_outlined,
             label: '약관',
             onTap: () => _showPreparingMessage('약관'),
           ),
-          _MenuRow(icon: Icons.logout, label: '로그아웃', onTap: _confirmLogout),
-          _MenuRow(
+          MyMenuRow(icon: Icons.logout, label: '로그아웃', onTap: _confirmLogout),
+          MyMenuRow(
             icon: Icons.person_remove_outlined,
             label: _isWithdrawing ? '탈퇴 처리 중…' : '회원 탈퇴',
             labelColor: const Color(0xFFCC0000),
             onTap: _isWithdrawing ? null : _confirmWithdraw,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MenuRow extends StatelessWidget {
-  const _MenuRow({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.labelColor = const Color(0xFF1A1A1A),
-  });
-
-  final IconData icon;
-  final String label;
-  final Color labelColor;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFFE5E5E5))),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: labelColor),
-            const SizedBox(width: 12),
-            Text(label, style: TextStyle(fontSize: 13, color: labelColor)),
-            const Spacer(),
-            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF9E9E9E)),
-          ],
-        ),
       ),
     );
   }

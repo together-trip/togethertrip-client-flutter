@@ -15,7 +15,6 @@ class PostService {
     String? cursor,
     int size = 20,
   }) async {
-    final accessToken = await _requireAccessToken();
     final queryParameters = <String, String>{'size': size.toString()};
     if (postType != null && postType.isNotEmpty) {
       queryParameters['postType'] = postType;
@@ -24,10 +23,12 @@ class PostService {
       queryParameters['cursor'] = cursor;
     }
 
-    final data = await _apiClient.get(
-      '/api/trips/$tripId/posts',
-      queryParameters: queryParameters,
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.get(
+        '/api/trips/$tripId/posts',
+        queryParameters: queryParameters,
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '게시글 목록 응답이 비어 있습니다.');
@@ -37,10 +38,11 @@ class PostService {
   }
 
   Future<PostDetail> getPost(int tripId, int postId) async {
-    final accessToken = await _requireAccessToken();
-    final data = await _apiClient.get(
-      '/api/trips/$tripId/posts/$postId',
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.get(
+        '/api/trips/$tripId/posts/$postId',
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '게시글 상세 응답이 비어 있습니다.');
@@ -50,13 +52,14 @@ class PostService {
   }
 
   Future<PostDetail> createPost(int tripId, PostFormInput input) async {
-    final accessToken = await _requireAccessToken();
-    final data = await _apiClient.multipart(
-      'POST',
-      '/api/trips/$tripId/posts',
-      fields: input.toCreateFields(),
-      files: input.toMultipartFiles(),
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.multipart(
+        'POST',
+        '/api/trips/$tripId/posts',
+        fields: input.toCreateFields(),
+        files: input.toMultipartFiles(),
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '게시글 작성 응답이 비어 있습니다.');
@@ -70,13 +73,14 @@ class PostService {
     int postId,
     PostFormInput input,
   ) async {
-    final accessToken = await _requireAccessToken();
-    final data = await _apiClient.multipart(
-      'PATCH',
-      '/api/trips/$tripId/posts/$postId',
-      fields: input.toUpdateFields(),
-      files: input.toMultipartFiles(),
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.multipart(
+        'PATCH',
+        '/api/trips/$tripId/posts/$postId',
+        fields: input.toUpdateFields(),
+        files: input.toMultipartFiles(),
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '게시글 수정 응답이 비어 있습니다.');
@@ -86,10 +90,11 @@ class PostService {
   }
 
   Future<void> deletePost(int tripId, int postId) async {
-    final accessToken = await _requireAccessToken();
-    await _apiClient.delete(
-      '/api/trips/$tripId/posts/$postId',
-      accessToken: accessToken,
+    await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.delete(
+        '/api/trips/$tripId/posts/$postId',
+        accessToken: accessToken,
+      ),
     );
   }
 
@@ -99,16 +104,17 @@ class PostService {
     String? cursor,
     int size = 30,
   }) async {
-    final accessToken = await _requireAccessToken();
     final queryParameters = <String, String>{'size': size.toString()};
     if (cursor != null && cursor.isNotEmpty) {
       queryParameters['cursor'] = cursor;
     }
 
-    final data = await _apiClient.get(
-      '/api/trips/$tripId/posts/$postId/comments',
-      queryParameters: queryParameters,
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.get(
+        '/api/trips/$tripId/posts/$postId/comments',
+        queryParameters: queryParameters,
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '댓글 목록 응답이 비어 있습니다.');
@@ -122,11 +128,12 @@ class PostService {
     int postId,
     String content,
   ) async {
-    final accessToken = await _requireAccessToken();
-    final data = await _apiClient.post(
-      '/api/trips/$tripId/posts/$postId/comments',
-      {'content': content},
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.post(
+        '/api/trips/$tripId/posts/$postId/comments',
+        {'content': content},
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '댓글 작성 응답이 비어 있습니다.');
@@ -136,19 +143,12 @@ class PostService {
   }
 
   Future<void> deleteComment(int tripId, int postId, int commentId) async {
-    final accessToken = await _requireAccessToken();
-    await _apiClient.delete(
-      '/api/trips/$tripId/posts/$postId/comments/$commentId',
-      accessToken: accessToken,
+    await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.delete(
+        '/api/trips/$tripId/posts/$postId/comments/$commentId',
+        accessToken: accessToken,
+      ),
     );
-  }
-
-  Future<String> _requireAccessToken() async {
-    final accessToken = await _authService.getAccessToken();
-    if (accessToken == null || accessToken.isEmpty) {
-      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
-    }
-    return accessToken;
   }
 }
 

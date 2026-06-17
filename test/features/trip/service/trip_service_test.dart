@@ -133,4 +133,11 @@ void main() {
 class _FakeAuthService extends AuthService {
   @override
   Future<String?> getAccessToken() async => 'access-token';
+
+  @override
+  Future<T> runWithAccessToken<T>(
+    Future<T> Function(String accessToken) request,
+  ) {
+    return request('access-token');
+  }
 }

@@ -47,6 +47,7 @@ app.*.map.json
 
 # 로컬 환경 설정 (앱 키 등 민감 정보)
 ios/Flutter/LocalConfig.xcconfig
+config/local.json
 
 # 로컬 백업/임시 산출물
 build.xattr-backup/

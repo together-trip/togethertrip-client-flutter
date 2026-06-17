@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'core/env/env.dart';
 import 'features/auth/screen/onboarding_screen.dart';
 import 'features/auth/service/auth_service.dart';
 import 'features/trip/service/trip_service.dart';
 
-const _kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
-
 void main() {
-  if (_kakaoNativeAppKey.isNotEmpty) {
-    KakaoSdk.init(nativeAppKey: _kakaoNativeAppKey);
+  if (Env.kakaoNativeAppKey.isNotEmpty) {
+    KakaoSdk.init(nativeAppKey: Env.kakaoNativeAppKey);
   }
   runApp(const TogetherTripApp());
 }

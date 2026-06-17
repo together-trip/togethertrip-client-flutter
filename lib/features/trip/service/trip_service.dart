@@ -14,7 +14,6 @@ class TripService {
     String? cursor,
     int size = 20,
   }) async {
-    final accessToken = await _requireAccessToken();
     final queryParameters = <String, String>{'size': size.toString()};
     if (status != null && status.isNotEmpty) {
       queryParameters['status'] = status;
@@ -23,10 +22,12 @@ class TripService {
       queryParameters['cursor'] = cursor;
     }
 
-    final data = await _apiClient.get(
-      '/api/trips',
-      queryParameters: queryParameters,
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.get(
+        '/api/trips',
+        queryParameters: queryParameters,
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '여행 목록 응답이 비어 있습니다.');
@@ -36,11 +37,12 @@ class TripService {
   }
 
   Future<TripDetail> createTrip(TripFormInput input) async {
-    final accessToken = await _requireAccessToken();
-    final data = await _apiClient.post(
-      '/api/trips',
-      input.toCreateJson(),
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.post(
+        '/api/trips',
+        input.toCreateJson(),
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '여행 생성 응답이 비어 있습니다.');
@@ -50,10 +52,9 @@ class TripService {
   }
 
   Future<TripDetail> getTrip(int tripId) async {
-    final accessToken = await _requireAccessToken();
-    final data = await _apiClient.get(
-      '/api/trips/$tripId',
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) =>
+          _apiClient.get('/api/trips/$tripId', accessToken: accessToken),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '여행 상세 응답이 비어 있습니다.');
@@ -63,11 +64,12 @@ class TripService {
   }
 
   Future<TripDetail> updateTrip(int tripId, TripFormInput input) async {
-    final accessToken = await _requireAccessToken();
-    final data = await _apiClient.patch(
-      '/api/trips/$tripId',
-      input.toUpdateJson(),
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.patch(
+        '/api/trips/$tripId',
+        input.toUpdateJson(),
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '여행 수정 응답이 비어 있습니다.');
@@ -80,10 +82,11 @@ class TripService {
     int tripId,
     List<TripCountryInput> countries,
   ) async {
-    final accessToken = await _requireAccessToken();
-    final data = await _apiClient.put('/api/trips/$tripId/countries', {
-      'countries': countries.map((country) => country.toJson()).toList(),
-    }, accessToken: accessToken);
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.put('/api/trips/$tripId/countries', {
+        'countries': countries.map((country) => country.toJson()).toList(),
+      }, accessToken: accessToken),
+    );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '여행 국가 응답이 비어 있습니다.');
     }
@@ -92,16 +95,19 @@ class TripService {
   }
 
   Future<void> deleteTrip(int tripId) async {
-    final accessToken = await _requireAccessToken();
-    await _apiClient.delete('/api/trips/$tripId', accessToken: accessToken);
+    await _authService.runWithAccessToken(
+      (accessToken) =>
+          _apiClient.delete('/api/trips/$tripId', accessToken: accessToken),
+    );
   }
 
   Future<TripParticipant> getMyTripParticipant(int tripId) async {
-    final accessToken = await _requireAccessToken();
-    final data = await _apiClient.get(
-      '/api/users/me/trip-participants',
-      queryParameters: {'tripId': tripId.toString()},
-      accessToken: accessToken,
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.get(
+        '/api/users/me/trip-participants',
+        queryParameters: {'tripId': tripId.toString()},
+        accessToken: accessToken,
+      ),
     );
     if (data == null) {
       throw const ApiException(
@@ -114,14 +120,6 @@ class TripService {
   }
 
   Future<UserProfile> getCurrentUser() => _authService.getMe();
-
-  Future<String> _requireAccessToken() async {
-    final accessToken = await _authService.getAccessToken();
-    if (accessToken == null || accessToken.isEmpty) {
-      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
-    }
-    return accessToken;
-  }
 }
 
 class TripListPage {

@@ -85,29 +85,43 @@ class AuthService {
     required String gender,
     required String birthDate,
     String? profileImageUrl,
+    ProfileImageInput? profileImage,
   }) async {
-    final accessToken = await _tokenStorage.getAccessToken();
-    if (accessToken == null) {
-      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
-    }
+    await runWithAccessToken((accessToken) {
+      if (profileImage != null) {
+        return _apiClient.multipart(
+          'PATCH',
+          '/api/users/me',
+          fields: {
+            'nickname': nickname,
+            'gender': gender,
+            'birthDate': birthDate,
+          },
+          files: [
+            MultipartFileInput(
+              fieldName: 'profileImage',
+              path: profileImage.path,
+              filename: profileImage.filename,
+              mimeType: profileImage.mimeType,
+            ),
+          ],
+          accessToken: accessToken,
+        );
+      }
 
-    await _apiClient.patch('/api/users/me', {
-      'nickname': nickname,
-      'gender': gender,
-      'birthDate': birthDate,
-      'profileImageUrl': profileImageUrl,
-    }, accessToken: accessToken);
+      return _apiClient.patch('/api/users/me', {
+        'nickname': nickname,
+        'gender': gender,
+        'birthDate': birthDate,
+        'profileImageUrl': profileImageUrl,
+      }, accessToken: accessToken);
+    });
   }
 
   Future<UserProfile> getMe() async {
-    final accessToken = await _tokenStorage.getAccessToken();
-    if (accessToken == null) {
-      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
-    }
-
-    final data = await _apiClient.get(
-      '/api/users/me',
-      accessToken: accessToken,
+    final data = await runWithAccessToken(
+      (accessToken) =>
+          _apiClient.get('/api/users/me', accessToken: accessToken),
     );
     if (data == null) {
       throw const ApiException(statusCode: 500, message: '내 정보 응답이 비어 있습니다.');
@@ -117,12 +131,10 @@ class AuthService {
   }
 
   Future<void> deleteAccount() async {
-    final accessToken = await _tokenStorage.getAccessToken();
-    if (accessToken == null) {
-      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
-    }
-
-    await _apiClient.delete('/api/users/me', accessToken: accessToken);
+    await runWithAccessToken(
+      (accessToken) =>
+          _apiClient.delete('/api/users/me', accessToken: accessToken),
+    );
 
     try {
       await UserApi.instance.logout();
@@ -178,6 +190,27 @@ class AuthService {
 
   Future<String?> getAccessToken() => _tokenStorage.getAccessToken();
 
+  Future<T> runWithAccessToken<T>(
+    Future<T> Function(String accessToken) request,
+  ) async {
+    final accessToken = await _requireStoredAccessToken();
+    try {
+      return await request(accessToken);
+    } on ApiException catch (e) {
+      if (e.statusCode != 401) rethrow;
+
+      try {
+        await refreshToken();
+      } catch (_) {
+        await _tokenStorage.clear();
+        rethrow;
+      }
+
+      final refreshedAccessToken = await _requireStoredAccessToken();
+      return request(refreshedAccessToken);
+    }
+  }
+
   Future<void> _saveTokens({
     required String? accessToken,
     required String? refreshToken,
@@ -190,6 +223,14 @@ class AuthService {
       accessToken: accessToken,
       refreshToken: refreshToken,
     );
+  }
+
+  Future<String> _requireStoredAccessToken() async {
+    final accessToken = await _tokenStorage.getAccessToken();
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
+    }
+    return accessToken;
   }
 
   Future<String> _getKakaoToken() async {
@@ -236,20 +277,27 @@ class AuthLoginResult {
 }
 
 class PhoneVerificationCodeSent {
-  final String phoneNumber;
   final int expiresInSeconds;
 
-  const PhoneVerificationCodeSent({
-    required this.phoneNumber,
-    required this.expiresInSeconds,
-  });
+  const PhoneVerificationCodeSent({required this.expiresInSeconds});
 
   factory PhoneVerificationCodeSent.fromJson(Map<String, dynamic> json) {
     return PhoneVerificationCodeSent(
-      phoneNumber: json['phoneNumber'] as String,
-      expiresInSeconds: json['expiresInSeconds'] as int,
+      expiresInSeconds: (json['expiresInSeconds'] as num).toInt(),
     );
   }
+}
+
+class ProfileImageInput {
+  final String path;
+  final String filename;
+  final String? mimeType;
+
+  const ProfileImageInput({
+    required this.path,
+    required this.filename,
+    required this.mimeType,
+  });
 }
 
 class UserProfile {
@@ -258,7 +306,9 @@ class UserProfile {
   final String? gender;
   final String? birthDate; // yyyy-MM-dd
   final String? profileImageUrl;
-  final String? phoneNumber;
+  final String? phoneNumberMasked;
+  final String? phoneVerifiedAt;
+  final bool phoneVerified;
 
   const UserProfile({
     required this.id,
@@ -266,7 +316,9 @@ class UserProfile {
     required this.gender,
     required this.birthDate,
     required this.profileImageUrl,
-    required this.phoneNumber,
+    required this.phoneNumberMasked,
+    required this.phoneVerifiedAt,
+    required this.phoneVerified,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -276,7 +328,9 @@ class UserProfile {
       gender: json['gender'] as String?,
       birthDate: json['birthDate'] as String?,
       profileImageUrl: json['profileImageUrl'] as String?,
-      phoneNumber: json['phoneNumber'] as String?,
+      phoneNumberMasked: json['phoneNumberMasked'] as String?,
+      phoneVerifiedAt: json['phoneVerifiedAt'] as String?,
+      phoneVerified: json['phoneVerified'] as bool? ?? false,
     );
   }
 }
