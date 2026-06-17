@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../auth/service/auth_service.dart';
+import '../../exchange/screen/exchange_rate_screen.dart';
+import '../../exchange/service/exchange_rate_service.dart';
 import '../../my/screen/my_placeholder_screen.dart';
 import '../../trip/screen/trip_detail_screen.dart';
 import '../../trip/screen/trip_list_screen.dart';
@@ -45,6 +47,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     final authService = widget.authService;
     final tripService =
         widget.tripService ?? TripService(authService: authService);
+    final exchangeRateService = ExchangeRateService(authService: authService);
     final selectedTrip = _selectedTrip;
     final screens = <Widget>[
       selectedTrip == null
@@ -58,6 +61,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
               tripService: tripService,
               onClose: _closeTripDetail,
             ),
+      ExchangeRateScreen(
+        tripService: tripService,
+        exchangeRateService: exchangeRateService,
+      ),
       MyPlaceholderScreen(
         authService: authService,
         onBack: () => _selectTab(0),
@@ -96,11 +103,18 @@ class _MainShellScreenState extends State<MainShellScreen> {
                     onTap: () => _selectTab(0),
                   ),
                   _TabItem(
+                    icon: Icons.currency_exchange,
+                    activeIcon: Icons.currency_exchange,
+                    label: '환율',
+                    isActive: _currentIndex == 1,
+                    onTap: () => _selectTab(1),
+                  ),
+                  _TabItem(
                     icon: Icons.person_outline,
                     activeIcon: Icons.person,
                     label: '마이',
-                    isActive: _currentIndex == 1,
-                    onTap: () => _selectTab(1),
+                    isActive: _currentIndex == 2,
+                    onTap: () => _selectTab(2),
                   ),
                 ],
               ),
