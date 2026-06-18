@@ -41,7 +41,8 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
     super.initState();
     _authService = widget.authService ?? AuthService();
     _termsAgreementService =
-        widget.termsAgreementService ?? TermsAgreementService();
+        widget.termsAgreementService ??
+        TermsAgreementService(authService: _authService);
     _loadProfile();
   }
 
@@ -150,7 +151,10 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
-          builder: (_) => OnboardingScreen(authService: _authService),
+          builder: (_) => OnboardingScreen(
+            authService: _authService,
+            termsAgreementService: _termsAgreementService,
+          ),
         ),
         (_) => false,
       );
@@ -196,7 +200,10 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
-          builder: (_) => OnboardingScreen(authService: _authService),
+          builder: (_) => OnboardingScreen(
+            authService: _authService,
+            termsAgreementService: _termsAgreementService,
+          ),
         ),
         (_) => false,
       );

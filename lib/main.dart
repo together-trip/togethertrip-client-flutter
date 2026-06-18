@@ -30,6 +30,11 @@ class TogetherTripApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resolvedAuthService = authService ?? AuthService();
+    final resolvedTermsAgreementService =
+        termsAgreementService ??
+        TermsAgreementService(authService: resolvedAuthService);
+
     return MaterialApp(
       title: 'TogetherTrip',
       locale: const Locale('ko'),
@@ -41,9 +46,9 @@ class TogetherTripApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.white,
       ),
       home: OnboardingScreen(
-        authService: authService ?? AuthService(),
+        authService: resolvedAuthService,
         tripService: tripService,
-        termsAgreementService: termsAgreementService,
+        termsAgreementService: resolvedTermsAgreementService,
       ),
     );
   }

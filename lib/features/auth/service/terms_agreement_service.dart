@@ -1,46 +1,77 @@
+import '../../../core/network/api_client.dart';
+import '../../../core/env/env.dart';
+import 'auth_service.dart';
+
 class TermsAgreementService {
+  final ApiClient _apiClient;
+  final AuthService? _authService;
   final Set<String> _agreedCodes;
 
-  TermsAgreementService({Set<String>? initialAgreedCodes})
-    : _agreedCodes = {
-        'SERVICE_TERMS',
-        'PRIVACY_POLICY',
-        'LOCATION_INFO_TERMS',
-        ...?initialAgreedCodes,
-      };
+  bool get _usesRemoteApi => _authService != null && Env.apiBaseUrl.isNotEmpty;
+
+  TermsAgreementService({
+    ApiClient? apiClient,
+    AuthService? authService,
+    Set<String>? initialAgreedCodes,
+  }) : _apiClient = apiClient ?? ApiClient(),
+       _authService = authService,
+       _agreedCodes = {
+         'SERVICE_TERMS',
+         'PRIVACY_POLICY',
+         'LOCATION_INFO_TERMS',
+         ...?initialAgreedCodes,
+       };
 
   Future<List<TermsAgreementItem>> getTerms() async {
-    return const [
-      TermsAgreementItem(
-        code: 'SERVICE_TERMS',
-        title: '서비스 이용약관',
-        version: '2026-06-17',
-        required: true,
-        summary: _serviceTerms,
-      ),
-      TermsAgreementItem(
-        code: 'PRIVACY_POLICY',
-        title: '개인정보 처리방침',
-        version: '2026-06-17',
-        required: true,
-        summary: _privacyPolicy,
-      ),
-      TermsAgreementItem(
-        code: 'LOCATION_INFO_TERMS',
-        title: '위치기반서비스 이용약관',
-        version: '2026-06-17',
-        required: true,
-        summary: _locationInfoTerms,
-      ),
-      TermsAgreementItem(
-        code: 'MARKETING_CONSENT',
-        title: '광고성 정보 수신 동의',
-        version: '2026-06-17',
-        required: false,
-        summary: _marketingConsent,
-      ),
-    ];
+    if (!_usesRemoteApi) {
+      return _mockTerms;
+    }
+
+    try {
+      final data = await _apiClient.getList('/api/terms');
+      if (data.isNotEmpty) {
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(TermsAgreementItem.fromJson)
+            .toList();
+      }
+    } catch (_) {
+      rethrow;
+    }
+
+    return _mockTerms;
   }
+
+  static const List<TermsAgreementItem> _mockTerms = [
+    TermsAgreementItem(
+      code: 'SERVICE_TERMS',
+      title: '서비스 이용약관',
+      version: '2026-06-18',
+      required: true,
+      summary: _serviceTerms,
+    ),
+    TermsAgreementItem(
+      code: 'PRIVACY_POLICY',
+      title: '개인정보 처리방침',
+      version: '2026-06-18',
+      required: true,
+      summary: _privacyPolicy,
+    ),
+    TermsAgreementItem(
+      code: 'LOCATION_INFO_TERMS',
+      title: '위치기반서비스 이용약관',
+      version: '2026-06-18',
+      required: true,
+      summary: _locationInfoTerms,
+    ),
+    TermsAgreementItem(
+      code: 'MARKETING_CONSENT',
+      title: '광고성 정보 수신 동의',
+      version: '2026-06-18',
+      required: false,
+      summary: _marketingConsent,
+    ),
+  ];
 
   Future<List<TermsAgreementItem>> getRequiredTerms() async {
     final terms = await getTerms();
@@ -48,13 +79,31 @@ class TermsAgreementService {
   }
 
   Future<Set<String>> getAgreedTermCodes() async {
+    final authService = _authService;
+    if (_usesRemoteApi && authService != null) {
+      final data = await authService.runWithAccessToken(
+        (accessToken) => _apiClient.get(
+          '/api/terms/agreements/me',
+          accessToken: accessToken,
+        ),
+      );
+      final agreements = data?['agreements'];
+      if (agreements is List<dynamic>) {
+        return agreements
+            .whereType<Map<String, dynamic>>()
+            .where((item) => item['agreed'] == true)
+            .map((item) => item['code']?.toString())
+            .whereType<String>()
+            .toSet();
+      }
+    }
+
     return Set.unmodifiable(_agreedCodes);
   }
 
   Future<void> saveAgreements({
     required List<TermsAgreementItem> agreedTerms,
   }) async {
-    // TODO: Replace with backend API after togethertrip-server-main#74 is ready.
     final agreedCodes = agreedTerms.map((term) => term.code).toSet();
     final requiredTerms = await getRequiredTerms();
     final agreedAllRequired = requiredTerms.every(
@@ -63,6 +112,26 @@ class TermsAgreementService {
     if (!agreedAllRequired) {
       throw StateError('필수 약관에 동의해주세요.');
     }
+
+    final authService = _authService;
+    if (_usesRemoteApi && authService != null) {
+      final allTerms = await getTerms();
+      await authService.runWithAccessToken(
+        (accessToken) => _apiClient.put('/api/terms/agreements', {
+          'agreements': allTerms
+              .where((term) => term.required || agreedCodes.contains(term.code))
+              .map(
+                (term) => {
+                  'code': term.code,
+                  'version': term.version,
+                  'agreed': agreedCodes.contains(term.code),
+                },
+              )
+              .toList(),
+        }, accessToken: accessToken),
+      );
+    }
+
     _agreedCodes
       ..clear()
       ..addAll(agreedCodes);
@@ -79,6 +148,16 @@ class TermsAgreementService {
     );
     if (term.required) {
       throw StateError('필수 약관은 마이페이지에서 해제할 수 없습니다.');
+    }
+
+    final authService = _authService;
+    if (_usesRemoteApi && authService != null) {
+      await authService.runWithAccessToken(
+        (accessToken) => _apiClient.patch('/api/terms/agreements/$code', {
+          'version': term.version,
+          'agreed': agreed,
+        }, accessToken: accessToken),
+      );
     }
 
     if (agreed) {
@@ -103,6 +182,19 @@ class TermsAgreementItem {
     required this.required,
     required this.summary,
   });
+
+  factory TermsAgreementItem.fromJson(Map<String, dynamic> json) {
+    return TermsAgreementItem(
+      code: json['code']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      version:
+          json['version']?.toString() ??
+          json['currentVersion']?.toString() ??
+          '',
+      required: json['required'] == true,
+      summary: json['content']?.toString() ?? json['summary']?.toString() ?? '',
+    );
+  }
 }
 
 const String _serviceTerms = '''

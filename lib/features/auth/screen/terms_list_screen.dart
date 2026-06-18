@@ -34,7 +34,9 @@ class _TermsListScreenState extends State<TermsListScreen> {
   }
 
   void _retry() {
-    setState(() => _termsFuture = _loadTerms());
+    setState(() {
+      _termsFuture = _loadTerms();
+    });
   }
 
   Future<void> _toggleOptionalTerm(TermsAgreementItem term, bool agreed) async {
@@ -47,7 +49,9 @@ class _TermsListScreenState extends State<TermsListScreen> {
         agreed: agreed,
       );
       if (!mounted) return;
-      setState(() => _termsFuture = _loadTerms());
+      setState(() {
+        _termsFuture = _loadTerms();
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(agreed ? '선택 약관에 동의했습니다.' : '선택 약관 동의를 해제했습니다.'),

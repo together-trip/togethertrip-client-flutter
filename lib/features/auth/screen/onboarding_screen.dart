@@ -136,7 +136,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           authService: widget.authService,
           tripService: widget.tripService,
           termsAgreementService:
-              widget.termsAgreementService ?? TermsAgreementService(),
+              widget.termsAgreementService ??
+              TermsAgreementService(authService: widget.authService),
           loginResult: result,
         ),
       ),
