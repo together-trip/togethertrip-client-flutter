@@ -263,7 +263,7 @@ void main() {
       const ValueKey('optionalTermsSwitch_MARKETING_CONSENT'),
     );
     expect(marketingSwitch, findsOneWidget);
-    expect(tester.widget<Switch>(marketingSwitch).value, isFalse);
+    expect(find.textContaining('미동의'), findsOneWidget);
 
     await tester.tap(marketingSwitch);
     await tester.pumpAndSettle();
@@ -271,7 +271,7 @@ void main() {
       await termsAgreementService.getAgreedTermCodes(),
       contains('MARKETING_CONSENT'),
     );
-    expect(tester.widget<Switch>(marketingSwitch).value, isTrue);
+    expect(find.textContaining('동의함'), findsOneWidget);
 
     await tester.tap(marketingSwitch);
     await tester.pumpAndSettle();
@@ -279,7 +279,7 @@ void main() {
       await termsAgreementService.getAgreedTermCodes(),
       isNot(contains('MARKETING_CONSENT')),
     );
-    expect(tester.widget<Switch>(marketingSwitch).value, isFalse);
+    expect(find.textContaining('미동의'), findsOneWidget);
   });
 }
 

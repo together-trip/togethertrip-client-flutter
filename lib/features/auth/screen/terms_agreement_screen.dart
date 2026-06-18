@@ -286,13 +286,12 @@ class _AllTermsTileState extends State<_AllTermsTile> {
             ),
             child: Row(
               children: [
-                Checkbox(
+                _SoftAgreementToggle(
                   key: const ValueKey('agreeAllTermsCheckbox'),
                   value: widget.value,
-                  onChanged: widget.onChanged,
-                  activeColor: AppColors.ink,
+                  onChanged: () => widget.onChanged(!widget.value),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 10),
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -373,13 +372,12 @@ class _TermsTileState extends State<_TermsTile> {
                   padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
                   child: Row(
                     children: [
-                      Checkbox(
+                      _SoftAgreementToggle(
                         key: ValueKey('termsCheckbox_${widget.term.code}'),
                         value: widget.value,
-                        onChanged: widget.onChanged,
-                        activeColor: AppColors.ink,
+                        onChanged: () => widget.onChanged(!widget.value),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 10),
                       _TermRequirementBadge(required: widget.term.required),
                       const SizedBox(width: 10),
                       Expanded(
@@ -424,6 +422,54 @@ class _TermsTileState extends State<_TermsTile> {
                     child: Divider(height: 1, color: AppColors.lineSoft),
                   ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SoftAgreementToggle extends StatelessWidget {
+  final bool value;
+  final VoidCallback onChanged;
+
+  const _SoftAgreementToggle({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onChanged,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
+        width: 38,
+        height: 24,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: value ? AppColors.ink : const Color(0xFFEDEAE3),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 18,
+            height: 18,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: value ? 1 : 0,
+              child: const Icon(Icons.check, size: 13, color: AppColors.ink),
             ),
           ),
         ),

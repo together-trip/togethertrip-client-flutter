@@ -244,15 +244,13 @@ class _TermsMenuRowState extends State<_TermsMenuRow> {
                         ),
                       ),
                       if (!widget.term.required)
-                        Switch(
+                        _SoftOptionalToggle(
                           key: ValueKey(
                             'optionalTermsSwitch_${widget.term.code}',
                           ),
                           value: widget.agreed,
-                          onChanged: widget.isSaving
-                              ? null
-                              : widget.onAgreementChanged,
-                          activeThumbColor: AppColors.ink,
+                          loading: widget.isSaving,
+                          onChanged: widget.onAgreementChanged,
                         ),
                     ],
                   ),
@@ -263,6 +261,66 @@ class _TermsMenuRowState extends State<_TermsMenuRow> {
                     child: Divider(height: 1, color: AppColors.lineSoft),
                   ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SoftOptionalToggle extends StatelessWidget {
+  final bool value;
+  final bool loading;
+  final ValueChanged<bool>? onChanged;
+
+  const _SoftOptionalToggle({
+    super.key,
+    required this.value,
+    required this.loading,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = !loading && onChanged != null;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: enabled ? () => onChanged!(!value) : null,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 140),
+        opacity: enabled ? 1 : 0.58,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          width: 44,
+          height: 26,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: value ? AppColors.ink : const Color(0xFFEDEAE3),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: loading
+                  ? const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.ink,
+                      ),
+                    )
+                  : null,
             ),
           ),
         ),
