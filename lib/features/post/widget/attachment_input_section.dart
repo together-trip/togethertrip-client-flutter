@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
+import '../../../core/widget/app_design.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
@@ -105,10 +107,7 @@ class _AttachmentInputSectionState extends State<AttachmentInputSection> {
             onPressed: widget.enabled ? _pickImages : null,
             icon: const Icon(Icons.add_photo_alternate_outlined, size: 20),
             label: const Text('사진 추가'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF1A1A1A),
-              side: const BorderSide(color: Color(0xFFE0E0E0)),
-            ),
+            style: AppButtonStyles.outlined(sideColor: AppColors.line),
           )
         else
           SizedBox(
@@ -191,10 +190,7 @@ class _NewAttachmentPreview extends StatelessWidget {
             icon: const Icon(Icons.close, size: 16),
             constraints: const BoxConstraints.tightFor(width: 28, height: 28),
             padding: EdgeInsets.zero,
-            style: IconButton.styleFrom(
-              backgroundColor: const Color(0xFF1A1A1A),
-              foregroundColor: Colors.white,
-            ),
+            style: AppIconButtonStyles.filledInk(),
           ),
         ),
       ],

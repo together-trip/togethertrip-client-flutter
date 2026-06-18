@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/widget/app_design.dart';
 import '../../main/screen/main_shell_screen.dart';
 import '../../trip/service/trip_service.dart';
 import '../service/auth_service.dart';
 import '../service/profile_image_input_helper.dart';
+import '../service/terms_agreement_service.dart';
 import '../widget/profile_form_fields.dart';
 import '../widget/profile_image_picker.dart';
 import '../widget/profile_input_formatters.dart';
@@ -25,6 +27,7 @@ enum _Gender {
 class SignUpProfileScreen extends StatefulWidget {
   final AuthService authService;
   final TripService? tripService;
+  final TermsAgreementService? termsAgreementService;
   final String? temporaryToken;
 
   /// 값이 있으면 "개인정보 수정" 모드로 동작하며 기존 내용을 프리필한다.
@@ -35,6 +38,7 @@ class SignUpProfileScreen extends StatefulWidget {
     super.key,
     required this.authService,
     this.tripService,
+    this.termsAgreementService,
     required this.temporaryToken,
     this.initialProfile,
   });
@@ -186,6 +190,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
             builder: (_) => MainShellScreen(
               authService: widget.authService,
               tripService: widget.tripService,
+              termsAgreementService: widget.termsAgreementService,
             ),
           ),
           (_) => false,
@@ -309,6 +314,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
           builder: (_) => MainShellScreen(
             authService: widget.authService,
             tripService: widget.tripService,
+            termsAgreementService: widget.termsAgreementService,
           ),
         ),
         (_) => false,
@@ -388,19 +394,15 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
           tooltip: '뒤로',
           onPressed: () => Navigator.of(context).maybePop(),
           icon: const Icon(Icons.chevron_left, size: 24),
-          color: const Color(0xFF1A1A1A),
+          color: AppColors.ink,
         ),
         title: Text(
           _isEditMode ? '개인정보 수정' : '프로필 설정',
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF1A1A1A),
+            color: AppColors.ink,
           ),
-        ),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: Color(0xFF1A1A1A)),
         ),
       ),
       body: SafeArea(
@@ -452,19 +454,25 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                     onPressed: _isCheckingNickname
                                         ? null
                                         : _checkNickname,
-                                    style: OutlinedButton.styleFrom(
-                                      backgroundColor: _isNicknameConfirmed
-                                          ? const Color(0xFFEAF7EE)
-                                          : const Color(0xFF1A1A1A),
-                                      foregroundColor: _isNicknameConfirmed
-                                          ? const Color(0xFF16833C)
-                                          : Colors.white,
-                                      disabledForegroundColor: const Color(
-                                        0xFF9E9E9E,
+                                    style: AppButtonStyles.outlined().copyWith(
+                                      backgroundColor: WidgetStatePropertyAll(
+                                        _isNicknameConfirmed
+                                            ? AppColors.surface
+                                            : AppColors.ink,
                                       ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
+                                      foregroundColor:
+                                          WidgetStateProperty.resolveWith((
+                                            states,
+                                          ) {
+                                            if (states.contains(
+                                              WidgetState.disabled,
+                                            )) {
+                                              return AppColors.textMuted;
+                                            }
+                                            return _isNicknameConfirmed
+                                                ? AppColors.ink
+                                                : Colors.white;
+                                          }),
                                     ),
                                     child: Text(
                                       _isNicknameConfirmed
@@ -482,7 +490,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                               const Text(
                                 '사용 가능한 닉네임입니다.',
                                 style: TextStyle(
-                                  color: Color(0xFF16833C),
+                                  color: AppColors.ink,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -573,20 +581,25 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                           _isRequestingCode || _isPhoneVerified
                                           ? null
                                           : _requestCode,
-                                      style: OutlinedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFF1A1A1A,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        disabledForegroundColor: const Color(
-                                          0xFF9E9E9E,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
+                                      style: AppButtonStyles.outlined()
+                                          .copyWith(
+                                            backgroundColor:
+                                                const WidgetStatePropertyAll(
+                                                  AppColors.ink,
+                                                ),
+                                            foregroundColor:
+                                                WidgetStateProperty.resolveWith(
+                                                  (states) {
+                                                    if (states.contains(
+                                                      WidgetState.disabled,
+                                                    )) {
+                                                      return AppColors
+                                                          .textMuted;
+                                                    }
+                                                    return Colors.white;
+                                                  },
+                                                ),
                                           ),
-                                        ),
-                                      ),
                                       child: Text(
                                         _isPhoneVerified
                                             ? '완료'
@@ -631,13 +644,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                                 _isPhoneVerified
                                             ? null
                                             : _confirmCode,
-                                        style: OutlinedButton.styleFrom(
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
+                                        style: AppButtonStyles.outlined(),
                                         child: Text(
                                           _isPhoneVerified
                                               ? '확인됨'
@@ -654,13 +661,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                           ),
                         ),
                       if (_errorMessage != null) ...[
-                        Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 12,
-                          ),
-                        ),
+                        AppErrorText(_errorMessage!),
                         const SizedBox(height: 12),
                       ],
                       SizedBox(
@@ -668,14 +669,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                         child: ElevatedButton(
                           key: const ValueKey('submitButton'),
                           onPressed: _isSubmitting ? null : _submit,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1A1A1A),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
+                          style: AppButtonStyles.elevatedPrimary(),
                           child: Text(
                             _isSubmitting
                                 ? '저장중'
@@ -719,7 +713,6 @@ class _ReadOnlyPhoneInfo extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF8F8F8),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E5E5)),
       ),
       child: Row(
         children: [
@@ -729,7 +722,7 @@ class _ReadOnlyPhoneInfo extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A),
+                color: AppColors.ink,
               ),
             ),
           ),
@@ -738,9 +731,7 @@ class _ReadOnlyPhoneInfo extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: phoneVerified
-                  ? const Color(0xFF16833C)
-                  : const Color(0xFF9E9E9E),
+              color: phoneVerified ? AppColors.ink : AppColors.textMuted,
             ),
           ),
         ],

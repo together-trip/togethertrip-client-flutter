@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/widget/app_design.dart';
 import '../../../core/widget/app_date_picker.dart';
+import '../../notification/screen/notification_list_screen.dart';
 import '../model/exchange_rate_models.dart';
 import '../service/exchange_rate_service.dart';
 
@@ -173,12 +175,8 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
   }
 
   void _showSettlementNotice() {
-    showModalBottomSheet<void>(
+    showAppBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-      ),
       builder: (context) {
         return SafeArea(
           top: false,
@@ -188,23 +186,14 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE0E0E0),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                ),
+                const AppSheetHandle(),
                 const SizedBox(height: 18),
                 const Text(
                   '정산 환율 안내',
                   style: TextStyle(
-                    color: Color(0xFF1A1A1A),
+                    color: AppColors.ink,
                     fontSize: 17,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -222,17 +211,14 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A1A1A),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                    style: AppButtonStyles.elevatedPrimary().copyWith(
+                      padding: const WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(vertical: 13),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
                     ),
                     child: const Text(
                       '확인',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
@@ -241,6 +227,12 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _openNotifications() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const NotificationListScreen()),
     );
   }
 
@@ -256,16 +248,23 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
           '환율',
           style: TextStyle(
             fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF1A1A1A),
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink,
           ),
         ),
         actions: [
           IconButton(
+            key: const ValueKey('exchangeNotificationButton'),
+            onPressed: _openNotifications,
+            icon: const Icon(Icons.notifications_none, size: 22),
+            color: AppColors.ink,
+            tooltip: '알림',
+          ),
+          IconButton(
             key: const ValueKey('exchangeRefreshButton'),
             onPressed: _isLoading ? null : _loadRates,
             icon: const Icon(Icons.refresh, size: 22),
-            color: const Color(0xFF1A1A1A),
+            color: AppColors.ink,
             tooltip: '환율 새로고침',
           ),
           const SizedBox(width: 8),
@@ -342,7 +341,7 @@ class _CountrySelector extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF6B6B6B),
+                color: AppColors.textSubtle,
               ),
             ),
             const SizedBox(height: 8),
@@ -360,7 +359,7 @@ class _CountrySelector extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -409,10 +408,10 @@ class _PeriodSelector extends StatelessWidget {
             label: Text(option.$2),
             selected: selected,
             onSelected: onSelect == null ? null : (_) => onSelect!(option.$1),
-            selectedColor: const Color(0xFF1A1A1A),
+            selectedColor: AppColors.ink,
             backgroundColor: Colors.white,
             labelStyle: TextStyle(
-              color: selected ? Colors.white : const Color(0xFF1A1A1A),
+              color: selected ? Colors.white : AppColors.ink,
               fontWeight: FontWeight.w700,
             ),
             shape: RoundedRectangleBorder(
@@ -464,7 +463,7 @@ class _RateSummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: AppColors.ink,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -519,7 +518,7 @@ class _RateSummaryCard extends StatelessWidget {
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 24,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),
@@ -537,8 +536,8 @@ class _RateSummaryCard extends StatelessWidget {
               inputFormatters: const [_MoneyInputFormatter()],
               onChanged: (_) => onAmountChanged(),
               style: const TextStyle(
-                color: Color(0xFF1A1A1A),
-                fontWeight: FontWeight.w800,
+                color: AppColors.ink,
+                fontWeight: FontWeight.w700,
               ),
               decoration: InputDecoration(
                 filled: true,
@@ -584,7 +583,7 @@ class _RateSummaryCard extends StatelessWidget {
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -632,7 +631,7 @@ class _RateHistorySection extends StatelessWidget {
           '기간이나 국가를 바꿔 다시 조회해보세요.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFF6B6B6B),
+            color: AppColors.textSubtle,
             fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
@@ -645,7 +644,7 @@ class _RateHistorySection extends StatelessWidget {
       children: [
         const Text(
           '기간별 환율',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),
         Container(
@@ -678,8 +677,8 @@ class _RateHistorySection extends StatelessWidget {
                           rate.rateDate,
                           style: const TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1A1A1A),
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
                           ),
                         ),
                       ),
@@ -687,8 +686,8 @@ class _RateHistorySection extends StatelessWidget {
                         '${_formatRate(rate.rate)} KRW',
                         style: const TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF1A1A1A),
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
                         ),
                       ),
                     ],
@@ -720,7 +719,7 @@ class _ErrorCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: Color(0xFFCC0000), size: 20),
+          const Icon(Icons.error_outline, color: AppColors.danger, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

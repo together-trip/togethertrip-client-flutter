@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:togethertrip/features/my/screen/my_placeholder_screen.dart';
 import 'package:togethertrip/features/auth/service/auth_service.dart';
+import 'package:togethertrip/features/auth/service/terms_agreement_service.dart';
 import 'package:togethertrip/features/trip/service/trip_service.dart';
 import 'package:togethertrip/main.dart';
 
@@ -21,6 +23,12 @@ void main() {
     );
 
     await tester.tap(find.text('카카오로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('약관 동의'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('continueTermsButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('프로필 설정'), findsOneWidget);
@@ -69,6 +77,44 @@ void main() {
     expect(authService.updatedBirthDate, '1990-01-01');
   });
 
+  testWidgets('선택 약관을 선택하지 않아도 필수 약관만 동의하면 다음 단계로 이동한다', (
+    WidgetTester tester,
+  ) async {
+    final authService = _FakeAuthService(confirmStatus: 'PROFILE_REQUIRED');
+    await tester.pumpWidget(
+      TogetherTripApp(
+        authService: authService,
+        tripService: _FakeTripService(),
+      ),
+    );
+
+    await tester.tap(find.text('카카오로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('약관 동의'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('termsCheckbox_SERVICE_TERMS')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('termsCheckbox_PRIVACY_POLICY')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('termsCheckbox_LOCATION_INFO_TERMS')),
+    );
+    await tester.pumpAndSettle();
+
+    final continueButton = tester.widget<FilledButton>(
+      find.byKey(const ValueKey('continueTermsButton')),
+    );
+    expect(continueButton.onPressed, isNotNull);
+
+    await tester.tap(find.byKey(const ValueKey('continueTermsButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('프로필 설정'), findsOneWidget);
+  });
+
   testWidgets('재가입자는 전화번호 인증 후 프로필 입력 없이 메인으로 이동한다', (
     WidgetTester tester,
   ) async {
@@ -81,6 +127,12 @@ void main() {
     );
 
     await tester.tap(find.text('카카오로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('약관 동의'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('continueTermsButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('프로필 설정'), findsOneWidget);
@@ -115,6 +167,12 @@ void main() {
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
 
+    expect(find.text('약관 동의'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('continueTermsButton')));
+    await tester.pumpAndSettle();
+
     expect(find.text('프로필 설정'), findsOneWidget);
     expect(find.byKey(const ValueKey('phoneField')), findsNothing);
 
@@ -129,6 +187,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('여행'), findsWidgets);
+  });
+
+  testWidgets('카카오 로그인 취소는 화면 오류로 표시하지 않는다', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      TogetherTripApp(authService: _CancelLoginAuthService()),
+    );
+
+    await tester.tap(find.text('카카오로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('PlatformException'), findsNothing);
+    expect(find.textContaining('오류가 발생했습니다'), findsNothing);
+    expect(find.textContaining('카카오 SDK 오류'), findsNothing);
+    expect(find.text('카카오로 시작하기'), findsOneWidget);
   });
 
   testWidgets('개인정보 수정 화면에서 마스킹 전화번호가 표시된다', (WidgetTester tester) async {
@@ -148,6 +220,66 @@ void main() {
     expect(find.text('전화번호'), findsOneWidget);
     expect(find.text('010-****-5678'), findsOneWidget);
     expect(find.text('인증 완료'), findsOneWidget);
+  });
+
+  testWidgets('마이페이지 약관 메뉴에서 약관을 확인한다', (WidgetTester tester) async {
+    final authService = _FakeAuthService();
+    await tester.pumpWidget(
+      MaterialApp(home: MyPlaceholderScreen(authService: authService)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('약관'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('서비스 이용약관'), findsOneWidget);
+    expect(find.text('개인정보 처리방침'), findsOneWidget);
+    expect(find.text('위치기반서비스 이용약관'), findsOneWidget);
+    expect(find.text('광고성 정보 수신 동의'), findsOneWidget);
+
+    await tester.tap(find.text('서비스 이용약관'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('여행방, 동행자 관리'), findsOneWidget);
+  });
+
+  testWidgets('마이페이지에서 선택 약관을 언제든 저장하거나 해제한다', (WidgetTester tester) async {
+    final authService = _FakeAuthService();
+    final termsAgreementService = TermsAgreementService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MyPlaceholderScreen(
+          authService: authService,
+          termsAgreementService: termsAgreementService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('약관'));
+    await tester.pumpAndSettle();
+
+    final marketingSwitch = find.byKey(
+      const ValueKey('optionalTermsSwitch_MARKETING_CONSENT'),
+    );
+    expect(marketingSwitch, findsOneWidget);
+    expect(find.textContaining('미동의'), findsOneWidget);
+
+    await tester.tap(marketingSwitch);
+    await tester.pumpAndSettle();
+    expect(
+      await termsAgreementService.getAgreedTermCodes(),
+      contains('MARKETING_CONSENT'),
+    );
+    expect(find.textContaining('동의함'), findsOneWidget);
+
+    await tester.tap(marketingSwitch);
+    await tester.pumpAndSettle();
+    expect(
+      await termsAgreementService.getAgreedTermCodes(),
+      isNot(contains('MARKETING_CONSENT')),
+    );
+    expect(find.textContaining('미동의'), findsOneWidget);
   });
 }
 
@@ -250,6 +382,13 @@ class _FakeAuthService extends AuthService {
     Future<T> Function(String accessToken) request,
   ) {
     return request('access-token');
+  }
+}
+
+class _CancelLoginAuthService extends AuthService {
+  @override
+  Future<AuthLoginResult> loginWithKakao() async {
+    throw PlatformException(code: 'CANCELED', message: 'User canceled login');
   }
 }
 

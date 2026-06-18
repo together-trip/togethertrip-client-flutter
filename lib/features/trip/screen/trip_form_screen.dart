@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/widget/app_design.dart';
 import '../service/trip_service.dart';
 
 class TripFormScreen extends StatefulWidget {
@@ -650,31 +651,48 @@ class _TripFormScreenState extends State<TripFormScreen> {
                 const SizedBox(height: 12),
                 Text(
                   _errorMessage!,
-                  style: const TextStyle(
-                    color: Color(0xFFCC0000),
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: AppColors.danger, fontSize: 12),
                 ),
               ],
               const SizedBox(height: 16),
-              SizedBox(
-                height: 52,
-                child: ElevatedButton(
-                  key: const ValueKey('saveTripButton'),
-                  onPressed: _isSaving ? null : _handlePrimaryAction,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A1A1A),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(0),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 52,
+                      child: OutlinedButton(
+                        key: const ValueKey('cancelTripButton'),
+                        onPressed: _isSaving
+                            ? null
+                            : () => Navigator.of(context).maybePop(),
+                        style:
+                            AppButtonStyles.outlined(
+                              sideColor: AppColors.lineSoft,
+                            ).copyWith(
+                              side: const WidgetStatePropertyAll(
+                                BorderSide(color: AppColors.lineSoft),
+                              ),
+                            ),
+                        child: const Text('취소'),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    _isSaving ? '저장 중...' : (_step == 3 ? '완료' : '다음'),
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
+                        key: const ValueKey('saveTripButton'),
+                        onPressed: _isSaving ? null : _handlePrimaryAction,
+                        style: AppButtonStyles.elevatedPrimary(),
+                        child: Text(
+                          _isSaving ? '저장 중...' : (_step == 3 ? '완료' : '다음'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -748,11 +766,8 @@ class _TripWizardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 56,
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF1A1A1A))),
-      ),
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -761,7 +776,7 @@ class _TripWizardHeader extends StatelessWidget {
             child: IconButton(
               onPressed: onBack,
               icon: const Icon(Icons.chevron_left, size: 22),
-              color: const Color(0xFF1A1A1A),
+              color: AppColors.ink,
               tooltip: '뒤로',
             ),
           ),
@@ -792,9 +807,7 @@ class _StepIndicator extends StatelessWidget {
             width: isActive ? 20 : 6,
             height: 6,
             decoration: BoxDecoration(
-              color: isActive
-                  ? const Color(0xFF1A1A1A)
-                  : const Color(0xFFD9D9D9),
+              color: isActive ? AppColors.ink : const Color(0xFFD9D9D9),
               borderRadius: BorderRadius.circular(3),
             ),
           ),
@@ -956,13 +969,12 @@ class _CompanionStep extends StatelessWidget {
                 )
               : const Icon(Icons.search, size: 16),
           label: const Text('사용자 검색'),
-          style: OutlinedButton.styleFrom(
-            disabledForegroundColor: const Color(0xFF1A1A1A),
-            side: const BorderSide(color: Color(0xFF1A1A1A)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(0),
-            ),
-            minimumSize: const Size.fromHeight(42),
+          style: AppButtonStyles.outlined().copyWith(
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) return AppColors.ink;
+              return AppColors.ink;
+            }),
+            minimumSize: const WidgetStatePropertyAll(Size.fromHeight(42)),
           ),
         ),
         const SizedBox(height: 8),
@@ -972,13 +984,12 @@ class _CompanionStep extends StatelessWidget {
           onPressed: isEdit ? null : onAddGuest,
           icon: const Icon(Icons.person_add_alt_1_outlined, size: 16),
           label: const Text('동행자 이름으로 추가'),
-          style: OutlinedButton.styleFrom(
-            disabledForegroundColor: const Color(0xFF1A1A1A),
-            side: const BorderSide(color: Color(0xFF1A1A1A)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(0),
-            ),
-            minimumSize: const Size.fromHeight(42),
+          style: AppButtonStyles.outlined().copyWith(
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) return AppColors.ink;
+              return AppColors.ink;
+            }),
+            minimumSize: const WidgetStatePropertyAll(Size.fromHeight(42)),
           ),
         ),
         if (searchedUser != null) ...[
@@ -1056,14 +1067,14 @@ class _UserSearchResultRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: const Color(0xFFFAFAFA),
-          border: Border.all(color: const Color(0xFF1A1A1A)),
+          border: Border.all(color: AppColors.ink),
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 16,
               backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF1A1A1A),
+              foregroundColor: AppColors.ink,
               child: Text(
                 user.nickname.characters.first,
                 style: const TextStyle(fontSize: 12),
@@ -1079,7 +1090,7 @@ class _UserSearchResultRow extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.add, size: 18, color: Color(0xFF1A1A1A)),
+            const Icon(Icons.add, size: 18, color: AppColors.ink),
           ],
         ),
       ),
@@ -1100,13 +1111,13 @@ class _StepTitle extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
         ),
         if (subtitle.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B6B)),
+            style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
           ),
         ],
       ],
@@ -1167,29 +1178,17 @@ class _BoxTextField extends StatelessWidget {
       readOnly: readOnly,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
-      decoration: InputDecoration(
+      decoration: AppInputDecorations.filled(
         hintText: hintText,
         counterText: maxLength == null ? null : '',
         prefixIcon: prefixIcon == null
             ? null
             : Icon(prefixIcon, size: 18, color: const Color(0xFF4A4A4A)),
         suffixText: suffixText,
-        suffixStyle: const TextStyle(color: Color(0xFF6B6B6B)),
+        suffixStyle: const TextStyle(color: AppColors.textSubtle),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 13,
-        ),
-        border: const OutlineInputBorder(
-          borderRadius: BorderRadius.zero,
-          borderSide: BorderSide(color: Color(0xFF1A1A1A)),
-        ),
-        enabledBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.zero,
-          borderSide: BorderSide(color: Color(0xFF1A1A1A)),
-        ),
-        focusedBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.zero,
-          borderSide: BorderSide(color: Color(0xFF1A1A1A), width: 1.4),
         ),
       ),
     );
@@ -1243,9 +1242,7 @@ class _CountryRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFFAFAFA) : Colors.white,
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF1A1A1A)
-                : const Color(0xFFE5E5E5),
+            color: isSelected ? AppColors.ink : const Color(0xFFE5E5E5),
             width: isSelected ? 1.4 : 1,
           ),
         ),
@@ -1261,8 +1258,8 @@ class _CountryRow extends StatelessWidget {
               height: 20,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF1A1A1A) : Colors.white,
-                  border: Border.all(color: const Color(0xFF1A1A1A)),
+                  color: isSelected ? AppColors.ink : Colors.white,
+                  border: Border.all(color: AppColors.ink),
                 ),
                 child: isSelected
                     ? const Icon(Icons.check, size: 14, color: Colors.white)
@@ -1301,7 +1298,7 @@ class _ScheduleSummary extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             '${startDate.isEmpty ? '시작일' : startDate} - ${endDate.isEmpty ? '종료일' : endDate}',
-            style: const TextStyle(fontSize: 11, color: Color(0xFF6B6B6B)),
+            style: const TextStyle(fontSize: 11, color: AppColors.textSubtle),
           ),
         ],
       ),
@@ -1341,7 +1338,7 @@ class _CompanionRow extends StatelessWidget {
           CircleAvatar(
             radius: 16,
             backgroundColor: const Color(0xFFFAFAFA),
-            foregroundColor: const Color(0xFF6B6B6B),
+            foregroundColor: AppColors.textSubtle,
             child: Text(
               name.characters.first,
               style: const TextStyle(fontSize: 12),
@@ -1354,13 +1351,12 @@ class _CompanionRow extends StatelessWidget {
                     key: const ValueKey('guestCompanionNameField'),
                     initialValue: name,
                     onChanged: onRename,
-                    decoration: const InputDecoration(
+                    decoration: AppInputDecorations.filled(
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 8,
                       ),
-                      border: OutlineInputBorder(),
                     ),
                     style: const TextStyle(fontSize: 13),
                   )
@@ -1371,7 +1367,7 @@ class _CompanionRow extends StatelessWidget {
               margin: const EdgeInsets.only(left: 8),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF1A1A1A)),
+                border: Border.all(color: AppColors.ink),
               ),
               child: Text(
                 role!,

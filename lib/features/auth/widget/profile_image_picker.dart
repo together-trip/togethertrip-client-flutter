@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 import '../../../core/network/api_client.dart';
 import '../service/auth_service.dart';
 
@@ -55,12 +57,7 @@ class ProfileImagePicker extends StatelessWidget {
           onPressed: onPick,
           icon: const Icon(Icons.photo_camera_outlined, size: 18),
           label: Text(buttonLabel),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF1A1A1A),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          style: AppButtonStyles.outlined(),
         ),
       ],
     );
@@ -85,7 +82,7 @@ class ProfileImageFallback extends StatelessWidget {
       child: Center(
         child: Text(
           initial,
-          style: const TextStyle(fontSize: 18, color: Color(0xFF6B6B6B)),
+          style: const TextStyle(fontSize: 18, color: AppColors.textSubtle),
         ),
       ),
     );

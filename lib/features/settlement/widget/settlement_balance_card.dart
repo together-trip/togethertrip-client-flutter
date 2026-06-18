@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 import '../model/settlement_models.dart';
 
 class SettlementBalanceCard extends StatelessWidget {
@@ -29,10 +31,7 @@ class SettlementBalanceCard extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: const Color(0xFF1A1A1A),
-          width: balance.isMe ? 2 : 1,
-        ),
+        border: Border.all(color: AppColors.ink, width: balance.isMe ? 2 : 1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -48,7 +47,7 @@ class SettlementBalanceCard extends StatelessWidget {
                       : balance.displayName.substring(0, 1),
                   style: const TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF6B6B6B),
+                    color: AppColors.textSubtle,
                   ),
                 ),
               ),
@@ -97,7 +96,7 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFF1A1A1A)),
+        border: Border.all(color: AppColors.ink),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -128,7 +127,7 @@ class _AmountRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF6B6B6B)),
+              style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
             ),
           ),
           Text(

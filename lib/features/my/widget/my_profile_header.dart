@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 import '../../../core/network/api_client.dart';
 import '../../auth/service/auth_service.dart';
 
@@ -27,9 +29,6 @@ class MyProfileHeader extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFF1A1A1A))),
-        ),
         child: Row(
           children: [
             ClipOval(
@@ -56,13 +55,13 @@ class MyProfileHeader extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
+                      color: AppColors.ink,
                     ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     '프로필 보기',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF6B6B6B)),
+                    style: TextStyle(fontSize: 11, color: AppColors.textSubtle),
                   ),
                 ],
               ),
@@ -86,14 +85,13 @@ class _ProfileFallback extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: const Color(0xFFF2F2F2),
-        border: Border.all(color: const Color(0xFFC7C7C7)),
       ),
       child: Center(
         child: Text(
           (nickname != null && nickname!.isNotEmpty)
               ? nickname!.substring(0, 1)
               : '나',
-          style: const TextStyle(fontSize: 16, color: Color(0xFF6B6B6B)),
+          style: const TextStyle(fontSize: 16, color: AppColors.textSubtle),
         ),
       ),
     );

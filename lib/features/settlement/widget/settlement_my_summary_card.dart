@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 import '../model/settlement_models.dart';
 
 class SettlementMySummaryCard extends StatelessWidget {
@@ -21,7 +23,7 @@ class SettlementMySummaryCard extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFF1A1A1A), width: 2),
+        border: Border.all(color: AppColors.ink, width: 2),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -80,7 +82,7 @@ class _SummaryMetric extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF6B6B6B)),
+          style: const TextStyle(fontSize: 11, color: AppColors.textSubtle),
         ),
         const SizedBox(height: 4),
         Text(

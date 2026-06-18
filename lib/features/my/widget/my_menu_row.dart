@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
+
 class MyMenuRow extends StatelessWidget {
   const MyMenuRow({
     super.key,
     required this.icon,
     required this.label,
     required this.onTap,
-    this.labelColor = const Color(0xFF1A1A1A),
+    this.labelColor = AppColors.ink,
   });
 
   final IconData icon;
@@ -21,9 +23,6 @@ class MyMenuRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFFE5E5E5))),
-        ),
         child: Row(
           children: [
             Icon(icon, size: 20, color: labelColor),
