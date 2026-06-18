@@ -655,17 +655,44 @@ class _TripFormScreenState extends State<TripFormScreen> {
                 ),
               ],
               const SizedBox(height: 16),
-              SizedBox(
-                height: 52,
-                child: ElevatedButton(
-                  key: const ValueKey('saveTripButton'),
-                  onPressed: _isSaving ? null : _handlePrimaryAction,
-                  style: AppButtonStyles.elevatedPrimary(),
-                  child: Text(
-                    _isSaving ? '저장 중...' : (_step == 3 ? '완료' : '다음'),
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 52,
+                      child: OutlinedButton(
+                        key: const ValueKey('cancelTripButton'),
+                        onPressed: _isSaving
+                            ? null
+                            : () => Navigator.of(context).maybePop(),
+                        style:
+                            AppButtonStyles.outlined(
+                              sideColor: AppColors.lineSoft,
+                            ).copyWith(
+                              side: const WidgetStatePropertyAll(
+                                BorderSide(color: AppColors.lineSoft),
+                              ),
+                            ),
+                        child: const Text('취소'),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
+                        key: const ValueKey('saveTripButton'),
+                        onPressed: _isSaving ? null : _handlePrimaryAction,
+                        style: AppButtonStyles.elevatedPrimary(),
+                        child: Text(
+                          _isSaving ? '저장 중...' : (_step == 3 ? '완료' : '다음'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

@@ -9,6 +9,7 @@ import '../../main/screen/main_shell_screen.dart';
 import '../../trip/service/trip_service.dart';
 import '../service/auth_service.dart';
 import '../service/profile_image_input_helper.dart';
+import '../service/terms_agreement_service.dart';
 import '../widget/profile_form_fields.dart';
 import '../widget/profile_image_picker.dart';
 import '../widget/profile_input_formatters.dart';
@@ -26,6 +27,7 @@ enum _Gender {
 class SignUpProfileScreen extends StatefulWidget {
   final AuthService authService;
   final TripService? tripService;
+  final TermsAgreementService? termsAgreementService;
   final String? temporaryToken;
 
   /// 값이 있으면 "개인정보 수정" 모드로 동작하며 기존 내용을 프리필한다.
@@ -36,6 +38,7 @@ class SignUpProfileScreen extends StatefulWidget {
     super.key,
     required this.authService,
     this.tripService,
+    this.termsAgreementService,
     required this.temporaryToken,
     this.initialProfile,
   });
@@ -187,6 +190,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
             builder: (_) => MainShellScreen(
               authService: widget.authService,
               tripService: widget.tripService,
+              termsAgreementService: widget.termsAgreementService,
             ),
           ),
           (_) => false,
@@ -310,6 +314,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
           builder: (_) => MainShellScreen(
             authService: widget.authService,
             tripService: widget.tripService,
+            termsAgreementService: widget.termsAgreementService,
           ),
         ),
         (_) => false,

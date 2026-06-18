@@ -155,36 +155,14 @@ class _PostFormSheetState extends State<PostFormSheet> {
                 ),
               ),
               const SizedBox(height: 18),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: _isSubmitting
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    child: const Text('취소'),
-                  ),
-                  Expanded(
-                    child: Text(
-                      _isEditing ? '기록 수정' : '기록 작성',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _isSubmitting ? null : _submit,
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_isEditing ? '저장' : '등록'),
-                  ),
-                ],
+              Text(
+                _isEditing ? '기록 수정' : '기록 작성',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -271,7 +249,52 @@ class _PostFormSheetState extends State<PostFormSheet> {
                   style: const TextStyle(color: AppColors.danger, fontSize: 12),
                 ),
               ],
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: OutlinedButton(
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => Navigator.of(context).pop(false),
+                        style:
+                            AppButtonStyles.outlined(
+                              sideColor: AppColors.lineSoft,
+                            ).copyWith(
+                              side: const WidgetStatePropertyAll(
+                                BorderSide(color: AppColors.lineSoft),
+                              ),
+                            ),
+                        child: const Text('취소'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: FilledButton(
+                        key: const ValueKey('savePostButton'),
+                        onPressed: _isSubmitting ? null : _submit,
+                        style: AppButtonStyles.primary(),
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(_isEditing ? '저장' : '등록'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
             ],
           ),
         );

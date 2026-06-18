@@ -6,15 +6,22 @@ import '../../auth/screen/onboarding_screen.dart';
 import '../../auth/screen/sign_up_profile_screen.dart';
 import '../../auth/screen/terms_list_screen.dart';
 import '../../auth/service/auth_service.dart';
+import '../../auth/service/terms_agreement_service.dart';
 import '../../notification/screen/notification_list_screen.dart';
 import '../widget/my_menu_row.dart';
 import '../widget/my_profile_header.dart';
 
 class MyPlaceholderScreen extends StatefulWidget {
   final AuthService? authService;
+  final TermsAgreementService? termsAgreementService;
   final VoidCallback? onBack;
 
-  const MyPlaceholderScreen({super.key, this.authService, this.onBack});
+  const MyPlaceholderScreen({
+    super.key,
+    this.authService,
+    this.termsAgreementService,
+    this.onBack,
+  });
 
   @override
   State<MyPlaceholderScreen> createState() => _MyPlaceholderScreenState();
@@ -22,6 +29,7 @@ class MyPlaceholderScreen extends StatefulWidget {
 
 class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
   late final AuthService _authService;
+  late final TermsAgreementService _termsAgreementService;
 
   UserProfile? _profile;
   bool _isLoading = true;
@@ -32,6 +40,8 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
   void initState() {
     super.initState();
     _authService = widget.authService ?? AuthService();
+    _termsAgreementService =
+        widget.termsAgreementService ?? TermsAgreementService();
     _loadProfile();
   }
 
@@ -64,6 +74,7 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
       MaterialPageRoute<bool>(
         builder: (_) => SignUpProfileScreen(
           authService: _authService,
+          termsAgreementService: _termsAgreementService,
           temporaryToken: null,
           initialProfile: profile,
         ),
@@ -159,9 +170,12 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
   }
 
   void _openTerms() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const TermsListScreen()));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            TermsListScreen(termsAgreementService: _termsAgreementService),
+      ),
+    );
   }
 
   void _showPreparingMessage(String featureName) {

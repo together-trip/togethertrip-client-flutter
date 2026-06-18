@@ -6,6 +6,7 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'core/env/env.dart';
 import 'features/auth/screen/onboarding_screen.dart';
 import 'features/auth/service/auth_service.dart';
+import 'features/auth/service/terms_agreement_service.dart';
 import 'features/trip/service/trip_service.dart';
 
 void main() {
@@ -18,8 +19,14 @@ void main() {
 class TogetherTripApp extends StatelessWidget {
   final AuthService? authService;
   final TripService? tripService;
+  final TermsAgreementService? termsAgreementService;
 
-  const TogetherTripApp({super.key, this.authService, this.tripService});
+  const TogetherTripApp({
+    super.key,
+    this.authService,
+    this.tripService,
+    this.termsAgreementService,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +43,7 @@ class TogetherTripApp extends StatelessWidget {
       home: OnboardingScreen(
         authService: authService ?? AuthService(),
         tripService: tripService,
+        termsAgreementService: termsAgreementService,
       ),
     );
   }

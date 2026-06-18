@@ -94,6 +94,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             builder: (_) => MainShellScreen(
               authService: widget.authService,
               tripService: widget.tripService,
+              termsAgreementService: widget.termsAgreementService,
             ),
           ),
         );

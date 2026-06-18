@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:togethertrip/features/my/screen/my_placeholder_screen.dart';
 import 'package:togethertrip/features/auth/service/auth_service.dart';
+import 'package:togethertrip/features/auth/service/terms_agreement_service.dart';
 import 'package:togethertrip/features/trip/service/trip_service.dart';
 import 'package:togethertrip/main.dart';
 
@@ -73,6 +74,44 @@ void main() {
     expect(authService.updatedNickname, '여행자');
     expect(authService.updatedGender, 'MALE');
     expect(authService.updatedBirthDate, '1990-01-01');
+  });
+
+  testWidgets('선택 약관을 선택하지 않아도 필수 약관만 동의하면 다음 단계로 이동한다', (
+    WidgetTester tester,
+  ) async {
+    final authService = _FakeAuthService(confirmStatus: 'PROFILE_REQUIRED');
+    await tester.pumpWidget(
+      TogetherTripApp(
+        authService: authService,
+        tripService: _FakeTripService(),
+      ),
+    );
+
+    await tester.tap(find.text('카카오로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('약관 동의'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('termsCheckbox_SERVICE_TERMS')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('termsCheckbox_PRIVACY_POLICY')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('termsCheckbox_LOCATION_INFO_TERMS')),
+    );
+    await tester.pumpAndSettle();
+
+    final continueButton = tester.widget<FilledButton>(
+      find.byKey(const ValueKey('continueTermsButton')),
+    );
+    expect(continueButton.onPressed, isNotNull);
+
+    await tester.tap(find.byKey(const ValueKey('continueTermsButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('프로필 설정'), findsOneWidget);
   });
 
   testWidgets('재가입자는 전화번호 인증 후 프로필 입력 없이 메인으로 이동한다', (
@@ -180,11 +219,52 @@ void main() {
 
     expect(find.text('서비스 이용약관'), findsOneWidget);
     expect(find.text('개인정보 처리방침'), findsOneWidget);
+    expect(find.text('위치기반서비스 이용약관'), findsOneWidget);
+    expect(find.text('광고성 정보 수신 동의'), findsOneWidget);
 
     await tester.tap(find.text('서비스 이용약관'));
     await tester.pumpAndSettle();
 
-    expect(find.text('TogetherTrip 서비스 이용을 위한 기본 약관입니다.'), findsOneWidget);
+    expect(find.textContaining('여행방, 동행자 관리'), findsOneWidget);
+  });
+
+  testWidgets('마이페이지에서 선택 약관을 언제든 저장하거나 해제한다', (WidgetTester tester) async {
+    final authService = _FakeAuthService();
+    final termsAgreementService = TermsAgreementService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MyPlaceholderScreen(
+          authService: authService,
+          termsAgreementService: termsAgreementService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('약관'));
+    await tester.pumpAndSettle();
+
+    final marketingSwitch = find.byKey(
+      const ValueKey('optionalTermsSwitch_MARKETING_CONSENT'),
+    );
+    expect(marketingSwitch, findsOneWidget);
+    expect(tester.widget<Switch>(marketingSwitch).value, isFalse);
+
+    await tester.tap(marketingSwitch);
+    await tester.pumpAndSettle();
+    expect(
+      await termsAgreementService.getAgreedTermCodes(),
+      contains('MARKETING_CONSENT'),
+    );
+    expect(tester.widget<Switch>(marketingSwitch).value, isTrue);
+
+    await tester.tap(marketingSwitch);
+    await tester.pumpAndSettle();
+    expect(
+      await termsAgreementService.getAgreedTermCodes(),
+      isNot(contains('MARKETING_CONSENT')),
+    );
+    expect(tester.widget<Switch>(marketingSwitch).value, isFalse);
   });
 }
 

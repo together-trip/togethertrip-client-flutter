@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/widget/app_design.dart';
 import '../../auth/service/auth_service.dart';
+import '../../auth/service/terms_agreement_service.dart';
 import '../../exchange/screen/exchange_rate_screen.dart';
 import '../../exchange/service/exchange_rate_service.dart';
 import '../../my/screen/my_placeholder_screen.dart';
@@ -12,8 +13,14 @@ import '../../trip/service/trip_service.dart';
 class MainShellScreen extends StatefulWidget {
   final AuthService? authService;
   final TripService? tripService;
+  final TermsAgreementService? termsAgreementService;
 
-  const MainShellScreen({super.key, this.authService, this.tripService});
+  const MainShellScreen({
+    super.key,
+    this.authService,
+    this.tripService,
+    this.termsAgreementService,
+  });
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
@@ -66,6 +73,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       ExchangeRateScreen(exchangeRateService: exchangeRateService),
       MyPlaceholderScreen(
         authService: authService,
+        termsAgreementService: widget.termsAgreementService,
         onBack: () => _selectTab(0),
       ),
     ];
