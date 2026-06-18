@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:togethertrip/features/my/screen/my_placeholder_screen.dart';
 import 'package:togethertrip/features/auth/service/auth_service.dart';
@@ -188,6 +189,20 @@ void main() {
     expect(find.text('여행'), findsWidgets);
   });
 
+  testWidgets('카카오 로그인 취소는 화면 오류로 표시하지 않는다', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      TogetherTripApp(authService: _CancelLoginAuthService()),
+    );
+
+    await tester.tap(find.text('카카오로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('PlatformException'), findsNothing);
+    expect(find.textContaining('오류가 발생했습니다'), findsNothing);
+    expect(find.textContaining('카카오 SDK 오류'), findsNothing);
+    expect(find.text('카카오로 시작하기'), findsOneWidget);
+  });
+
   testWidgets('개인정보 수정 화면에서 마스킹 전화번호가 표시된다', (WidgetTester tester) async {
     final authService = _FakeAuthService();
     await tester.pumpWidget(
@@ -367,6 +382,13 @@ class _FakeAuthService extends AuthService {
     Future<T> Function(String accessToken) request,
   ) {
     return request('access-token');
+  }
+}
+
+class _CancelLoginAuthService extends AuthService {
+  @override
+  Future<AuthLoginResult> loginWithKakao() async {
+    throw PlatformException(code: 'CANCELED', message: 'User canceled login');
   }
 }
 

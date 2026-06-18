@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import '../../../core/network/api_client.dart';
@@ -114,19 +115,47 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       setState(() => _errorMessage = '로그인 응답 상태를 확인할 수 없습니다.');
     } on KakaoAuthException catch (e) {
       if (e.error == AuthErrorCause.accessDenied) {
-        setState(() => _errorMessage = '로그인이 취소되었습니다.');
+        _clearLoginError();
       } else {
         setState(() => _errorMessage = '카카오 로그인 실패: ${e.message}');
       }
     } on KakaoClientException catch (e) {
-      setState(() => _errorMessage = '카카오 SDK 오류: ${e.message}');
+      if (_isKakaoLoginCancelled(e)) {
+        _clearLoginError();
+      } else {
+        setState(() => _errorMessage = '카카오 SDK 오류: ${e.message}');
+      }
+    } on PlatformException catch (e) {
+      if (_isKakaoLoginCancelled(e)) {
+        _clearLoginError();
+      } else {
+        setState(() => _errorMessage = '카카오 SDK 오류: ${e.message ?? e.code}');
+      }
     } on ApiException catch (e) {
       setState(() => _errorMessage = e.message);
     } catch (e) {
-      setState(() => _errorMessage = '오류가 발생했습니다: $e');
+      if (_isKakaoLoginCancelled(e)) {
+        _clearLoginError();
+      } else {
+        setState(() => _errorMessage = '오류가 발생했습니다: $e');
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _clearLoginError() {
+    if (!mounted) return;
+    setState(() => _errorMessage = null);
+  }
+
+  bool _isKakaoLoginCancelled(Object error) {
+    final text = error.toString().toLowerCase();
+    return text.contains('cancel') ||
+        text.contains('canceled') ||
+        text.contains('cancelled') ||
+        text.contains('accessdenied') ||
+        text.contains('access_denied');
   }
 
   void _openTermsAgreement(AuthLoginResult result) {
