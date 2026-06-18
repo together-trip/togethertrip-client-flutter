@@ -274,30 +274,28 @@ class _BrandHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        SizedBox(
-          width: 32,
-          height: 32,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.fromBorderSide(BorderSide(color: AppColors.ink)),
-            ),
-            child: Center(
-              child: Text('T', style: TextStyle(fontWeight: FontWeight.w800)),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F4EE),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE6DDD0)),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.fromLTRB(12, 7, 12, 8),
+          child: Text(
+            '투게더트립',
+            style: TextStyle(
+              fontSize: 20,
+              height: 1,
+              fontWeight: FontWeight.w900,
+              color: AppColors.ink,
+              letterSpacing: 0,
             ),
           ),
         ),
-        SizedBox(width: 10),
-        Text(
-          'TogetherTrip',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: AppColors.ink,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
