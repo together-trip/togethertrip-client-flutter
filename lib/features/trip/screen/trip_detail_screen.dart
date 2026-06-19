@@ -439,6 +439,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _openCreateChooser() async {
+    final isExpenseLocked = _isExpenseLockedBySettlement;
     final defaultPostType = _selectedFilter == _PostFeedFilter.expense
         ? 'EXPENSE'
         : 'RECORD';
@@ -458,6 +459,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 _CreateOptionTile(
+                  key: const ValueKey('createRecordOption'),
                   icon: Icons.edit_note_outlined,
                   title: '기록',
                   selected: defaultPostType == 'RECORD',
@@ -465,10 +467,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 ),
                 const SizedBox(height: 8),
                 _CreateOptionTile(
+                  key: const ValueKey('createExpenseOption'),
                   icon: Icons.payments_outlined,
                   title: '소비',
-                  selected: defaultPostType == 'EXPENSE',
-                  onTap: () => Navigator.of(context).pop('EXPENSE'),
+                  subtitle: isExpenseLocked ? _expenseLockedMessage : null,
+                  selected: !isExpenseLocked && defaultPostType == 'EXPENSE',
+                  enabled: !isExpenseLocked,
+                  onTap: isExpenseLocked
+                      ? null
+                      : () => Navigator.of(context).pop('EXPENSE'),
                 ),
               ],
             ),
@@ -482,6 +489,14 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       return;
     }
     await _openPostForm(postType: selected);
+  }
+
+  bool get _isExpenseLockedBySettlement {
+    return _trip?.settlementStatus != 'NOT_STARTED';
+  }
+
+  bool _isLockedExpensePost(PostSummary post) {
+    return post.postType == 'EXPENSE' && _isExpenseLockedBySettlement;
   }
 
   Future<void> _openExpenseForm() async {
@@ -568,6 +583,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _openPostActions(PostSummary post) async {
+    final isLockedExpensePost = _isLockedExpensePost(post);
     final action = await showAppBottomSheet<String>(
       context: context,
       builder: (context) {
@@ -577,21 +593,47 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (isLockedExpensePost)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 10, 16, 8),
+                    child: Text(
+                      _expensePostLockedMessage,
+                      style: TextStyle(
+                        color: AppColors.textSubtle,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ListTile(
+                  key: const ValueKey('postEditAction'),
                   leading: const Icon(Icons.edit_outlined),
                   title: const Text('수정'),
-                  onTap: () => Navigator.of(context).pop('edit'),
+                  enabled: !isLockedExpensePost,
+                  onTap: isLockedExpensePost
+                      ? null
+                      : () => Navigator.of(context).pop('edit'),
                 ),
                 ListTile(
-                  leading: const Icon(
+                  key: const ValueKey('postDeleteAction'),
+                  leading: Icon(
                     Icons.delete_outline,
-                    color: AppColors.danger,
+                    color: isLockedExpensePost
+                        ? AppColors.textSubtle
+                        : AppColors.danger,
                   ),
-                  title: const Text(
+                  title: Text(
                     '삭제',
-                    style: TextStyle(color: AppColors.danger),
+                    style: TextStyle(
+                      color: isLockedExpensePost
+                          ? AppColors.textSubtle
+                          : AppColors.danger,
+                    ),
                   ),
-                  onTap: () => Navigator.of(context).pop('delete'),
+                  enabled: !isLockedExpensePost,
+                  onTap: isLockedExpensePost
+                      ? null
+                      : () => Navigator.of(context).pop('delete'),
                 ),
               ],
             ),
@@ -836,38 +878,66 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 class _CreateOptionTile extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String? subtitle;
   final bool selected;
-  final VoidCallback onTap;
+  final bool enabled;
+  final VoidCallback? onTap;
 
   const _CreateOptionTile({
+    super.key,
     required this.icon,
     required this.title,
     required this.selected,
+    this.subtitle,
+    this.enabled = true,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final iconColor = enabled ? AppColors.ink : AppColors.textSubtle;
+    final titleColor = enabled ? AppColors.ink : AppColors.textSubtle;
+    final borderColor = selected ? AppColors.ink : const Color(0xFFE0E0E0);
+
     return InkWell(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: selected ? const Color(0xFFF4F4F4) : Colors.white,
           border: Border.all(
-            color: selected ? AppColors.ink : const Color(0xFFE0E0E0),
+            color: enabled ? borderColor : const Color(0xFFE0E0E0),
           ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.ink),
+            Icon(icon, color: iconColor),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: titleColor,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        color: AppColors.textSubtle,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             if (selected) const Icon(Icons.check, size: 18),
@@ -2100,6 +2170,9 @@ String _settlementStatusLabel(String status) {
     _ => '미시작',
   };
 }
+
+const String _expenseLockedMessage = '정산 완료 후에는 소비를 추가할 수 없어요.';
+const String _expensePostLockedMessage = '정산 완료 후에는 소비 기록을 변경할 수 없어요.';
 
 String _roleLabel(String role) {
   return role == 'LEADER' ? '방장' : '동행자';
