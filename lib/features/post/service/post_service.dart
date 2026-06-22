@@ -1,5 +1,6 @@
 import '../../../core/network/api_client.dart';
 import '../../auth/service/auth_service.dart';
+import '../../transaction/service/transaction_service.dart';
 
 class PostService {
   final ApiClient _apiClient;
@@ -66,6 +67,29 @@ class PostService {
     }
 
     return PostDetail.fromJson(data);
+  }
+
+  Future<CreateExpensePostResult> createExpensePost(
+    int tripId,
+    ExpensePostFormInput input,
+  ) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.multipart(
+        'POST',
+        '/api/trips/$tripId/expense-posts',
+        fields: input.toCreateFields(),
+        files: input.toMultipartFiles(),
+        accessToken: accessToken,
+      ),
+    );
+    if (data == null) {
+      throw const ApiException(
+        statusCode: 500,
+        message: '소비 게시글 작성 응답이 비어 있습니다.',
+      );
+    }
+
+    return CreateExpensePostResult.fromJson(data);
   }
 
   Future<PostDetail> updatePost(
@@ -147,6 +171,25 @@ class PostService {
       (accessToken) => _apiClient.delete(
         '/api/trips/$tripId/posts/$postId/comments/$commentId',
         accessToken: accessToken,
+      ),
+    );
+  }
+}
+
+class CreateExpensePostResult {
+  final PostDetail post;
+  final TransactionDetail transaction;
+
+  const CreateExpensePostResult({
+    required this.post,
+    required this.transaction,
+  });
+
+  factory CreateExpensePostResult.fromJson(Map<String, dynamic> json) {
+    return CreateExpensePostResult(
+      post: PostDetail.fromJson(json['post'] as Map<String, dynamic>),
+      transaction: TransactionDetail.fromJson(
+        json['transaction'] as Map<String, dynamic>,
       ),
     );
   }
@@ -451,6 +494,42 @@ class PostFormInput {
       if (latitude != null) 'latitude': latitude.toString(),
       if (longitude != null) 'longitude': longitude.toString(),
     };
+  }
+}
+
+class ExpensePostFormInput {
+  final TransactionFormInput transactionInput;
+  final PostFormInput postInput;
+
+  const ExpensePostFormInput({
+    required this.transactionInput,
+    required this.postInput,
+  });
+
+  Map<String, String> toCreateFields() {
+    return {
+      ...postInput._baseFields(),
+      'transactionType': transactionInput.transactionType,
+      'amount': transactionInput.amount.toString(),
+      'currency': transactionInput.currency,
+      for (var i = 0; i < transactionInput.payments.length; i++) ...{
+        'payments[$i].participantId': transactionInput.payments[i].participantId
+            .toString(),
+        'payments[$i].amount': transactionInput.payments[i].amount.toString(),
+      },
+      for (var i = 0; i < transactionInput.shares.length; i++) ...{
+        'shares[$i].participantId': transactionInput.shares[i].participantId
+            .toString(),
+        'shares[$i].shareAmount': transactionInput.shares[i].shareAmount
+            .toString(),
+        'shares[$i].shareRatio': transactionInput.shares[i].shareRatio
+            .toString(),
+      },
+    };
+  }
+
+  List<MultipartFileInput> toMultipartFiles() {
+    return postInput.toMultipartFiles();
   }
 }
 

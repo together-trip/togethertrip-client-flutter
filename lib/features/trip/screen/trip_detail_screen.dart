@@ -512,23 +512,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           trip: trip,
           currentParticipantId: _currentParticipantId,
           onSubmit: ({required transactionInput, required postInput}) async {
-            final transaction = await _transactionService.createTransaction(
+            await _postService.createExpensePost(
               widget.tripId,
-              transactionInput,
-            );
-            await _postService.createPost(
-              widget.tripId,
-              PostFormInput(
-                transactionId: transaction.summary.id,
-                title: postInput.title,
-                category: postInput.category,
-                content: postInput.content,
-                postType: 'EXPENSE',
-                occurredAt: postInput.occurredAt,
-                placeName: postInput.placeName,
-                latitude: postInput.latitude,
-                longitude: postInput.longitude,
-                files: postInput.files,
+              ExpensePostFormInput(
+                transactionInput: transactionInput,
+                postInput: postInput,
               ),
             );
           },

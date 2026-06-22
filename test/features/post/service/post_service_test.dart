@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:togethertrip/core/network/api_client.dart';
 import 'package:togethertrip/features/auth/service/auth_service.dart';
 import 'package:togethertrip/features/post/service/post_service.dart';
+import 'package:togethertrip/features/transaction/service/transaction_service.dart';
 
 Map<String, dynamic> _apiResponse(dynamic data) => {
   'success': true,
@@ -135,6 +136,122 @@ void main() {
       expect(capturedBody, contains('RECORD'));
       expect(capturedBody, contains('name="occurredAt"'));
       expect(capturedBody, contains('2026-06-09T03:00:00.000Z'));
+    });
+
+    test('소비 게시글 통합 작성 요청을 multipart 서버 DTO 형태로 전송한다', () async {
+      Uri? capturedUrl;
+      String? capturedMethod;
+      String? capturedContentType;
+      String? capturedBody;
+      final service = PostService(
+        apiClient: ApiClient(
+          client: MockClient((request) async {
+            capturedUrl = request.url;
+            capturedMethod = request.method;
+            capturedContentType = request.headers['content-type'];
+            capturedBody = request.body;
+            return _jsonResponse({
+              'post': {
+                'id': 1,
+                'tripId': 10,
+                'transactionId': 5,
+                'authorParticipantId': 100,
+                'authorDisplayName': '재완',
+                'postType': 'EXPENSE',
+                'title': '점심',
+                'category': '식비',
+                'content': '라멘',
+                'occurredAt': '2026-06-09T03:00:00.000Z',
+                'placeName': 'Ichiran',
+                'latitude': null,
+                'longitude': null,
+                'commentCount': 0,
+                'attachments': [],
+                'createdAt': null,
+                'updatedAt': null,
+              },
+              'transaction': {
+                'summary': {
+                  'id': 5,
+                  'tripId': 10,
+                  'transactionType': 'EXPENSE',
+                  'amount': 12000,
+                  'currency': 'JPY',
+                  'exchangeRate': 9.5,
+                  'baseCurrency': 'KRW',
+                  'baseAmount': 114000,
+                  'status': 'ACTIVE',
+                  'createdByUserId': 1,
+                  'createdAt': null,
+                  'updatedAt': null,
+                },
+                'payments': [
+                  {'id': 1, 'participantId': 100, 'amount': 12000},
+                ],
+                'shares': [
+                  {
+                    'id': 2,
+                    'participantId': 100,
+                    'shareAmount': 12000,
+                    'shareRatio': 1,
+                  },
+                ],
+              },
+            });
+          }),
+        ),
+        authService: _FakeAuthService(),
+      );
+
+      final result = await service.createExpensePost(
+        10,
+        const ExpensePostFormInput(
+          transactionInput: TransactionFormInput(
+            transactionType: 'EXPENSE',
+            amount: 12000,
+            currency: 'JPY',
+            payments: [
+              TransactionPaymentInput(participantId: 100, amount: 12000),
+            ],
+            shares: [
+              TransactionShareInput(
+                participantId: 100,
+                shareAmount: 12000,
+                shareRatio: 1,
+              ),
+            ],
+          ),
+          postInput: PostFormInput(
+            transactionId: null,
+            title: '점심',
+            category: '식비',
+            content: '라멘',
+            postType: 'EXPENSE',
+            occurredAt: '2026-06-09T03:00:00.000Z',
+            placeName: 'Ichiran',
+            latitude: null,
+            longitude: null,
+          ),
+        ),
+      );
+
+      expect(capturedUrl!.path, '/api/trips/10/expense-posts');
+      expect(capturedMethod, 'POST');
+      expect(capturedContentType, startsWith('multipart/form-data;'));
+      expect(capturedBody, contains('name="title"'));
+      expect(capturedBody, contains('점심'));
+      expect(capturedBody, contains('name="transactionType"'));
+      expect(capturedBody, contains('EXPENSE'));
+      expect(capturedBody, contains('name="amount"'));
+      expect(capturedBody, contains('12000'));
+      expect(capturedBody, contains('name="payments[0].participantId"'));
+      expect(capturedBody, contains('name="payments[0].amount"'));
+      expect(capturedBody, contains('name="shares[0].participantId"'));
+      expect(capturedBody, contains('name="shares[0].shareAmount"'));
+      expect(capturedBody, contains('name="shares[0].shareRatio"'));
+      expect(capturedBody, isNot(contains('name="transactionId"')));
+      expect(result.post.transactionId, 5);
+      expect(result.transaction.summary.id, 5);
     });
 
     test('댓글 작성과 삭제 경로를 사용한다', () async {
