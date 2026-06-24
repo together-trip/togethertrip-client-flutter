@@ -283,5 +283,62 @@ void main() {
       ]);
       expect(await tokenStorage.getRefreshToken(), 'new-refresh-token');
     });
+
+    test('토큰 저장과 삭제 시 lifecycle hook을 호출한다', () async {
+      final lifecycle = _RecordingTokenLifecycle();
+      final tokenStorage = TokenStorage(storage: _FakeSecureStorage());
+      final service = AuthService(
+        tokenStorage: tokenStorage,
+        tokenLifecycle: lifecycle,
+        apiClient: ApiClient(
+          client: MockClient((request) async {
+            if (request.url.path == '/api/auth/refresh') {
+              return http.Response(
+                jsonEncode(
+                  _apiResponse({
+                    'accessToken': 'new-access-token',
+                    'refreshToken': 'new-refresh-token',
+                  }),
+                ),
+                200,
+                headers: {'content-type': 'application/json'},
+              );
+            }
+
+            return http.Response(
+              jsonEncode(_apiResponse(null)),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }),
+        ),
+      );
+
+      await tokenStorage.save(
+        accessToken: 'old-access-token',
+        refreshToken: 'old-refresh-token',
+      );
+
+      await service.refreshToken();
+      await service.logout();
+
+      expect(lifecycle.savedAccessTokens, ['new-access-token']);
+      expect(lifecycle.clearedAccessTokens, ['new-access-token']);
+    });
   });
+}
+
+class _RecordingTokenLifecycle implements AuthTokenLifecycle {
+  final savedAccessTokens = <String>[];
+  final clearedAccessTokens = <String?>[];
+
+  @override
+  Future<void> didSaveTokens(String accessToken) async {
+    savedAccessTokens.add(accessToken);
+  }
+
+  @override
+  Future<void> willClearTokens(String? accessToken) async {
+    clearedAccessTokens.add(accessToken);
+  }
 }

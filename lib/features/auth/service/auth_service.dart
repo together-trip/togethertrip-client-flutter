@@ -6,10 +6,15 @@ import '../../../core/storage/token_storage.dart';
 class AuthService {
   final ApiClient _apiClient;
   final TokenStorage _tokenStorage;
+  final AuthTokenLifecycle? _tokenLifecycle;
 
-  AuthService({ApiClient? apiClient, TokenStorage? tokenStorage})
-    : _apiClient = apiClient ?? ApiClient(),
-      _tokenStorage = tokenStorage ?? TokenStorage();
+  AuthService({
+    ApiClient? apiClient,
+    TokenStorage? tokenStorage,
+    AuthTokenLifecycle? tokenLifecycle,
+  }) : _apiClient = apiClient ?? ApiClient(),
+       _tokenStorage = tokenStorage ?? TokenStorage(),
+       _tokenLifecycle = tokenLifecycle;
 
   Future<AuthLoginResult> loginWithKakao() async {
     final kakaoToken = await _getKakaoToken();
@@ -131,11 +136,13 @@ class AuthService {
   }
 
   Future<void> deleteAccount() async {
+    final accessToken = await _tokenStorage.getAccessToken();
     await runWithAccessToken(
       (accessToken) =>
           _apiClient.delete('/api/users/me', accessToken: accessToken),
     );
 
+    await _notifyWillClearTokens(accessToken);
     try {
       await UserApi.instance.logout();
     } catch (_) {}
@@ -180,6 +187,7 @@ class AuthService {
         await _apiClient.post('/api/auth/logout', {}, accessToken: accessToken);
       }
     } catch (_) {}
+    await _notifyWillClearTokens(accessToken);
     try {
       await UserApi.instance.logout();
     } catch (_) {}
@@ -223,6 +231,7 @@ class AuthService {
       accessToken: accessToken,
       refreshToken: refreshToken,
     );
+    await _notifyDidSaveTokens(accessToken);
   }
 
   Future<String> _requireStoredAccessToken() async {
@@ -242,6 +251,24 @@ class AuthService {
     }
     return token.accessToken;
   }
+
+  Future<void> _notifyDidSaveTokens(String accessToken) async {
+    try {
+      await _tokenLifecycle?.didSaveTokens(accessToken);
+    } catch (_) {}
+  }
+
+  Future<void> _notifyWillClearTokens(String? accessToken) async {
+    try {
+      await _tokenLifecycle?.willClearTokens(accessToken);
+    } catch (_) {}
+  }
+}
+
+abstract class AuthTokenLifecycle {
+  Future<void> didSaveTokens(String accessToken);
+
+  Future<void> willClearTokens(String? accessToken);
 }
 
 class AuthLoginResult {
