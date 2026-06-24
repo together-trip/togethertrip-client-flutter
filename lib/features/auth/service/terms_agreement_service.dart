@@ -6,15 +6,20 @@ class TermsAgreementService {
   final ApiClient _apiClient;
   final AuthService? _authService;
   final Set<String> _agreedCodes;
+  final bool? _useRemoteApiOverride;
 
-  bool get _usesRemoteApi => _authService != null && Env.apiBaseUrl.isNotEmpty;
+  bool get _usesRemoteApi =>
+      _useRemoteApiOverride ??
+      (_authService != null && Env.apiBaseUrl.isNotEmpty);
 
   TermsAgreementService({
     ApiClient? apiClient,
     AuthService? authService,
     Set<String>? initialAgreedCodes,
+    bool? useRemoteApi,
   }) : _apiClient = apiClient ?? ApiClient(),
        _authService = authService,
+       _useRemoteApiOverride = useRemoteApi,
        _agreedCodes = {
          'SERVICE_TERMS',
          'PRIVACY_POLICY',
@@ -29,17 +34,29 @@ class TermsAgreementService {
 
     try {
       final data = await _apiClient.getList('/api/terms');
-      if (data.isNotEmpty) {
-        return data
-            .whereType<Map<String, dynamic>>()
-            .map(TermsAgreementItem.fromJson)
-            .toList();
-      }
+      return _parseRemoteTerms(data);
     } catch (_) {
       rethrow;
     }
+  }
 
-    return _mockTerms;
+  List<TermsAgreementItem> _parseRemoteTerms(List<dynamic> data) {
+    final terms = <TermsAgreementItem>[];
+    final codes = <String>{};
+
+    for (final item in data) {
+      if (item is! Map<String, dynamic>) {
+        throw FormatException('약관 응답 형식이 올바르지 않습니다.', item);
+      }
+
+      final term = TermsAgreementItem.fromJson(item);
+      if (!codes.add(term.code)) {
+        throw FormatException('중복된 약관 코드입니다.', term.code);
+      }
+      terms.add(term);
+    }
+
+    return terms;
   }
 
   static const List<TermsAgreementItem> _mockTerms = [
@@ -87,18 +104,37 @@ class TermsAgreementService {
           accessToken: accessToken,
         ),
       );
-      final agreements = data?['agreements'];
-      if (agreements is List<dynamic>) {
-        return agreements
-            .whereType<Map<String, dynamic>>()
-            .where((item) => item['agreed'] == true)
-            .map((item) => item['code']?.toString())
-            .whereType<String>()
-            .toSet();
-      }
+      return _parseAgreedTermCodes(data);
     }
 
     return Set.unmodifiable(_agreedCodes);
+  }
+
+  Set<String> _parseAgreedTermCodes(Map<String, dynamic>? data) {
+    final agreements = data?['agreements'];
+    if (agreements is! List<dynamic>) {
+      throw FormatException('약관 동의 응답 형식이 올바르지 않습니다.', data);
+    }
+
+    final agreedCodes = <String>{};
+    final seenCodes = <String>{};
+    for (final item in agreements) {
+      if (item is! Map<String, dynamic>) {
+        throw FormatException('약관 동의 응답 형식이 올바르지 않습니다.', item);
+      }
+
+      final code = item['code']?.toString().trim() ?? '';
+      final agreed = item['agreed'];
+      if (code.isEmpty || agreed is! bool) {
+        throw FormatException('약관 동의 응답 형식이 올바르지 않습니다.', item);
+      }
+      if (!seenCodes.add(code)) {
+        throw FormatException('중복된 약관 동의 코드입니다.', code);
+      }
+      if (agreed) agreedCodes.add(code);
+    }
+
+    return agreedCodes;
   }
 
   Future<void> saveAgreements({
@@ -106,9 +142,9 @@ class TermsAgreementService {
   }) async {
     final agreedCodes = agreedTerms.map((term) => term.code).toSet();
     final requiredTerms = await getRequiredTerms();
-    final agreedAllRequired = requiredTerms.every(
-      (term) => agreedCodes.contains(term.code),
-    );
+    final agreedAllRequired =
+        requiredTerms.isNotEmpty &&
+        requiredTerms.every((term) => agreedCodes.contains(term.code));
     if (!agreedAllRequired) {
       throw StateError('필수 약관에 동의해주세요.');
     }
@@ -119,7 +155,6 @@ class TermsAgreementService {
       await authService.runWithAccessToken(
         (accessToken) => _apiClient.put('/api/terms/agreements', {
           'agreements': allTerms
-              .where((term) => term.required || agreedCodes.contains(term.code))
               .map(
                 (term) => {
                   'code': term.code,
@@ -184,14 +219,24 @@ class TermsAgreementItem {
   });
 
   factory TermsAgreementItem.fromJson(Map<String, dynamic> json) {
+    final code = json['code']?.toString().trim() ?? '';
+    final title = json['title']?.toString().trim() ?? '';
+    final versionText = json['version']?.toString().trim();
+    final currentVersionText = json['currentVersion']?.toString().trim();
+    final version = versionText?.isNotEmpty == true
+        ? versionText!
+        : currentVersionText ?? '';
+    final required = json['required'];
+
+    if (code.isEmpty || title.isEmpty || version.isEmpty || required is! bool) {
+      throw FormatException('약관 응답 형식이 올바르지 않습니다.', json);
+    }
+
     return TermsAgreementItem(
-      code: json['code']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
-      version:
-          json['version']?.toString() ??
-          json['currentVersion']?.toString() ??
-          '',
-      required: json['required'] == true,
+      code: code,
+      title: title,
+      version: version,
+      required: required,
       summary: json['content']?.toString() ?? json['summary']?.toString() ?? '',
     );
   }

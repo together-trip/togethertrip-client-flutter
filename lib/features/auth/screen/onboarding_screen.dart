@@ -8,7 +8,7 @@ import '../../main/screen/main_shell_screen.dart';
 import '../../trip/service/trip_service.dart';
 import '../service/auth_service.dart';
 import '../service/terms_agreement_service.dart';
-import 'terms_agreement_screen.dart';
+import 'sign_up_profile_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final AuthService authService;
@@ -90,25 +90,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (!mounted) return;
 
       if (result.isAuthenticated) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(
-            builder: (_) => MainShellScreen(
-              authService: widget.authService,
-              tripService: widget.tripService,
-              termsAgreementService: widget.termsAgreementService,
-            ),
-          ),
-        );
+        await _openMainOrRepairSignup();
         return;
       }
 
       if (result.isProfileRequired) {
-        _openTermsAgreement(result);
+        _openSignUpProfile(result);
         return;
       }
 
       if (result.isPhoneVerificationRequired && result.temporaryToken != null) {
-        _openTermsAgreement(result);
+        _openSignUpProfile(result);
         return;
       }
 
@@ -158,16 +150,64 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         text.contains('access_denied');
   }
 
-  void _openTermsAgreement(AuthLoginResult result) {
-    Navigator.of(context).push(
+  Future<void> _openMainOrRepairSignup() async {
+    final termsAgreementService =
+        widget.termsAgreementService ??
+        TermsAgreementService(authService: widget.authService);
+    final profile = await widget.authService.getMe();
+    if (!profile.phoneVerified) {
+      if (!mounted) return;
+      setState(() => _errorMessage = '전화번호 인증 상태를 확인할 수 없습니다. 다시 로그인해주세요.');
+      return;
+    }
+
+    final terms = await termsAgreementService.getTerms();
+    final agreedCodes = await termsAgreementService.getAgreedTermCodes();
+    final requiredTerms = terms.where((term) => term.required).toList();
+    final hasAgreedAllRequired =
+        requiredTerms.isNotEmpty &&
+        requiredTerms.every((term) => agreedCodes.contains(term.code));
+    final hasCompletedProfile =
+        profile.gender?.isNotEmpty == true &&
+        profile.birthDate?.isNotEmpty == true;
+
+    if (!mounted) return;
+
+    if (!hasCompletedProfile || !hasAgreedAllRequired) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => SignUpProfileScreen(
+            authService: widget.authService,
+            tripService: widget.tripService,
+            termsAgreementService: termsAgreementService,
+            temporaryToken: null,
+            prefillProfile: profile,
+            restoreExistingTerms: true,
+          ),
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => TermsAgreementScreen(
+        builder: (_) => MainShellScreen(
           authService: widget.authService,
           tripService: widget.tripService,
-          termsAgreementService:
-              widget.termsAgreementService ??
-              TermsAgreementService(authService: widget.authService),
-          loginResult: result,
+          termsAgreementService: termsAgreementService,
+        ),
+      ),
+    );
+  }
+
+  void _openSignUpProfile(AuthLoginResult result) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SignUpProfileScreen(
+          authService: widget.authService,
+          tripService: widget.tripService,
+          termsAgreementService: widget.termsAgreementService,
+          temporaryToken: result.temporaryToken,
         ),
       ),
     );
@@ -259,12 +299,17 @@ class _OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _OnboardingVisual(data: data),
-        const SizedBox(height: 24),
-        _OnboardingCopy(data: data),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < 360;
+        return Column(
+          children: [
+            _OnboardingVisual(data: data, compact: compact),
+            SizedBox(height: compact ? 14 : 24),
+            _OnboardingCopy(data: data, compact: compact),
+          ],
+        );
+      },
     );
   }
 }
@@ -302,8 +347,9 @@ class _BrandHeader extends StatelessWidget {
 
 class _OnboardingVisual extends StatelessWidget {
   final _OnboardingPageData data;
+  final bool compact;
 
-  const _OnboardingVisual({required this.data});
+  const _OnboardingVisual({required this.data, required this.compact});
 
   @override
   Widget build(BuildContext context) {
@@ -311,7 +357,7 @@ class _OnboardingVisual extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 280),
         child: SizedBox(
-          height: 204,
+          height: compact ? 188 : 204,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: const Color(0xFFFAFAFA),
@@ -319,7 +365,7 @@ class _OnboardingVisual extends StatelessWidget {
               borderRadius: AppRadii.controlRadius,
             ),
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: EdgeInsets.all(compact ? 10 : 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -347,10 +393,10 @@ class _OnboardingVisual extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: compact ? 8 : 12),
                   for (final row in data.rows) ...[
-                    _VisualRow(label: row.$1, value: row.$2),
-                    const SizedBox(height: 8),
+                    _VisualRow(label: row.$1, value: row.$2, compact: compact),
+                    SizedBox(height: compact ? 6 : 8),
                   ],
                   const Spacer(),
                   DecoratedBox(
@@ -361,7 +407,7 @@ class _OnboardingVisual extends StatelessWidget {
                     child: Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 10,
+                        vertical: compact ? 8 : 10,
                       ),
                       child: Row(
                         children: [
@@ -423,8 +469,13 @@ class _VisualIcon extends StatelessWidget {
 class _VisualRow extends StatelessWidget {
   final String label;
   final String value;
+  final bool compact;
 
-  const _VisualRow({required this.label, required this.value});
+  const _VisualRow({
+    required this.label,
+    required this.value,
+    required this.compact,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -435,7 +486,10 @@ class _VisualRow extends StatelessWidget {
         borderRadius: AppRadii.controlRadius,
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: compact ? 8 : 10,
+        ),
         child: Row(
           children: [
             Expanded(
@@ -464,8 +518,9 @@ class _VisualRow extends StatelessWidget {
 
 class _OnboardingCopy extends StatelessWidget {
   final _OnboardingPageData data;
+  final bool compact;
 
-  const _OnboardingCopy({required this.data});
+  const _OnboardingCopy({required this.data, required this.compact});
 
   @override
   Widget build(BuildContext context) {
@@ -474,14 +529,14 @@ class _OnboardingCopy extends StatelessWidget {
       children: [
         Text(
           data.title,
-          style: const TextStyle(
-            fontSize: 24,
+          style: TextStyle(
+            fontSize: compact ? 22 : 24,
             height: 1.25,
             fontWeight: FontWeight.w700,
             color: AppColors.ink,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: compact ? 8 : 12),
         Text(
           data.description,
           style: const TextStyle(

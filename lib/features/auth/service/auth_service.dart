@@ -150,9 +150,14 @@ class AuthService {
   }
 
   Future<bool> checkNicknameAvailability(String nickname) async {
+    final normalizedNickname = nickname.trim();
+    if (normalizedNickname.isEmpty) {
+      throw const ApiException(statusCode: 400, message: '닉네임을 입력해주세요.');
+    }
+
     final data = await _apiClient.get(
       '/api/users/nicknames/availability',
-      queryParameters: {'nickname': nickname},
+      queryParameters: {'nickname': normalizedNickname},
     );
 
     if (data == null || data['available'] is! bool) {
