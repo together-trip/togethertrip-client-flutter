@@ -603,6 +603,7 @@ class _ParticipantAvatar extends StatelessWidget {
       backgroundImage: hasProfile
           ? NetworkImage(resolveApiUrl(profileImageUrl))
           : null,
+      onBackgroundImageError: hasProfile ? (_, _) {} : null,
       child: hasProfile
           ? null
           : const Icon(

@@ -128,6 +128,51 @@ void main() {
       expect(result, isNull);
     });
 
+    test('빈 2xx 응답 body는 null을 반환한다', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('', 204);
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      final result = await apiClient.post('/api/auth/logout', {});
+      expect(result, isNull);
+    });
+
+    test('빈 에러 응답 body는 기본 ApiException을 던진다', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('', 500);
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+
+      try {
+        await apiClient.post('/api/auth/oauth/kakao', {});
+        fail('예외가 발생해야 합니다');
+      } on ApiException catch (e) {
+        expect(e.statusCode, 500);
+        expect(e.message, '서버 오류가 발생했습니다.');
+      }
+    });
+
+    test('깨진 에러 응답 body는 FormatException 대신 기본 ApiException을 던진다', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('{', 500);
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+
+      expect(
+        () => apiClient.post('/api/auth/oauth/kakao', {}),
+        throwsA(
+          isA<ApiException>().having(
+            (exception) => exception.message,
+            'message',
+            '서버 오류가 발생했습니다.',
+          ),
+        ),
+      );
+    });
+
     test('put 요청 시 body와 Authorization 헤더가 포함된다', () async {
       String? capturedAuth;
       Map<String, dynamic>? capturedBody;

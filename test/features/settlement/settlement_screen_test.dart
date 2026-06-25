@@ -47,16 +47,16 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('confirmSettlementButton')));
     await tester.pumpAndSettle();
 
-    expect(find.text('송금 확인 중'), findsOneWidget);
+    expect(find.text('확인할 정산 있음'), findsOneWidget);
     expect(find.text('공유'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('settlementTabreceived')));
     await tester.pumpAndSettle();
 
     expect(find.text('민지에게서'), findsOneWidget);
-    expect(find.text('수금 완료'), findsOneWidget);
+    expect(find.text('수금 확인 필요'), findsWidgets);
 
-    await tester.tap(find.text('수금 완료'));
+    await tester.tap(find.widgetWithText(OutlinedButton, '수금 확인 필요'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('상대 확인 대기'), findsOneWidget);
@@ -84,12 +84,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('송금 확인 중'), findsOneWidget);
+    expect(find.text('확인할 정산 있음'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('settlementTabsent')));
     await tester.pumpAndSettle();
 
     expect(find.text('민지에게'), findsOneWidget);
-    expect(find.text('송금 완료'), findsOneWidget);
+    expect(find.text('송금 확인 필요'), findsWidgets);
 
     await tester.drag(
       find.byKey(const ValueKey('settlementMockCaseList')),

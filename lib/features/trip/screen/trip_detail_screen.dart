@@ -972,7 +972,7 @@ class _TripFeedHeader extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '정산 ${_settlementStatusLabel(trip.settlementStatus)}',
+                      '정산 ${_settlementDisplayStatusLabel(trip.effectiveSettlementDisplayStatus)}',
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -1424,7 +1424,9 @@ class _TripInfoSheet extends StatelessWidget {
                   ),
                   _InfoRow(
                     label: '정산',
-                    value: _settlementStatusLabel(trip.settlementStatus),
+                    value: _settlementDisplayStatusLabel(
+                      trip.effectiveSettlementDisplayStatus,
+                    ),
                   ),
                 ],
               ),
@@ -2153,10 +2155,10 @@ String _tripStatusLabel(String status) {
   };
 }
 
-String _settlementStatusLabel(String status) {
+String _settlementDisplayStatusLabel(String status) {
   return switch (status) {
     'IN_PROGRESS' => '진행중',
-    'SETTLED' => '완료',
+    'COMPLETED' => '완료',
     _ => '미시작',
   };
 }

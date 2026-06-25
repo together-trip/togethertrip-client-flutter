@@ -34,15 +34,15 @@ class ApiClient {
 
     final response = await _client.get(url, headers: headers);
 
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
         statusCode: response.statusCode,
-        message: decoded['message']?.toString() ?? '서버 오류가 발생했습니다.',
+        message: _errorMessage(response),
       );
     }
 
+    final decoded = _decodeResponseBody(response.body);
+    if (decoded == null) return null;
     final data = decoded['data'];
     if (data is Map<String, dynamic>) return data;
     return null;
@@ -63,15 +63,15 @@ class ApiClient {
 
     final response = await _client.get(url, headers: headers);
 
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
         statusCode: response.statusCode,
-        message: decoded['message']?.toString() ?? '서버 오류가 발생했습니다.',
+        message: _errorMessage(response),
       );
     }
 
+    final decoded = _decodeResponseBody(response.body);
+    if (decoded == null) return const [];
     final data = decoded['data'];
     if (data is List<dynamic>) return data;
     throw FormatException('응답 data가 배열이 아닙니다.', decoded);
@@ -94,15 +94,15 @@ class ApiClient {
       body: jsonEncode(body),
     );
 
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
         statusCode: response.statusCode,
-        message: decoded['message']?.toString() ?? '서버 오류가 발생했습니다.',
+        message: _errorMessage(response),
       );
     }
 
+    final decoded = _decodeResponseBody(response.body);
+    if (decoded == null) return null;
     final data = decoded['data'];
     if (data is Map<String, dynamic>) return data;
     return null;
@@ -123,15 +123,15 @@ class ApiClient {
       body: jsonEncode(body),
     );
 
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
         statusCode: response.statusCode,
-        message: decoded['message']?.toString() ?? '서버 오류가 발생했습니다.',
+        message: _errorMessage(response),
       );
     }
 
+    final decoded = _decodeResponseBody(response.body);
+    if (decoded == null) return null;
     final data = decoded['data'];
     if (data is Map<String, dynamic>) return data;
     return null;
@@ -163,15 +163,16 @@ class ApiClient {
 
     final streamedResponse = await _client.send(request);
     final response = await http.Response.fromStream(streamedResponse);
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
         statusCode: response.statusCode,
-        message: decoded['message']?.toString() ?? '서버 오류가 발생했습니다.',
+        message: _errorMessage(response),
       );
     }
 
+    final decoded = _decodeResponseBody(response.body);
+    if (decoded == null) return null;
     final data = decoded['data'];
     if (data is Map<String, dynamic>) return data;
     return null;
@@ -192,15 +193,15 @@ class ApiClient {
       body: jsonEncode(body),
     );
 
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
         statusCode: response.statusCode,
-        message: decoded['message']?.toString() ?? '서버 오류가 발생했습니다.',
+        message: _errorMessage(response),
       );
     }
 
+    final decoded = _decodeResponseBody(response.body);
+    if (decoded == null) return null;
     final data = decoded['data'];
     if (data is Map<String, dynamic>) return data;
     return null;
@@ -222,20 +223,38 @@ class ApiClient {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = response.body.isEmpty
-          ? '서버 오류가 발생했습니다.'
-          : (jsonDecode(response.body) as Map<String, dynamic>)['message']
-                    ?.toString() ??
-                '서버 오류가 발생했습니다.';
-      throw ApiException(statusCode: response.statusCode, message: message);
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: _errorMessage(response),
+      );
     }
 
-    if (response.body.isEmpty) return null;
-
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = _decodeResponseBody(response.body);
+    if (decoded == null) return null;
     final data = decoded['data'];
     if (data is Map<String, dynamic>) return data;
     return null;
+  }
+}
+
+Map<String, dynamic>? _decodeResponseBody(String body) {
+  if (body.trim().isEmpty) return null;
+
+  final decoded = jsonDecode(body);
+  if (decoded is Map<String, dynamic>) return decoded;
+  if (decoded is Map) return Map<String, dynamic>.from(decoded);
+
+  throw FormatException('응답 body가 JSON 객체가 아닙니다.', decoded);
+}
+
+String _errorMessage(http.Response response) {
+  if (response.body.trim().isEmpty) return '서버 오류가 발생했습니다.';
+
+  try {
+    final decoded = _decodeResponseBody(response.body);
+    return decoded?['message']?.toString() ?? '서버 오류가 발생했습니다.';
+  } on FormatException {
+    return '서버 오류가 발생했습니다.';
   }
 }
 

@@ -310,6 +310,7 @@ class TripSummary {
   final String? endDate;
   final String tripStatus;
   final String settlementStatus;
+  final String? settlementDisplayStatus;
   final int ownerUserId;
 
   const TripSummary({
@@ -320,8 +321,14 @@ class TripSummary {
     required this.endDate,
     required this.tripStatus,
     required this.settlementStatus,
+    this.settlementDisplayStatus,
     required this.ownerUserId,
   });
+
+  String get effectiveSettlementDisplayStatus {
+    return settlementDisplayStatus ??
+        _fallbackSettlementDisplayStatus(settlementStatus);
+  }
 
   factory TripSummary.fromJson(Map<String, dynamic> json) {
     return TripSummary(
@@ -332,6 +339,7 @@ class TripSummary {
       endDate: json['endDate'] as String?,
       tripStatus: json['tripStatus'] as String,
       settlementStatus: json['settlementStatus'] as String,
+      settlementDisplayStatus: json['settlementDisplayStatus'] as String?,
       ownerUserId: (json['ownerUserId'] as num).toInt(),
     );
   }
@@ -347,6 +355,7 @@ class TripDetail {
   final String? endDate;
   final String tripStatus;
   final String settlementStatus;
+  final String? settlementDisplayStatus;
   final String? settledAt;
   final List<TripCountry> countries;
   final List<TripParticipant> participants;
@@ -361,10 +370,16 @@ class TripDetail {
     required this.endDate,
     required this.tripStatus,
     required this.settlementStatus,
+    this.settlementDisplayStatus,
     required this.settledAt,
     required this.countries,
     required this.participants,
   });
+
+  String get effectiveSettlementDisplayStatus {
+    return settlementDisplayStatus ??
+        _fallbackSettlementDisplayStatus(settlementStatus);
+  }
 
   factory TripDetail.fromJson(Map<String, dynamic> json) {
     return TripDetail(
@@ -377,6 +392,7 @@ class TripDetail {
       endDate: json['endDate'] as String?,
       tripStatus: json['tripStatus'] as String,
       settlementStatus: json['settlementStatus'] as String,
+      settlementDisplayStatus: json['settlementDisplayStatus'] as String?,
       settledAt: json['settledAt'] as String?,
       countries: (json['countries'] as List<dynamic>? ?? [])
           .map((item) => TripCountry.fromJson(item as Map<String, dynamic>))
@@ -396,9 +412,18 @@ class TripDetail {
       endDate: endDate,
       tripStatus: tripStatus,
       settlementStatus: settlementStatus,
+      settlementDisplayStatus: effectiveSettlementDisplayStatus,
       ownerUserId: ownerUserId,
     );
   }
+}
+
+String _fallbackSettlementDisplayStatus(String settlementStatus) {
+  return switch (settlementStatus) {
+    'SETTLED' => 'COMPLETED',
+    'IN_PROGRESS' => 'IN_PROGRESS',
+    _ => 'NOT_STARTED',
+  };
 }
 
 class TripCountry {
