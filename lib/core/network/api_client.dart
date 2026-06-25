@@ -74,7 +74,7 @@ class ApiClient {
 
     final data = decoded['data'];
     if (data is List<dynamic>) return data;
-    return const [];
+    throw FormatException('응답 data가 배열이 아닙니다.', decoded);
   }
 
   Future<Map<String, dynamic>?> post(

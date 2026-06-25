@@ -114,26 +114,44 @@ class _TermsListScreenState extends State<TermsListScreen> {
                   color: AppColors.surface,
                   borderRadius: AppRadii.controlRadius,
                 ),
-                child: Column(
-                  children: [
-                    for (var index = 0; index < data.terms.length; index++)
-                      _TermsMenuRow(
-                        term: data.terms[index],
-                        agreed: data.agreedCodes.contains(
-                          data.terms[index].code,
+                child: data.terms.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(18),
+                        child: Text(
+                          '약관 목록을 확인할 수 없습니다.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.danger,
+                          ),
                         ),
-                        isSaving: _savingCodes.contains(data.terms[index].code),
-                        showDivider: index < data.terms.length - 1,
-                        onTap: () => _showTermsDetail(data.terms[index]),
-                        onAgreementChanged: data.terms[index].required
-                            ? null
-                            : (agreed) => _toggleOptionalTerm(
-                                data.terms[index],
-                                agreed,
+                      )
+                    : Column(
+                        children: [
+                          for (
+                            var index = 0;
+                            index < data.terms.length;
+                            index++
+                          )
+                            _TermsMenuRow(
+                              term: data.terms[index],
+                              agreed: data.agreedCodes.contains(
+                                data.terms[index].code,
                               ),
+                              isSaving: _savingCodes.contains(
+                                data.terms[index].code,
+                              ),
+                              showDivider: index < data.terms.length - 1,
+                              onTap: () => _showTermsDetail(data.terms[index]),
+                              onAgreementChanged: data.terms[index].required
+                                  ? null
+                                  : (agreed) => _toggleOptionalTerm(
+                                      data.terms[index],
+                                      agreed,
+                                    ),
+                            ),
+                        ],
                       ),
-                  ],
-                ),
               ),
             ],
           );

@@ -27,7 +27,7 @@ class TermsAgreementScreen extends StatefulWidget {
 class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
   late Future<List<TermsAgreementItem>> _termsFuture;
   final Set<String> _agreedCodes = {};
-  bool _isSaving = false;
+  bool _isContinuing = false;
   String? _errorMessage;
 
   @override
@@ -37,44 +37,30 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
   }
 
   bool _hasAgreedAllRequired(List<TermsAgreementItem> terms) {
-    return terms
-        .where((term) => term.required)
-        .every((term) => _agreedCodes.contains(term.code));
+    final requiredTerms = terms.where((term) => term.required).toList();
+    return requiredTerms.isNotEmpty &&
+        requiredTerms.every((term) => _agreedCodes.contains(term.code));
   }
 
-  Future<void> _continue(List<TermsAgreementItem> terms) async {
-    if (!_hasAgreedAllRequired(terms) || _isSaving) return;
+  void _continue(List<TermsAgreementItem> terms) {
+    if (!_hasAgreedAllRequired(terms) || _isContinuing) return;
 
     setState(() {
-      _isSaving = true;
+      _isContinuing = true;
       _errorMessage = null;
     });
 
-    try {
-      final agreedTerms = terms
-          .where((term) => _agreedCodes.contains(term.code))
-          .toList();
-      await widget.termsAgreementService.saveAgreements(
-        agreedTerms: agreedTerms,
-      );
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => SignUpProfileScreen(
-            authService: widget.authService,
-            tripService: widget.tripService,
-            termsAgreementService: widget.termsAgreementService,
-            temporaryToken: widget.loginResult.temporaryToken,
-          ),
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => SignUpProfileScreen(
+          authService: widget.authService,
+          tripService: widget.tripService,
+          termsAgreementService: widget.termsAgreementService,
+          temporaryToken: widget.loginResult.temporaryToken,
+          initialAgreedTermCodes: Set.unmodifiable(_agreedCodes),
         ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _errorMessage = '약관 동의 저장에 실패했습니다: $e');
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+      ),
+    );
   }
 
   void _toggleAll(List<TermsAgreementItem> terms, bool? checked) {
@@ -139,6 +125,7 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
               terms.isNotEmpty &&
               terms.every((term) => _agreedCodes.contains(term.code));
           final canContinue = _hasAgreedAllRequired(terms);
+          final hasTerms = terms.isNotEmpty;
 
           return SafeArea(
             top: false,
@@ -167,29 +154,34 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      _AllTermsTile(
-                        value: agreedAll,
-                        onChanged: (checked) => _toggleAll(terms, checked),
-                      ),
-                      const SizedBox(height: 12),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: AppRadii.controlRadius,
+                      if (hasTerms) ...[
+                        _AllTermsTile(
+                          value: agreedAll,
+                          onChanged: (checked) => _toggleAll(terms, checked),
                         ),
-                        child: Column(
-                          children: [
-                            for (var index = 0; index < terms.length; index++)
-                              _TermsTile(
-                                term: terms[index],
-                                value: _agreedCodes.contains(terms[index].code),
-                                showDivider: index < terms.length - 1,
-                                onChanged: (checked) =>
-                                    _toggleOne(terms[index], checked),
-                              ),
-                          ],
+                        const SizedBox(height: 12),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: AppRadii.controlRadius,
+                          ),
+                          child: Column(
+                            children: [
+                              for (var index = 0; index < terms.length; index++)
+                                _TermsTile(
+                                  term: terms[index],
+                                  value: _agreedCodes.contains(
+                                    terms[index].code,
+                                  ),
+                                  showDivider: index < terms.length - 1,
+                                  onChanged: (checked) =>
+                                      _toggleOne(terms[index], checked),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ] else
+                        const AppErrorText('약관 목록을 확인할 수 없어 가입을 진행할 수 없습니다.'),
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 12),
                         Text(
@@ -210,11 +202,11 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
                     width: double.infinity,
                     child: FilledButton(
                       key: const ValueKey('continueTermsButton'),
-                      onPressed: canContinue && !_isSaving
+                      onPressed: canContinue && !_isContinuing
                           ? () => _continue(terms)
                           : null,
                       style: AppButtonStyles.primary(),
-                      child: _isSaving
+                      child: _isContinuing
                           ? const SizedBox(
                               width: 18,
                               height: 18,

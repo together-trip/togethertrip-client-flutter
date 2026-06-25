@@ -184,6 +184,22 @@ void main() {
       expect(result, hasLength(2));
     });
 
+    test('getList 응답 data가 배열이 아니면 형식 오류를 던진다', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode(_apiResponse({'id': 1})),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      expect(
+        () => apiClient.getList('/api/terms'),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('delete 요청 시 JSON body와 Authorization 헤더가 포함된다', () async {
       String? capturedAuth;
       Map<String, dynamic>? capturedBody;
