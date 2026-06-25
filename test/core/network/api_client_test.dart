@@ -183,5 +183,29 @@ void main() {
       expect(capturedAuth, 'Bearer my_token');
       expect(result, hasLength(2));
     });
+
+    test('delete 요청 시 JSON body와 Authorization 헤더가 포함된다', () async {
+      String? capturedAuth;
+      Map<String, dynamic>? capturedBody;
+      final mockClient = MockClient((request) async {
+        capturedAuth = request.headers['Authorization'];
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode(_apiResponse({})),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      await apiClient.delete(
+        '/notification/api/push-tokens',
+        accessToken: 'my_token',
+        body: {'token': 'fcm-token'},
+      );
+
+      expect(capturedAuth, 'Bearer my_token');
+      expect(capturedBody, {'token': 'fcm-token'});
+    });
   });
 }

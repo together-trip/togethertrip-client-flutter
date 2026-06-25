@@ -8,6 +8,8 @@ import '../../auth/screen/terms_list_screen.dart';
 import '../../auth/service/auth_service.dart';
 import '../../auth/service/terms_agreement_service.dart';
 import '../../notification/screen/notification_list_screen.dart';
+import '../../notification/service/notification_service.dart';
+import '../../trip/service/trip_service.dart';
 import '../widget/my_menu_row.dart';
 import '../widget/my_profile_header.dart';
 
@@ -169,7 +171,12 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
 
   void _openNotifications() {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const NotificationListScreen()),
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationListScreen(
+          notificationService: NotificationService(authService: _authService),
+          tripService: TripService(authService: _authService),
+        ),
+      ),
     );
   }
 

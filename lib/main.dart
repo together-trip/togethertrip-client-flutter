@@ -4,9 +4,12 @@ import 'core/widget/app_design.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'core/env/env.dart';
+import 'core/network/api_client.dart';
 import 'features/auth/screen/onboarding_screen.dart';
 import 'features/auth/service/auth_service.dart';
 import 'features/auth/service/terms_agreement_service.dart';
+import 'features/notification/service/notification_push_token_lifecycle.dart';
+import 'features/notification/service/notification_service.dart';
 import 'features/trip/service/trip_service.dart';
 
 void main() {
@@ -16,7 +19,7 @@ void main() {
   runApp(const TogetherTripApp());
 }
 
-class TogetherTripApp extends StatelessWidget {
+class TogetherTripApp extends StatefulWidget {
   final AuthService? authService;
   final TripService? tripService;
   final TermsAgreementService? termsAgreementService;
@@ -29,12 +32,46 @@ class TogetherTripApp extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final resolvedAuthService = authService ?? AuthService();
-    final resolvedTermsAgreementService =
-        termsAgreementService ??
-        TermsAgreementService(authService: resolvedAuthService);
+  State<TogetherTripApp> createState() => _TogetherTripAppState();
+}
 
+class _TogetherTripAppState extends State<TogetherTripApp> {
+  late final AuthService _authService;
+  late final TermsAgreementService _termsAgreementService;
+  NotificationPushTokenLifecycle? _pushTokenLifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.authService != null) {
+      _authService = widget.authService!;
+    } else {
+      final apiClient = ApiClient();
+      final pushTokenLifecycle = NotificationPushTokenLifecycle(
+        notificationService: NotificationService(apiClient: apiClient),
+      );
+      _authService = AuthService(
+        apiClient: apiClient,
+        tokenLifecycle: pushTokenLifecycle,
+      );
+      pushTokenLifecycle.bindTokenRefresh(_authService);
+      _pushTokenLifecycle = pushTokenLifecycle;
+    }
+
+    _termsAgreementService =
+        widget.termsAgreementService ??
+        TermsAgreementService(authService: _authService);
+  }
+
+  @override
+  void dispose() {
+    _pushTokenLifecycle?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'TogetherTrip',
       locale: const Locale('ko'),
@@ -46,9 +83,9 @@ class TogetherTripApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.white,
       ),
       home: OnboardingScreen(
-        authService: resolvedAuthService,
-        tripService: tripService,
-        termsAgreementService: resolvedTermsAgreementService,
+        authService: _authService,
+        tripService: widget.tripService,
+        termsAgreementService: _termsAgreementService,
       ),
     );
   }

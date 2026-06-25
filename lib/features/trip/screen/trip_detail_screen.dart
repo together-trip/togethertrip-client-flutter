@@ -252,7 +252,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   void _openNotifications() {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const NotificationListScreen()),
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationListScreen(tripService: _tripService),
+      ),
     );
   }
 

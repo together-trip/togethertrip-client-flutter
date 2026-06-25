@@ -209,6 +209,7 @@ class ApiClient {
   Future<Map<String, dynamic>?> delete(
     String path, {
     required String accessToken,
+    Map<String, dynamic>? body,
   }) async {
     final url = Uri.parse('$_baseUrl$path');
     final response = await _client.delete(
@@ -217,6 +218,7 @@ class ApiClient {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $accessToken',
       },
+      body: body == null ? null : jsonEncode(body),
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
