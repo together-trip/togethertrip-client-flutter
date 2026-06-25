@@ -55,6 +55,91 @@ void main() {
       );
     });
 
+    test('정산 진행중 여행으로 다시 진입하면 확정 정산과 송금 목록을 유지한다', () async {
+      final requested = <String>[];
+      Uri? transferUrl;
+      final service = SettlementService(
+        apiClient: ApiClient(
+          client: MockClient((request) async {
+            requested.add('${request.method} ${request.url.path}');
+            if (request.url.path.endsWith('/balance-summary')) {
+              return _jsonResponse(_apiResponse(_balanceSummaryData()), 200);
+            }
+            if (request.url.path.endsWith('/settlement-transfers')) {
+              transferUrl = request.url;
+              return _jsonResponse(
+                _apiResponse([_confirmedTransferData()]),
+                200,
+              );
+            }
+            return _jsonResponse(_apiResponse(null), 404);
+          }),
+        ),
+        authService: _FakeAuthService(),
+      );
+
+      final overview = await service.getOverview(
+        tripId: 10,
+        tripTitle: '오사카 여행',
+        isOwner: true,
+        currentParticipantId: 100,
+        tripSettlementStatus: 'IN_PROGRESS',
+      );
+
+      expect(overview.stage, SettlementStage.confirmed);
+      expect(overview.receivedTransfers.single.id, 1);
+      expect(requested, contains('GET /api/trips/10/balance-summary'));
+      expect(requested, contains('GET /api/trips/10/settlement-transfers'));
+      expect(transferUrl!.queryParameters.containsKey('participantId'), isFalse);
+    });
+
+    test('다른 참여자의 미완료 송금이 남아 있으면 전체 정산 완료로 보지 않는다', () {
+      final overview = SettlementOverview(
+        tripId: 10,
+        tripTitle: '오사카 여행',
+        baseCurrency: 'KRW',
+        stage: SettlementStage.confirmed,
+        currentParticipantId: 23,
+        isOwner: false,
+        settlementId: 901,
+        shareToken: null,
+        balances: const [],
+        transfers: [
+          SettlementTransferItem.fromJson({
+            'id': 14,
+            'senderParticipantId': 25,
+            'senderDisplayName': '동행자 1',
+            'receiverParticipantId': 23,
+            'receiverDisplayName': '요술다람쥐',
+            'amount': 635317.9,
+            'currency': 'KRW',
+            'status': 'COMPLETED',
+            'senderConfirmedAt': '2026-06-25T15:34:40.933712Z',
+            'receiverConfirmedAt': '2026-06-25T15:34:49.011940Z',
+            'completedAt': '2026-06-25T15:34:49.011940Z',
+            'autoConfirmed': true,
+          }),
+          SettlementTransferItem.fromJson({
+            'id': 15,
+            'senderParticipantId': 25,
+            'senderDisplayName': '동행자 1',
+            'receiverParticipantId': 24,
+            'receiverDisplayName': '로컬 verified hana',
+            'amount': 17719677.7,
+            'currency': 'KRW',
+            'status': 'SENDER_CONFIRMED',
+            'senderConfirmedAt': '2026-06-25T15:34:40.939760Z',
+            'receiverConfirmedAt': null,
+            'completedAt': null,
+            'autoConfirmed': true,
+          }),
+        ],
+      );
+
+      expect(overview.receivedTransfers.map((transfer) => transfer.id), [14]);
+      expect(overview.allTransfersCompleted, isFalse);
+    });
+
     test('미리보기, 확정, 공유, 수금 확인 API를 호출하고 모델을 갱신한다', () async {
       final requested = <String>[];
       final service = SettlementService(
