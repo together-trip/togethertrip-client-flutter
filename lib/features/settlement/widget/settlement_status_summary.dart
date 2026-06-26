@@ -90,7 +90,7 @@ class SettlementStatusSummary extends StatelessWidget {
       case SettlementStage.previewed:
         return '미리보기 완료';
       case SettlementStage.confirmed:
-        return overview.allTransfersCompleted ? '정산 완료' : '송금 확인 중';
+        return overview.allTransfersCompleted ? '정산 완료' : '확인할 정산 있음';
     }
   }
 
@@ -101,7 +101,15 @@ class SettlementStatusSummary extends StatelessWidget {
       case SettlementStage.previewed:
         return overview.isOwner ? '확정하면 되돌릴 수 없어요' : '현재 기준 정산 결과예요';
       case SettlementStage.confirmed:
-        return '확정된 결과를 기준으로 확인해요';
+        if (overview.hasPendingSentTransfers) {
+          return '보낼 돈의 송금 확인이 필요해요';
+        }
+        if (overview.hasPendingReceivedTransfers) {
+          return '받을 돈의 수금 확인이 필요해요';
+        }
+        return overview.allTransfersCompleted
+            ? '모든 송금과 수금 확인이 끝났어요'
+            : '동행자의 확인을 기다리고 있어요';
     }
   }
 }

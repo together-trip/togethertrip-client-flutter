@@ -56,7 +56,7 @@ class SettlementMySummaryCard extends StatelessWidget {
               ),
               Expanded(
                 child: _SummaryMetric(
-                  label: '확인',
+                  label: '확인 필요',
                   value:
                       '$sentDone/${overview.sentTransfers.length} · $receivedDone/${overview.receivedTransfers.length}',
                 ),

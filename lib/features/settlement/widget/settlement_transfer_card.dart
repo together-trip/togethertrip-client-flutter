@@ -24,7 +24,6 @@ class SettlementTransferCard extends StatelessWidget {
     final targetName = isSent
         ? '${transfer.receiverDisplayName}에게'
         : '${transfer.senderDisplayName}에게서';
-    final actionLabel = isSent ? '송금 완료' : '수금 완료';
     final doneByMe = isSent
         ? transfer.senderConfirmed
         : transfer.receiverConfirmed;
@@ -97,7 +96,9 @@ class SettlementTransferCard extends StatelessWidget {
                   ? '완료됨'
                   : doneByMe
                   ? '확인됨'
-                  : actionLabel,
+                  : isSent
+                  ? '송금 확인 필요'
+                  : '수금 확인 필요',
             ),
           ),
         ],
@@ -108,6 +109,8 @@ class SettlementTransferCard extends StatelessWidget {
   String _statusText(bool doneByMe) {
     if (transfer.isCompleted) return '완료됨';
     if (doneByMe) return '상대 확인 대기';
-    return direction == SettlementTransferDirection.sent ? '보내기' : '받기';
+    return direction == SettlementTransferDirection.sent
+        ? '송금 확인 필요'
+        : '수금 확인 필요';
   }
 }

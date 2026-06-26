@@ -64,6 +64,18 @@ class SettlementOverview {
     return transfers.every((transfer) => transfer.isCompleted);
   }
 
+  bool get hasPendingSentTransfers {
+    return sentTransfers.any(
+      (transfer) => !transfer.isCompleted && !transfer.senderConfirmed,
+    );
+  }
+
+  bool get hasPendingReceivedTransfers {
+    return receivedTransfers.any(
+      (transfer) => !transfer.isCompleted && !transfer.receiverConfirmed,
+    );
+  }
+
   SettlementOverview copyWith({
     SettlementStage? stage,
     int? settlementId,

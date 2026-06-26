@@ -38,9 +38,7 @@ class SettlementService {
     if (_overview != null && !reset) return _overview!;
 
     final accessToken = await _requireAccessToken();
-    final sourceStatus = tripSettlementStatus == 'SETTLED'
-        ? SettlementSourceStatus.settled
-        : SettlementSourceStatus.notStarted;
+    final sourceStatus = _sourceStatusFromTripStatus(tripSettlementStatus);
     final balanceData = await _apiClient.get(
       '/api/trips/$tripId/balance-summary',
       accessToken: accessToken,
@@ -53,7 +51,6 @@ class SettlementService {
         ? await _getTransfers(
             accessToken: accessToken,
             tripId: tripId,
-            participantId: currentParticipantId,
           )
         : <SettlementTransferItem>[];
 
@@ -176,11 +173,9 @@ class SettlementService {
   Future<List<SettlementTransferItem>> _getTransfers({
     required String accessToken,
     required int tripId,
-    required int participantId,
   }) async {
     final data = await _apiClient.getList(
       '/api/trips/$tripId/settlement-transfers',
-      queryParameters: {'participantId': participantId.toString()},
       accessToken: accessToken,
     );
 
@@ -218,6 +213,14 @@ class SettlementService {
       throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
     }
     return accessToken;
+  }
+
+  SettlementSourceStatus _sourceStatusFromTripStatus(String status) {
+    return switch (status) {
+      'IN_PROGRESS' || 'SETTLED' || 'COMPLETED' =>
+        SettlementSourceStatus.settled,
+      _ => SettlementSourceStatus.notStarted,
+    };
   }
 }
 

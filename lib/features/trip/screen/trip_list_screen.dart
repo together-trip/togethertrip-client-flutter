@@ -142,6 +142,7 @@ class _TripListScreenState extends State<TripListScreen> {
       endDate: null,
       tripStatus: 'PLANNED',
       settlementStatus: 'NOT_STARTED',
+      settlementDisplayStatus: 'NOT_STARTED',
       ownerUserId: 0,
     );
   }
@@ -542,7 +543,7 @@ class _TripCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '${trip.defaultCurrency} · 정산 ${_settlementStatusLabel(trip.settlementStatus)}',
+              '${trip.defaultCurrency} · 정산 ${_settlementDisplayStatusLabel(trip.effectiveSettlementDisplayStatus)}',
               style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
             ),
           ],
@@ -590,10 +591,10 @@ String _tripStatusLabel(String status) {
   };
 }
 
-String _settlementStatusLabel(String status) {
+String _settlementDisplayStatusLabel(String status) {
   return switch (status) {
     'IN_PROGRESS' => '진행중',
-    'SETTLED' => '완료',
+    'COMPLETED' => '완료',
     _ => '미시작',
   };
 }

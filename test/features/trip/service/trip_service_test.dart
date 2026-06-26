@@ -59,6 +59,7 @@ void main() {
                     'endDate': '2026-07-05',
                     'tripStatus': 'PLANNED',
                     'settlementStatus': 'NOT_STARTED',
+                    'settlementDisplayStatus': 'IN_PROGRESS',
                     'ownerUserId': 1,
                   },
                 ],
@@ -83,8 +84,19 @@ void main() {
       expect(capturedUrl!.queryParameters['size'], '20');
       expect(capturedAuth, 'Bearer access-token');
       expect(page.items.single.title, '오사카 여행');
+      expect(page.items.single.effectiveSettlementDisplayStatus, 'IN_PROGRESS');
       expect(page.nextCursor, 'cursor');
       expect(page.hasNext, true);
+    });
+
+    test('여행 목록 응답에 표시 정산 상태가 없으면 기존 정산 상태로 보정한다', () {
+      final trip = TripSummary.fromJson({
+        ..._tripSummaryJson(),
+        'settlementStatus': 'SETTLED',
+      });
+
+      expect(trip.settlementDisplayStatus, isNull);
+      expect(trip.effectiveSettlementDisplayStatus, 'COMPLETED');
     });
 
     test('여행 생성 요청을 서버 DTO 형태로 전송한다', () async {
