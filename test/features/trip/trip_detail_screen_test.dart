@@ -96,6 +96,59 @@ void main() {
       true,
     );
   });
+
+  testWidgets('소비 정보는 피드 로딩이 아니라 돈 버튼 클릭 시 조회한다', (tester) async {
+    final transactionService = _FakeTransactionService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripDetailScreen(
+          tripId: 10,
+          tripService: _FakeTripService(settlementStatus: 'NOT_STARTED'),
+          postService: _FakePostService(posts: [_expensePost()]),
+          transactionService: transactionService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(transactionService.getTransactionCallCount, 0);
+    expect(find.text('소비 정보'), findsOneWidget);
+
+    await tester.tap(find.text('소비 정보'));
+    await tester.pumpAndSettle();
+
+    expect(transactionService.getTransactionCallCount, 1);
+    expect(find.text('소비 정보'), findsWidgets);
+    expect(find.text('결제자'), findsOneWidget);
+    expect(find.text('부담자'), findsOneWidget);
+  });
+
+  testWidgets('소비 게시글 수정은 소비 수정 폼으로 진입한다', (tester) async {
+    final postService = _FakePostService(posts: [_expensePost()]);
+    final transactionService = _FakeTransactionService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripDetailScreen(
+          tripId: 10,
+          tripService: _FakeTripService(settlementStatus: 'NOT_STARTED'),
+          postService: postService,
+          transactionService: transactionService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('게시글 메뉴'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('postEditAction')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('소비 수정'), findsOneWidget);
+    expect(find.text('금액'), findsOneWidget);
+    expect(transactionService.getTransactionCallCount, 1);
+  });
 }
 
 class _FakeTripService extends TripService {
@@ -161,6 +214,7 @@ class _FakeTripService extends TripService {
 
 class _FakePostService extends PostService {
   final List<PostSummary> posts;
+  int updatePostCallCount = 0;
 
   _FakePostService({required this.posts});
 
@@ -205,15 +259,48 @@ class _FakePostService extends PostService {
       updatedAt: post.updatedAt,
     );
   }
+
+  @override
+  Future<PostDetail> updatePost(
+    int tripId,
+    int postId,
+    PostFormInput input,
+  ) async {
+    updatePostCallCount += 1;
+    final post = await getPost(tripId, postId);
+    return PostDetail(
+      id: post.id,
+      tripId: post.tripId,
+      transactionId: post.transactionId,
+      authorParticipantId: post.authorParticipantId,
+      authorDisplayName: post.authorDisplayName,
+      postType: post.postType,
+      title: input.title,
+      category: input.category,
+      content: input.content,
+      occurredAt: input.occurredAt,
+      placeName: input.placeName,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      commentCount: post.commentCount,
+      attachments: post.attachments,
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
+    );
+  }
 }
 
 class _FakeTransactionService extends TransactionService {
+  int getTransactionCallCount = 0;
+  int updateTransactionCallCount = 0;
+
   @override
   Future<TransactionDetail> getTransaction(
     int tripId,
     int transactionId,
   ) async {
-    return const TransactionDetail(
+    getTransactionCallCount += 1;
+    return TransactionDetail(
       summary: TransactionSummary(
         id: 200,
         tripId: 10,
@@ -223,14 +310,41 @@ class _FakeTransactionService extends TransactionService {
         exchangeRate: 9.5,
         baseCurrency: 'KRW',
         baseAmount: 114000,
+        category: '식비',
+        occurredAt: '2026-06-09T03:00:00Z',
         status: 'ACTIVE',
         createdByUserId: 1,
         createdAt: null,
         updatedAt: null,
       ),
-      payments: [],
-      shares: [],
+      payments: const [
+        TransactionPayment(
+          id: 1,
+          participantId: 100,
+          participantDisplayName: '재완',
+          amount: 12000,
+        ),
+      ],
+      shares: const [
+        TransactionShare(
+          id: 2,
+          participantId: 100,
+          participantDisplayName: '재완',
+          shareAmount: 12000,
+          shareRatio: 1,
+        ),
+      ],
     );
+  }
+
+  @override
+  Future<TransactionDetail> updateTransaction(
+    int tripId,
+    int transactionId,
+    TransactionFormInput input,
+  ) async {
+    updateTransactionCallCount += 1;
+    return getTransaction(tripId, transactionId);
   }
 }
 

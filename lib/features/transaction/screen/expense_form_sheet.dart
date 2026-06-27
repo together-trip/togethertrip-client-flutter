@@ -13,6 +13,8 @@ import '../service/transaction_service.dart';
 class ExpenseFormSheet extends StatefulWidget {
   final TripDetail trip;
   final int? currentParticipantId;
+  final PostDetail? initialPost;
+  final TransactionDetail? initialTransaction;
   final Future<void> Function({
     required TransactionFormInput transactionInput,
     required PostFormInput postInput,
@@ -23,6 +25,8 @@ class ExpenseFormSheet extends StatefulWidget {
     super.key,
     required this.trip,
     required this.currentParticipantId,
+    this.initialPost,
+    this.initialTransaction,
     required this.onSubmit,
   });
 
@@ -41,13 +45,17 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   final Map<int, TextEditingController> _paymentControllers = {};
   final Map<int, TextEditingController> _shareControllers = {};
   final List<AttachmentDraft> _attachments = [];
+  final List<PostAttachment> _existingAttachments = [];
 
   late final List<TripParticipant> _participants;
   late String _currency;
   late DateTime _selectedDate;
   String _selectedCategory = '식비';
   bool _isSubmitting = false;
+  bool _attachmentsChanged = false;
   String? _errorMessage;
+
+  bool get _isEditing => widget.initialPost != null;
 
   int? get _amountCents => _parseAmountCents(_amountController.text);
 
@@ -67,6 +75,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
       _paymentControllers[participant.id] = TextEditingController(text: '0');
       _shareControllers[participant.id] = TextEditingController(text: '0');
     }
+    _applyInitialValues();
   }
 
   @override
@@ -131,6 +140,46 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   void _syncAmountDefaults() {
     _fillPaymentByDefaultPayer();
     _splitEvenly();
+  }
+
+  void _applyInitialValues() {
+    final initialPost = widget.initialPost;
+    final initialTransaction = widget.initialTransaction;
+    if (initialPost == null || initialTransaction == null) return;
+
+    _amountController.text = _formatCents(
+      _amountToCents(initialTransaction.summary.amount),
+    );
+    _currency = initialTransaction.summary.currency;
+    _titleController.text = initialPost.title;
+    _contentController.text = initialPost.content ?? '';
+    _placeController.text = initialPost.placeName ?? '';
+    final initialCategory =
+        initialTransaction.summary.category ?? initialPost.category;
+    if (_categories.contains(initialCategory)) {
+      _selectedCategory = initialCategory;
+    } else {
+      _selectedCategory = '기타';
+      _otherCategoryController.text = initialCategory;
+    }
+    _selectedDate =
+        _parseDate(initialTransaction.summary.occurredAt) ??
+        _parseDate(initialPost.occurredAt) ??
+        DateTime.now();
+    _existingAttachments.addAll(initialPost.attachments);
+
+    for (final payment in initialTransaction.payments) {
+      final controller = _paymentControllers[payment.participantId];
+      if (controller != null) {
+        controller.text = _formatCents(_amountToCents(payment.amount));
+      }
+    }
+    for (final share in initialTransaction.shares) {
+      final controller = _shareControllers[share.participantId];
+      if (controller != null) {
+        controller.text = _formatCents(_amountToCents(share.shareAmount));
+      }
+    }
   }
 
   Future<void> _submit() async {
@@ -214,11 +263,13 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
           transactionType: 'EXPENSE',
           amount: _centsToAmount(amountCents),
           currency: _currency,
+          category: category,
+          occurredAt: _toOccurredAt(_selectedDate),
           payments: payments,
           shares: shares,
         ),
         postInput: PostFormInput(
-          transactionId: null,
+          transactionId: widget.initialPost?.transactionId,
           title: title,
           category: category,
           content: _nullableText(_contentController.text),
@@ -228,6 +279,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
           latitude: null,
           longitude: null,
           files: buildAttachmentInputs(_attachments),
+          replaceAttachments: _attachmentsChanged,
         ),
       );
       if (!mounted) return;
@@ -271,38 +323,14 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                 ),
               ),
               const SizedBox(height: 18),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: _isSubmitting
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    child: const Text('취소'),
-                  ),
-                  const Expanded(
-                    child: Text(
-                      '소비 등록',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _isSubmitting || _participants.isEmpty
-                        ? null
-                        : _submit,
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('등록'),
-                  ),
-                ],
+              Text(
+                _isEditing ? '소비 수정' : '소비 등록',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
               ),
               const SizedBox(height: 18),
               Row(
@@ -324,6 +352,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                   SizedBox(
                     width: 96,
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _currency,
                       items: _currencyOptions
                           .map(
@@ -480,8 +509,13 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
               const SizedBox(height: 18),
               AttachmentInputSection(
                 attachments: _attachments,
+                existingAttachments: _attachmentsChanged
+                    ? const []
+                    : _existingAttachments,
                 enabled: !_isSubmitting,
-                onChanged: (_) => setState(() {}),
+                onChanged: (changed) {
+                  setState(() => _attachmentsChanged = changed);
+                },
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 12),
@@ -490,7 +524,54 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                   style: const TextStyle(color: AppColors.danger, fontSize: 12),
                 ),
               ],
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: OutlinedButton(
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => Navigator.of(context).pop(false),
+                        style:
+                            AppButtonStyles.outlined(
+                              sideColor: AppColors.lineSoft,
+                            ).copyWith(
+                              side: const WidgetStatePropertyAll(
+                                BorderSide(color: AppColors.lineSoft),
+                              ),
+                            ),
+                        child: const Text('취소'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: FilledButton(
+                        key: const ValueKey('saveExpenseButton'),
+                        onPressed: _isSubmitting || _participants.isEmpty
+                            ? null
+                            : _submit,
+                        style: AppButtonStyles.primary(),
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(_isEditing ? '저장' : '등록'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
             ],
           ),
         );
@@ -649,6 +730,10 @@ double _centsToAmount(int cents) {
   return cents / 100;
 }
 
+int _amountToCents(double amount) {
+  return (amount * 100).round();
+}
+
 String _formatCents(int cents) {
   final major = cents ~/ 100;
   final minor = cents.abs() % 100;
@@ -707,4 +792,9 @@ String _dateLabel(DateTime date) {
   final month = date.month.toString().padLeft(2, '0');
   final day = date.day.toString().padLeft(2, '0');
   return '${date.year}-$month-$day';
+}
+
+DateTime? _parseDate(String? value) {
+  if (value == null || value.isEmpty) return null;
+  return DateTime.tryParse(value)?.toLocal();
 }

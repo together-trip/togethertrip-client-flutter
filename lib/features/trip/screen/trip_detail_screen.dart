@@ -197,9 +197,6 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       } else {
         _loadAttachments(post);
       }
-      if (post.transactionId != null) {
-        _loadTransaction(post.transactionId!);
-      }
     }
   }
 
@@ -210,20 +207,6 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       setState(() => _attachmentsByPostId[post.id] = detail.attachments);
     } catch (_) {
       // Attachment enhancement is optional for feed rendering.
-    }
-  }
-
-  Future<void> _loadTransaction(int transactionId) async {
-    if (_transactionsById.containsKey(transactionId)) return;
-    try {
-      final transaction = await _transactionService.getTransaction(
-        widget.tripId,
-        transactionId,
-      );
-      if (!mounted) return;
-      setState(() => _transactionsById[transactionId] = transaction);
-    } catch (_) {
-      // Transaction enhancement is optional for feed rendering.
     }
   }
 
@@ -242,6 +225,29 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         );
       },
     );
+  }
+
+  Future<void> _openTransactionInfoById(int transactionId) async {
+    final cached = _transactionsById[transactionId];
+    if (cached != null) {
+      await _openTransactionInfo(cached);
+      return;
+    }
+
+    try {
+      final transaction = await _transactionService.getTransaction(
+        widget.tripId,
+        transactionId,
+      );
+      if (!mounted) return;
+      setState(() => _transactionsById[transactionId] = transaction);
+      await _openTransactionInfo(transaction);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('소비 정보를 불러오지 못했습니다: $e')));
+    }
   }
 
   Future<void> _selectFilter(_PostFeedFilter filter) async {
@@ -643,12 +649,65 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     try {
       final detail = await _postService.getPost(widget.tripId, post.id);
       if (!mounted) return;
+      if (detail.postType == 'EXPENSE') {
+        await _openEditExpenseForm(detail);
+        return;
+      }
       await _openPostForm(postType: detail.postType, initialPost: detail);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('게시글을 불러오지 못했습니다: $e')));
+    }
+  }
+
+  Future<void> _openEditExpenseForm(PostDetail post) async {
+    final trip = _trip;
+    final transactionId = post.transactionId;
+    if (trip == null || transactionId == null) return;
+
+    try {
+      final transaction =
+          _transactionsById[transactionId] ??
+          await _transactionService.getTransaction(
+            widget.tripId,
+            transactionId,
+          );
+      if (!mounted) return;
+      _transactionsById[transactionId] = transaction;
+      final changed = await showAppBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (context) {
+          return ExpenseFormSheet(
+            trip: trip,
+            currentParticipantId: _currentParticipantId,
+            initialPost: post,
+            initialTransaction: transaction,
+            onSubmit: ({required transactionInput, required postInput}) async {
+              await _transactionService.updateTransaction(
+                widget.tripId,
+                transactionId,
+                transactionInput,
+              );
+              await _postService.updatePost(widget.tripId, post.id, postInput);
+            },
+          );
+        },
+      );
+
+      if (changed == true) {
+        _changed = true;
+        _transactionsById.remove(transactionId);
+        await _loadPosts();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('소비 정보를 불러오지 못했습니다: $e')));
     }
   }
 
@@ -849,12 +908,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                       _currentParticipantId == post.authorParticipantId,
                   onActionsTap: () => _openPostActions(post),
                   onCommentsTap: () => _openComments(post),
-                  onTransactionTap:
-                      _transactionsById[post.transactionId] == null
+                  onTransactionTap: post.transactionId == null
                       ? null
-                      : () => _openTransactionInfo(
-                          _transactionsById[post.transactionId]!,
-                        ),
+                      : () => _openTransactionInfoById(post.transactionId!),
                 );
               },
             ),
@@ -1167,10 +1223,12 @@ class _PostFeedCardState extends State<_PostFeedCard> {
                 label: '댓글 ${widget.post.commentCount}',
                 onTap: widget.onCommentsTap,
               ),
-              if (isExpense && widget.transaction != null)
+              if (isExpense && widget.onTransactionTap != null)
                 _FeedAction(
                   icon: Icons.payments_outlined,
-                  label: _moneyLabel(widget.transaction!.summary),
+                  label: widget.transaction == null
+                      ? '소비 정보'
+                      : _moneyLabel(widget.transaction!.summary),
                   onTap: widget.onTransactionTap,
                 ),
             ],
