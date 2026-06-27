@@ -97,9 +97,9 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   Future<void> _pickDate() async {
     final picked = await showTogetherTripDatePicker(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      initialDate: _dateWithinTripRange(_selectedDate),
+      firstDate: _expenseFirstDate,
+      lastDate: _expenseLastDate,
       helpText: '소비 날짜',
     );
     if (picked == null) return;
@@ -199,6 +199,10 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
     }
     if (category.isEmpty) {
       setState(() => _errorMessage = '기타 카테고리를 입력해주세요.');
+      return;
+    }
+    if (!_isDateWithinTripRange(_selectedDate)) {
+      setState(() => _errorMessage = '소비 날짜는 여행 기간 내로 선택해주세요.');
       return;
     }
 
@@ -580,6 +584,31 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   }
 }
 
+extension _ExpenseTripDateRange on _ExpenseFormSheetState {
+  DateTime get _expenseFirstDate {
+    return _parseDateOnly(widget.trip.startDate) ?? DateTime(2000);
+  }
+
+  DateTime get _expenseLastDate {
+    return _parseDateOnly(widget.trip.endDate) ?? DateTime(2100);
+  }
+
+  DateTime _dateWithinTripRange(DateTime date) {
+    final dateOnly = _dateOnly(date);
+    final firstDate = _expenseFirstDate;
+    final lastDate = _expenseLastDate;
+    if (dateOnly.isBefore(firstDate)) return firstDate;
+    if (dateOnly.isAfter(lastDate)) return lastDate;
+    return dateOnly;
+  }
+
+  bool _isDateWithinTripRange(DateTime date) {
+    final dateOnly = _dateOnly(date);
+    return !dateOnly.isBefore(_expenseFirstDate) &&
+        !dateOnly.isAfter(_expenseLastDate);
+  }
+}
+
 class _ParticipantAmountRow extends StatelessWidget {
   final TripParticipant participant;
   final TextEditingController controller;
@@ -797,4 +826,14 @@ String _dateLabel(DateTime date) {
 DateTime? _parseDate(String? value) {
   if (value == null || value.isEmpty) return null;
   return DateTime.tryParse(value)?.toLocal();
+}
+
+DateTime? _parseDateOnly(String? value) {
+  final parsed = _parseDate(value);
+  if (parsed == null) return null;
+  return _dateOnly(parsed);
+}
+
+DateTime _dateOnly(DateTime date) {
+  return DateTime(date.year, date.month, date.day);
 }
