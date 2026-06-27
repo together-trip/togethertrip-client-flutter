@@ -48,6 +48,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('확인할 정산 있음'), findsOneWidget);
+    expect(find.text('전체 정산 현황'), findsOneWidget);
+    expect(find.text('송금 확인 1/2'), findsOneWidget);
+    expect(find.text('수금 확인 0/2'), findsOneWidget);
     expect(find.text('공유'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('settlementTabreceived')));

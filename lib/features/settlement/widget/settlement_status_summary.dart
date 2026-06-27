@@ -24,49 +24,61 @@ class SettlementStatusSummary extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '정산 상태',
-                  style: TextStyle(fontSize: 11, color: AppColors.textSubtle),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '정산 상태',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSubtle,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _statusLabel,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _statusDescription,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSubtle,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  _statusLabel,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
-                  ),
+              ),
+              if (overview.stage == SettlementStage.confirmed)
+                OutlinedButton(
+                  key: const ValueKey('shareSettlementButton'),
+                  onPressed: isBusy ? null : onShare,
+                  child: Text(overview.shareToken == null ? '공유' : '공유됨'),
+                )
+              else if (overview.isOwner && primaryLabel != null)
+                ElevatedButton(
+                  key: const ValueKey('settlementPrimaryButton'),
+                  onPressed: isBusy ? null : onPrimaryAction,
+                  style: AppButtonStyles.elevatedPrimary(),
+                  child: Text(primaryLabel),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  _statusDescription,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSubtle,
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
-          if (overview.stage == SettlementStage.confirmed)
-            OutlinedButton(
-              key: const ValueKey('shareSettlementButton'),
-              onPressed: isBusy ? null : onShare,
-              child: Text(overview.shareToken == null ? '공유' : '공유됨'),
-            )
-          else if (overview.isOwner && primaryLabel != null)
-            ElevatedButton(
-              key: const ValueKey('settlementPrimaryButton'),
-              onPressed: isBusy ? null : onPrimaryAction,
-              style: AppButtonStyles.elevatedPrimary(),
-              child: Text(primaryLabel),
-            ),
+          if (overview.stage == SettlementStage.confirmed) ...[
+            const SizedBox(height: 14),
+            _SettlementProgress(overview: overview),
+          ],
         ],
       ),
     );
@@ -111,5 +123,68 @@ class SettlementStatusSummary extends StatelessWidget {
             ? '모든 송금과 수금 확인이 끝났어요'
             : '동행자의 확인을 기다리고 있어요';
     }
+  }
+}
+
+class _SettlementProgress extends StatelessWidget {
+  final SettlementOverview overview;
+
+  const _SettlementProgress({required this.overview});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = overview.totalTransferCount;
+    if (total == 0) {
+      return const Text(
+        '전체 정산 현황 · 확인할 송금이 없어요',
+        style: TextStyle(fontSize: 11, color: AppColors.textSubtle),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            minHeight: 7,
+            value: overview.overallConfirmationProgress.clamp(0, 1).toDouble(),
+            backgroundColor: const Color(0xFFEDEDED),
+            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.ink),
+          ),
+        ),
+        const SizedBox(height: 7),
+        Wrap(
+          spacing: 10,
+          runSpacing: 4,
+          children: [
+            Text(
+              '전체 정산 현황',
+              style: _progressTextStyle(fontWeight: FontWeight.w800),
+            ),
+            Text(
+              '송금 확인 ${overview.senderConfirmedTransferCount}/$total',
+              style: _progressTextStyle(),
+            ),
+            Text(
+              '수금 확인 ${overview.receiverConfirmedTransferCount}/$total',
+              style: _progressTextStyle(),
+            ),
+            Text(
+              '완료 ${overview.completedTransferCount}/$total',
+              style: _progressTextStyle(),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  TextStyle _progressTextStyle({FontWeight fontWeight = FontWeight.w600}) {
+    return TextStyle(
+      fontSize: 11,
+      fontWeight: fontWeight,
+      color: AppColors.textSubtle,
+    );
   }
 }

@@ -43,6 +43,25 @@ class TransactionService {
 
     return TransactionDetail.fromJson(data);
   }
+
+  Future<TransactionDetail> updateTransaction(
+    int tripId,
+    int transactionId,
+    TransactionFormInput input,
+  ) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.patch(
+        '/api/trips/$tripId/transactions/$transactionId',
+        input.toJson(),
+        accessToken: accessToken,
+      ),
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '거래 수정 응답이 비어 있습니다.');
+    }
+
+    return TransactionDetail.fromJson(data);
+  }
 }
 
 class TransactionDetail {
@@ -84,6 +103,8 @@ class TransactionSummary {
   final double? exchangeRate;
   final String? baseCurrency;
   final double? baseAmount;
+  final String? category;
+  final String? occurredAt;
   final String status;
   final int? createdByUserId;
   final String? createdAt;
@@ -98,6 +119,8 @@ class TransactionSummary {
     required this.exchangeRate,
     required this.baseCurrency,
     required this.baseAmount,
+    required this.category,
+    required this.occurredAt,
     required this.status,
     required this.createdByUserId,
     required this.createdAt,
@@ -114,6 +137,8 @@ class TransactionSummary {
       exchangeRate: (json['exchangeRate'] as num?)?.toDouble(),
       baseCurrency: json['baseCurrency'] as String?,
       baseAmount: (json['baseAmount'] as num?)?.toDouble(),
+      category: json['category'] as String?,
+      occurredAt: json['occurredAt'] as String?,
       status: json['status'] as String? ?? '',
       createdByUserId: (json['createdByUserId'] as num?)?.toInt(),
       createdAt: json['createdAt'] as String?,
@@ -175,6 +200,8 @@ class TransactionFormInput {
   final String transactionType;
   final double amount;
   final String currency;
+  final String? category;
+  final String? occurredAt;
   final List<TransactionPaymentInput> payments;
   final List<TransactionShareInput> shares;
 
@@ -182,6 +209,8 @@ class TransactionFormInput {
     required this.transactionType,
     required this.amount,
     required this.currency,
+    this.category,
+    this.occurredAt,
     required this.payments,
     required this.shares,
   });
@@ -191,6 +220,8 @@ class TransactionFormInput {
       'transactionType': transactionType,
       'amount': amount,
       'currency': currency,
+      'category': category,
+      'occurredAt': occurredAt,
       'payments': payments.map((payment) => payment.toJson()).toList(),
       'shares': shares.map((share) => share.toJson()).toList(),
     };

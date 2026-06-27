@@ -64,6 +64,32 @@ class SettlementOverview {
     return transfers.every((transfer) => transfer.isCompleted);
   }
 
+  int get totalTransferCount {
+    return transfers.length;
+  }
+
+  int get senderConfirmedTransferCount {
+    return transfers
+        .where((transfer) => transfer.senderConfirmed || transfer.isCompleted)
+        .length;
+  }
+
+  int get receiverConfirmedTransferCount {
+    return transfers
+        .where((transfer) => transfer.receiverConfirmed || transfer.isCompleted)
+        .length;
+  }
+
+  int get completedTransferCount {
+    return transfers.where((transfer) => transfer.isCompleted).length;
+  }
+
+  double get overallConfirmationProgress {
+    if (transfers.isEmpty) return 1;
+    return (senderConfirmedTransferCount + receiverConfirmedTransferCount) /
+        (transfers.length * 2);
+  }
+
   bool get hasPendingSentTransfers {
     return sentTransfers.any(
       (transfer) => !transfer.isCompleted && !transfer.senderConfirmed,

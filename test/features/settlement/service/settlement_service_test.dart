@@ -90,7 +90,10 @@ void main() {
       expect(overview.receivedTransfers.single.id, 1);
       expect(requested, contains('GET /api/trips/10/balance-summary'));
       expect(requested, contains('GET /api/trips/10/settlement-transfers'));
-      expect(transferUrl!.queryParameters.containsKey('participantId'), isFalse);
+      expect(
+        transferUrl!.queryParameters.containsKey('participantId'),
+        isFalse,
+      );
     });
 
     test('다른 참여자의 미완료 송금이 남아 있으면 전체 정산 완료로 보지 않는다', () {
@@ -138,6 +141,11 @@ void main() {
 
       expect(overview.receivedTransfers.map((transfer) => transfer.id), [14]);
       expect(overview.allTransfersCompleted, isFalse);
+      expect(overview.totalTransferCount, 2);
+      expect(overview.senderConfirmedTransferCount, 2);
+      expect(overview.receiverConfirmedTransferCount, 1);
+      expect(overview.completedTransferCount, 1);
+      expect(overview.overallConfirmationProgress, 0.75);
     });
 
     test('미리보기, 확정, 공유, 수금 확인 API를 호출하고 모델을 갱신한다', () async {
