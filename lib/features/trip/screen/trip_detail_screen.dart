@@ -267,6 +267,16 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   Future<void> _openSettlement() async {
     final trip = _trip;
     if (trip == null) return;
+    final currentParticipantId = _currentParticipantId;
+    if (currentParticipantId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('내 여행 참여자 정보를 불러오지 못했습니다. 다시 시도해주세요.'),
+          action: SnackBarAction(label: '재시도', onPressed: _refreshAll),
+        ),
+      );
+      return;
+    }
 
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -274,7 +284,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           tripId: trip.id,
           tripTitle: trip.title,
           isOwner: _canManageTrip,
-          currentParticipantId: _currentParticipantId ?? 0,
+          currentParticipantId: currentParticipantId,
           tripSettlementStatus: trip.settlementStatus,
         ),
       ),
@@ -687,12 +697,14 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             initialPost: post,
             initialTransaction: transaction,
             onSubmit: ({required transactionInput, required postInput}) async {
-              await _transactionService.updateTransaction(
+              await _postService.updateExpensePost(
                 widget.tripId,
-                transactionId,
-                transactionInput,
+                post.id,
+                ExpensePostFormInput(
+                  transactionInput: transactionInput,
+                  postInput: postInput,
+                ),
               );
-              await _postService.updatePost(widget.tripId, post.id, postInput);
             },
           );
         },

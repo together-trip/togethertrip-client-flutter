@@ -149,12 +149,70 @@ void main() {
     expect(find.text('금액'), findsOneWidget);
     expect(transactionService.getTransactionCallCount, 1);
   });
+
+  testWidgets('소비 게시글 수정은 통합 API 한 번으로 저장한다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() async {
+      await tester.binding.setSurfaceSize(null);
+    });
+    final postService = _FakePostService(posts: [_expensePost()]);
+    final transactionService = _FakeTransactionService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripDetailScreen(
+          tripId: 10,
+          tripService: _FakeTripService(settlementStatus: 'NOT_STARTED'),
+          postService: postService,
+          transactionService: transactionService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('게시글 메뉴'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('postEditAction')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('saveExpenseButton')));
+    await tester.pumpAndSettle();
+
+    expect(postService.updateExpensePostCallCount, 1);
+    expect(postService.updatePostCallCount, 0);
+    expect(transactionService.updateTransactionCallCount, 0);
+  });
+
+  testWidgets('내 참여자 ID를 알 수 없으면 정산 화면 진입을 차단한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripDetailScreen(
+          tripId: 10,
+          tripService: _FakeTripService(
+            settlementStatus: 'NOT_STARTED',
+            failMyParticipant: true,
+          ),
+          postService: _FakePostService(posts: const []),
+          transactionService: _FakeTransactionService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('정산 미시작'));
+    await tester.pump();
+
+    expect(find.text('내 여행 참여자 정보를 불러오지 못했습니다. 다시 시도해주세요.'), findsOneWidget);
+  });
 }
 
 class _FakeTripService extends TripService {
   final String settlementStatus;
+  final bool failMyParticipant;
 
-  _FakeTripService({required this.settlementStatus});
+  _FakeTripService({
+    required this.settlementStatus,
+    this.failMyParticipant = false,
+  });
 
   @override
   Future<TripDetail> getTrip(int tripId) async {
@@ -164,7 +222,7 @@ class _FakeTripService extends TripService {
       title: '오사카 여행',
       defaultCurrency: 'JPY',
       exchangeRateBaseDate: null,
-      startDate: '2026-07-01',
+      startDate: '2026-06-01',
       endDate: '2026-07-05',
       tripStatus: 'PLANNED',
       settlementStatus: settlementStatus,
@@ -200,6 +258,9 @@ class _FakeTripService extends TripService {
 
   @override
   Future<TripParticipant> getMyTripParticipant(int tripId) async {
+    if (failMyParticipant) {
+      throw Exception('participant lookup failed');
+    }
     return const TripParticipant(
       id: 100,
       userId: 1,
@@ -215,6 +276,7 @@ class _FakeTripService extends TripService {
 class _FakePostService extends PostService {
   final List<PostSummary> posts;
   int updatePostCallCount = 0;
+  int updateExpensePostCallCount = 0;
 
   _FakePostService({required this.posts});
 
@@ -286,6 +348,58 @@ class _FakePostService extends PostService {
       attachments: post.attachments,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
+    );
+  }
+
+  @override
+  Future<CreateExpensePostResult> updateExpensePost(
+    int tripId,
+    int postId,
+    ExpensePostFormInput input,
+  ) async {
+    updateExpensePostCallCount += 1;
+    final original = await getPost(tripId, postId);
+    final post = PostDetail(
+      id: original.id,
+      tripId: original.tripId,
+      transactionId: original.transactionId,
+      authorParticipantId: original.authorParticipantId,
+      authorDisplayName: original.authorDisplayName,
+      postType: original.postType,
+      title: input.postInput.title,
+      category: input.postInput.category,
+      content: input.postInput.content,
+      occurredAt: input.postInput.occurredAt,
+      placeName: input.postInput.placeName,
+      latitude: input.postInput.latitude,
+      longitude: input.postInput.longitude,
+      commentCount: original.commentCount,
+      attachments: original.attachments,
+      createdAt: original.createdAt,
+      updatedAt: original.updatedAt,
+    );
+    return CreateExpensePostResult(
+      post: post,
+      transaction: TransactionDetail(
+        summary: TransactionSummary(
+          id: post.transactionId ?? 200,
+          tripId: tripId,
+          transactionType: input.transactionInput.transactionType,
+          amount: input.transactionInput.amount,
+          currency: input.transactionInput.currency,
+          exchangeRate: 9.5,
+          baseCurrency: 'KRW',
+          baseAmount: input.transactionInput.amount * 9.5,
+          category: input.transactionInput.category,
+          occurredAt: input.transactionInput.occurredAt,
+          status: 'ACTIVE',
+          createdByUserId: 1,
+          createdAt: null,
+          updatedAt: null,
+        ),
+        payments: const [],
+        shares: const [],
+      ),
     );
   }
 }
