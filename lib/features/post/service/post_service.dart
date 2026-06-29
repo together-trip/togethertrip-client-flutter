@@ -92,6 +92,30 @@ class PostService {
     return CreateExpensePostResult.fromJson(data);
   }
 
+  Future<CreateExpensePostResult> updateExpensePost(
+    int tripId,
+    int postId,
+    ExpensePostFormInput input,
+  ) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.multipart(
+        'PATCH',
+        '/api/trips/$tripId/expense-posts/$postId',
+        fields: input.toUpdateFields(),
+        files: input.toMultipartFiles(),
+        accessToken: accessToken,
+      ),
+    );
+    if (data == null) {
+      throw const ApiException(
+        statusCode: 500,
+        message: '소비 게시글 수정 응답이 비어 있습니다.',
+      );
+    }
+
+    return CreateExpensePostResult.fromJson(data);
+  }
+
   Future<PostDetail> updatePost(
     int tripId,
     int postId,
@@ -507,8 +531,19 @@ class ExpensePostFormInput {
   });
 
   Map<String, String> toCreateFields() {
+    return _transactionFields(postInput._baseFields());
+  }
+
+  Map<String, String> toUpdateFields() {
     return {
-      ...postInput._baseFields(),
+      ..._transactionFields(postInput._baseFields()),
+      'replaceAttachments': postInput.replaceAttachments.toString(),
+    };
+  }
+
+  Map<String, String> _transactionFields(Map<String, String> postFields) {
+    return {
+      ...postFields,
       'transactionType': transactionInput.transactionType,
       'amount': transactionInput.amount.toString(),
       'currency': transactionInput.currency,

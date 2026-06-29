@@ -254,6 +254,123 @@ void main() {
       expect(result.transaction.summary.id, 5);
     });
 
+    test('소비 게시글 통합 수정 요청을 multipart 서버 DTO 형태로 전송한다', () async {
+      Uri? capturedUrl;
+      String? capturedMethod;
+      String? capturedContentType;
+      String? capturedBody;
+      final service = PostService(
+        apiClient: ApiClient(
+          client: MockClient((request) async {
+            capturedUrl = request.url;
+            capturedMethod = request.method;
+            capturedContentType = request.headers['content-type'];
+            capturedBody = request.body;
+            return _jsonResponse({
+              'post': {
+                'id': 1,
+                'tripId': 10,
+                'transactionId': 5,
+                'authorParticipantId': 100,
+                'authorDisplayName': '재완',
+                'postType': 'EXPENSE',
+                'title': '저녁',
+                'category': '식비',
+                'content': '오코노미야키',
+                'occurredAt': '2026-06-09T10:00:00.000Z',
+                'placeName': 'Okonomiyaki House',
+                'latitude': null,
+                'longitude': null,
+                'commentCount': 0,
+                'attachments': [],
+                'createdAt': null,
+                'updatedAt': null,
+              },
+              'transaction': {
+                'summary': {
+                  'id': 5,
+                  'tripId': 10,
+                  'transactionType': 'EXPENSE',
+                  'amount': 18000,
+                  'currency': 'JPY',
+                  'exchangeRate': 9.5,
+                  'baseCurrency': 'KRW',
+                  'baseAmount': 171000,
+                  'status': 'ACTIVE',
+                  'createdByUserId': 1,
+                  'createdAt': null,
+                  'updatedAt': null,
+                },
+                'payments': [
+                  {'id': 1, 'participantId': 100, 'amount': 18000},
+                ],
+                'shares': [
+                  {
+                    'id': 2,
+                    'participantId': 100,
+                    'shareAmount': 18000,
+                    'shareRatio': 1,
+                  },
+                ],
+              },
+            });
+          }),
+        ),
+        authService: _FakeAuthService(),
+      );
+
+      final result = await service.updateExpensePost(
+        10,
+        1,
+        const ExpensePostFormInput(
+          transactionInput: TransactionFormInput(
+            transactionType: 'EXPENSE',
+            amount: 18000,
+            currency: 'JPY',
+            payments: [
+              TransactionPaymentInput(participantId: 100, amount: 18000),
+            ],
+            shares: [
+              TransactionShareInput(
+                participantId: 100,
+                shareAmount: 18000,
+                shareRatio: 1,
+              ),
+            ],
+          ),
+          postInput: PostFormInput(
+            transactionId: 5,
+            title: '저녁',
+            category: '식비',
+            content: '오코노미야키',
+            postType: 'EXPENSE',
+            occurredAt: '2026-06-09T10:00:00.000Z',
+            placeName: 'Okonomiyaki House',
+            latitude: null,
+            longitude: null,
+            replaceAttachments: true,
+          ),
+        ),
+      );
+
+      expect(capturedUrl!.path, '/api/trips/10/expense-posts/1');
+      expect(capturedMethod, 'PATCH');
+      expect(capturedContentType, startsWith('multipart/form-data;'));
+      expect(capturedBody, contains('name="title"'));
+      expect(capturedBody, contains('저녁'));
+      expect(capturedBody, contains('name="replaceAttachments"'));
+      expect(capturedBody, contains('true'));
+      expect(capturedBody, contains('name="transactionType"'));
+      expect(capturedBody, contains('EXPENSE'));
+      expect(capturedBody, contains('name="amount"'));
+      expect(capturedBody, contains('18000'));
+      expect(capturedBody, contains('name="payments[0].participantId"'));
+      expect(capturedBody, contains('name="shares[0].shareAmount"'));
+      expect(capturedBody, isNot(contains('name="transactionId"')));
+      expect(result.post.title, '저녁');
+      expect(result.transaction.summary.amount, 18000);
+    });
+
     test('댓글 작성과 삭제 경로를 사용한다', () async {
       final paths = <String>[];
       final service = PostService(
