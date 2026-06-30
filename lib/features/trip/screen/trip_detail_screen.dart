@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_design.dart';
 import '../../notification/screen/notification_list_screen.dart';
+import '../../notification/widget/notification_badge_button.dart';
 import '../../post/screen/post_form_sheet.dart';
 import '../../post/service/post_service.dart';
 import '../../settlement/screen/settlement_screen.dart';
@@ -256,8 +257,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     await _loadPosts();
   }
 
-  void _openNotifications() {
-    Navigator.of(context).push(
+  Future<void> _openNotifications() {
+    return Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => NotificationListScreen(tripService: _tripService),
       ),
@@ -816,11 +817,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   tooltip: '뒤로',
                 ),
           actions: [
-            IconButton(
-              onPressed: _openNotifications,
-              icon: const Icon(Icons.notifications_none, size: 22),
-              tooltip: '알림',
-            ),
+            NotificationBadgeButton(onPressed: _openNotifications),
             if (_canManageTrip)
               IconButton(
                 key: const ValueKey('editTripButton'),

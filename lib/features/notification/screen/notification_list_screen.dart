@@ -123,6 +123,25 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     );
   }
 
+  Future<bool> _deleteNotification(AppNotification notification) async {
+    try {
+      await _notificationService.deleteNotification(notification.id);
+      return true;
+    } on ApiException catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+      return false;
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('알림 삭제에 실패했습니다: $e')));
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final unreadCount = _notifications.where((item) => !item.isRead).length;
@@ -237,11 +256,38 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         }
 
         final notification = _notifications[index - 1];
-        return _NotificationTile(
-          notification: notification,
-          onTap: () => _openNotification(notification),
+        return Dismissible(
+          key: ValueKey('notification-${notification.id}'),
+          direction: DismissDirection.endToStart,
+          background: const _DeleteNotificationBackground(),
+          confirmDismiss: (_) => _deleteNotification(notification),
+          onDismissed: (_) {
+            setState(() {
+              _notifications = _notifications
+                  .where((item) => item.id != notification.id)
+                  .toList();
+            });
+          },
+          child: _NotificationTile(
+            notification: notification,
+            onTap: () => _openNotification(notification),
+          ),
         );
       },
+    );
+  }
+}
+
+class _DeleteNotificationBackground extends StatelessWidget {
+  const _DeleteNotificationBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      color: AppColors.danger,
+      child: const Icon(Icons.delete_outline, color: Colors.white, size: 22),
     );
   }
 }

@@ -24,6 +24,23 @@ class NotificationService {
         .toList();
   }
 
+  Future<int> countUnreadNotifications() async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.get(
+        '/notification/api/notifications/unread-count',
+        accessToken: accessToken,
+      ),
+    );
+    if (data == null) {
+      throw const ApiException(
+        statusCode: 500,
+        message: '읽지 않은 알림 개수 응답이 비어 있습니다.',
+      );
+    }
+
+    return (data['count'] as num).toInt();
+  }
+
   Future<AppNotification> markAsRead(int notificationId) async {
     final data = await _authService.runWithAccessToken(
       (accessToken) => _apiClient.patch(
@@ -55,6 +72,15 @@ class NotificationService {
     }
 
     return MarkAllNotificationsReadResult.fromJson(data);
+  }
+
+  Future<void> deleteNotification(int notificationId) async {
+    await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.delete(
+        '/notification/api/notifications/$notificationId',
+        accessToken: accessToken,
+      ),
+    );
   }
 
   Future<PushTokenRegistration> registerPushToken(

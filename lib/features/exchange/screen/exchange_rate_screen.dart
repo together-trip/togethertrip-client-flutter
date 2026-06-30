@@ -5,6 +5,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_design.dart';
 import '../../../core/widget/app_date_picker.dart';
 import '../../notification/screen/notification_list_screen.dart';
+import '../../notification/widget/notification_badge_button.dart';
 import '../model/exchange_rate_models.dart';
 import '../service/exchange_rate_service.dart';
 
@@ -230,8 +231,8 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
     );
   }
 
-  void _openNotifications() {
-    Navigator.of(context).push(
+  Future<void> _openNotifications() {
+    return Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const NotificationListScreen()),
     );
   }
@@ -253,12 +254,9 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            key: const ValueKey('exchangeNotificationButton'),
+          NotificationBadgeButton(
+            buttonKey: const ValueKey('exchangeNotificationButton'),
             onPressed: _openNotifications,
-            icon: const Icon(Icons.notifications_none, size: 22),
-            color: AppColors.ink,
-            tooltip: '알림',
           ),
           IconButton(
             key: const ValueKey('exchangeRefreshButton'),

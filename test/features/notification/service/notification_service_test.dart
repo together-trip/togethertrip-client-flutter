@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -11,6 +12,7 @@ import 'package:togethertrip/features/notification/service/fcm_token_provider.da
 import 'package:togethertrip/features/notification/service/notification_push_message_handler.dart';
 import 'package:togethertrip/features/notification/service/notification_push_token_lifecycle.dart';
 import 'package:togethertrip/features/notification/service/notification_service.dart';
+import 'package:togethertrip/features/notification/widget/notification_badge_button.dart';
 
 Map<String, dynamic> _apiResponse(dynamic data) => {
   'success': true,
@@ -105,6 +107,41 @@ void main() {
       expect(result.updatedCount, 3);
     });
 
+    test('읽지 않은 알림 개수 API를 호출한다', () async {
+      Uri? capturedUrl;
+      final service = NotificationService(
+        authService: _FakeAuthService(),
+        apiClient: ApiClient(
+          client: MockClient((request) async {
+            capturedUrl = request.url;
+            return _jsonResponse({'count': 12});
+          }),
+        ),
+      );
+
+      final count = await service.countUnreadNotifications();
+
+      expect(capturedUrl!.path, '/notification/api/notifications/unread-count');
+      expect(count, 12);
+    });
+
+    test('단건 삭제 API를 호출한다', () async {
+      final calls = <String>[];
+      final service = NotificationService(
+        authService: _FakeAuthService(),
+        apiClient: ApiClient(
+          client: MockClient((request) async {
+            calls.add('${request.method} ${request.url.path}');
+            return _jsonResponse({});
+          }),
+        ),
+      );
+
+      await service.deleteNotification(1);
+
+      expect(calls, ['DELETE /notification/api/notifications/1']);
+    });
+
     test('push token 등록과 비활성화 요청 body를 전송한다', () async {
       final calls = <String>[];
       final bodies = <Map<String, dynamic>>[];
@@ -179,6 +216,45 @@ void main() {
 
       expect(target!.tripId, 10);
       expect(NotificationDeepLinkTarget.parse('https://example.com'), isNull);
+    });
+  });
+
+  group('NotificationListScreen', () {
+    testWidgets('알림 row를 스와이프하면 삭제 API 호출 후 목록에서 제거한다', (tester) async {
+      final service = _DeletingNotificationService();
+
+      await tester.pumpWidget(
+        MaterialApp(home: NotificationListScreen(notificationService: service)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('제주 여행'), findsOneWidget);
+
+      await tester.drag(find.byType(Dismissible), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+
+      expect(service.deletedNotificationIds, [1]);
+      expect(find.text('제주 여행'), findsNothing);
+    });
+  });
+
+  group('NotificationBadgeButton', () {
+    testWidgets('읽지 않은 알림 수를 종 아이콘 위에 표시한다', (tester) async {
+      final service = _BadgeNotificationService(12);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: NotificationBadgeButton(
+              notificationService: service,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('12'), findsOneWidget);
     });
   });
 
@@ -257,4 +333,41 @@ class _RecordingNotificationService extends NotificationService {
     deactivatedAccessTokens.add(accessToken);
     return {};
   }
+}
+
+class _DeletingNotificationService extends NotificationService {
+  final deletedNotificationIds = <int>[];
+
+  @override
+  Future<List<AppNotification>> getNotifications({int limit = 100}) async {
+    return const [
+      AppNotification(
+        id: 1,
+        sourceEventId: 201,
+        eventType: 'POST_CREATED',
+        aggregateType: 'POST',
+        aggregateId: 20,
+        title: '제주 여행',
+        body: '지우님이 첫 일정을 작성했습니다.',
+        deeplink: 'togethertrip://trips/10/posts/20',
+        occurredAt: '2026-06-24T00:00:00Z',
+        readAt: null,
+        createdAt: '2026-06-24T00:00:01Z',
+      ),
+    ];
+  }
+
+  @override
+  Future<void> deleteNotification(int notificationId) async {
+    deletedNotificationIds.add(notificationId);
+  }
+}
+
+class _BadgeNotificationService extends NotificationService {
+  final int count;
+
+  _BadgeNotificationService(this.count);
+
+  @override
+  Future<int> countUnreadNotifications() async => count;
 }
