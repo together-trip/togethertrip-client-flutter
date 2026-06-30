@@ -4,6 +4,7 @@ import '../../../core/widget/app_design.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../notification/screen/notification_list_screen.dart';
+import '../../notification/widget/notification_badge_button.dart';
 import '../service/trip_service.dart';
 import 'trip_detail_screen.dart';
 import 'trip_form_screen.dart';
@@ -103,8 +104,8 @@ class _TripListScreenState extends State<TripListScreen> {
     }
   }
 
-  void _openNotifications() {
-    Navigator.of(context).push(
+  Future<void> _openNotifications() {
+    return Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => NotificationListScreen(tripService: _tripService),
       ),
@@ -189,12 +190,9 @@ class _TripListScreenState extends State<TripListScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            key: const ValueKey('notificationButton'),
+          NotificationBadgeButton(
+            buttonKey: const ValueKey('notificationButton'),
             onPressed: _openNotifications,
-            icon: const Icon(Icons.notifications_none, size: 22),
-            color: AppColors.ink,
-            tooltip: '알림',
           ),
           IconButton(
             key: const ValueKey('joinTripByInviteCodeButton'),

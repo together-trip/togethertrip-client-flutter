@@ -9,6 +9,7 @@ import '../../auth/service/auth_service.dart';
 import '../../auth/service/terms_agreement_service.dart';
 import '../../notification/screen/notification_list_screen.dart';
 import '../../notification/service/notification_service.dart';
+import '../../notification/widget/notification_badge_button.dart';
 import '../../trip/service/trip_service.dart';
 import '../widget/my_menu_row.dart';
 import '../widget/my_profile_header.dart';
@@ -169,8 +170,8 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
     }
   }
 
-  void _openNotifications() {
-    Navigator.of(context).push(
+  Future<void> _openNotifications() {
+    return Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => NotificationListScreen(
           notificationService: NotificationService(authService: _authService),
@@ -248,11 +249,9 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
           ),
         ),
         actions: [
-          IconButton(
+          NotificationBadgeButton(
             onPressed: _openNotifications,
-            icon: const Icon(Icons.notifications_none, size: 22),
-            color: AppColors.ink,
-            tooltip: '알림',
+            notificationService: NotificationService(authService: _authService),
           ),
           const SizedBox(width: 8),
         ],
