@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'core/widget/app_design.dart';
@@ -8,11 +9,19 @@ import 'core/network/api_client.dart';
 import 'features/auth/screen/onboarding_screen.dart';
 import 'features/auth/service/auth_service.dart';
 import 'features/auth/service/terms_agreement_service.dart';
+import 'features/notification/service/notification_push_message_handler.dart';
 import 'features/notification/service/notification_push_token_lifecycle.dart';
 import 'features/notification/service/notification_service.dart';
 import 'features/trip/service/trip_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+  } catch (_) {}
+
   if (Env.kakaoNativeAppKey.isNotEmpty) {
     KakaoSdk.init(nativeAppKey: Env.kakaoNativeAppKey);
   }
@@ -36,9 +45,11 @@ class TogetherTripApp extends StatefulWidget {
 }
 
 class _TogetherTripAppState extends State<TogetherTripApp> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   late final AuthService _authService;
   late final TermsAgreementService _termsAgreementService;
   NotificationPushTokenLifecycle? _pushTokenLifecycle;
+  NotificationPushMessageHandler? _pushMessageHandler;
 
   @override
   void initState() {
@@ -48,15 +59,22 @@ class _TogetherTripAppState extends State<TogetherTripApp> {
       _authService = widget.authService!;
     } else {
       final apiClient = ApiClient();
+      final notificationService = NotificationService(apiClient: apiClient);
       final pushTokenLifecycle = NotificationPushTokenLifecycle(
-        notificationService: NotificationService(apiClient: apiClient),
+        notificationService: notificationService,
+      );
+      final pushMessageHandler = NotificationPushMessageHandler(
+        navigatorKey: _navigatorKey,
+        notificationService: notificationService,
       );
       _authService = AuthService(
         apiClient: apiClient,
         tokenLifecycle: pushTokenLifecycle,
       );
+      pushMessageHandler.initialize();
       pushTokenLifecycle.bindTokenRefresh(_authService);
       _pushTokenLifecycle = pushTokenLifecycle;
+      _pushMessageHandler = pushMessageHandler;
     }
 
     _termsAgreementService =
@@ -66,6 +84,7 @@ class _TogetherTripAppState extends State<TogetherTripApp> {
 
   @override
   void dispose() {
+    _pushMessageHandler?.dispose();
     _pushTokenLifecycle?.dispose();
     super.dispose();
   }
@@ -73,6 +92,7 @@ class _TogetherTripAppState extends State<TogetherTripApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'TogetherTrip',
       locale: const Locale('ko'),
       localizationsDelegates: GlobalMaterialLocalizations.delegates,

@@ -8,6 +8,7 @@ import 'package:togethertrip/core/network/api_client.dart';
 import 'package:togethertrip/features/auth/service/auth_service.dart';
 import 'package:togethertrip/features/notification/screen/notification_list_screen.dart';
 import 'package:togethertrip/features/notification/service/fcm_token_provider.dart';
+import 'package:togethertrip/features/notification/service/notification_push_message_handler.dart';
 import 'package:togethertrip/features/notification/service/notification_push_token_lifecycle.dart';
 import 'package:togethertrip/features/notification/service/notification_service.dart';
 
@@ -178,6 +179,33 @@ void main() {
 
       expect(target!.tripId, 10);
       expect(NotificationDeepLinkTarget.parse('https://example.com'), isNull);
+    });
+  });
+
+  group('NotificationPushMessage', () {
+    test('FCM data에서 notificationId와 deeplink를 파싱한다', () {
+      final message = NotificationPushMessage.fromParts(
+        data: {
+          'notificationId': '100',
+          'deeplink': 'togethertrip://trips/10/posts/20',
+        },
+        title: '제주 여행',
+        body: '새 게시글이 올라왔습니다.',
+      );
+
+      expect(message.notificationId, 100);
+      expect(message.deepLink, 'togethertrip://trips/10/posts/20');
+      expect(message.title, '제주 여행');
+      expect(message.body, '새 게시글이 올라왔습니다.');
+    });
+
+    test('deepLink camelCase key와 숫자 notificationId도 허용한다', () {
+      final message = NotificationPushMessage.fromParts(
+        data: {'notificationId': 100, 'deepLink': 'togethertrip://trips/10'},
+      );
+
+      expect(message.notificationId, 100);
+      expect(message.deepLink, 'togethertrip://trips/10');
     });
   });
 }
