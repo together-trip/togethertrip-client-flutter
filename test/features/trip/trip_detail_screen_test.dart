@@ -203,16 +203,146 @@ void main() {
 
     expect(find.text('내 여행 참여자 정보를 불러오지 못했습니다. 다시 시도해주세요.'), findsOneWidget);
   });
+
+  testWidgets('Recap을 만들 수 없는 여행은 Recap CTA를 숨긴다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripDetailScreen(
+          tripId: 10,
+          tripService: _FakeTripService(
+            settlementStatus: 'NOT_STARTED',
+            recapStatus: const TripRecapStatus(
+              available: false,
+              status: TripRecapStatusValue.none,
+              recapId: null,
+              style: null,
+            ),
+          ),
+          postService: _FakePostService(posts: const []),
+          transactionService: _FakeTransactionService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('지난 여행 Recap 만들기'), findsNothing);
+    expect(find.text('지난 여행 Recap 보기'), findsNothing);
+  });
+
+  testWidgets('Recap 생성 가능 여행은 스타일 선택 후 생성 요청을 보낸다', (tester) async {
+    final tripService = _FakeTripService(
+      settlementStatus: 'SETTLED',
+      recapStatus: const TripRecapStatus(
+        available: true,
+        status: TripRecapStatusValue.none,
+        recapId: null,
+        style: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripDetailScreen(
+          tripId: 10,
+          tripService: tripService,
+          postService: _FakePostService(posts: const []),
+          transactionService: _FakeTransactionService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('지난 여행 Recap 만들기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('recapStylePHOTO')));
+    await tester.pumpAndSettle();
+
+    expect(tripService.createdStyles, [TripRecapStyle.photo]);
+    expect(find.text('Recap 생성 중'), findsOneWidget);
+  });
+
+  testWidgets('실패한 Recap은 스타일 재선택 후 retry 요청을 보낸다', (tester) async {
+    final tripService = _FakeTripService(
+      settlementStatus: 'SETTLED',
+      recapStatus: const TripRecapStatus(
+        available: true,
+        status: TripRecapStatusValue.failed,
+        recapId: 100,
+        style: TripRecapStyle.photo,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripDetailScreen(
+          tripId: 10,
+          tripService: tripService,
+          postService: _FakePostService(posts: const []),
+          transactionService: _FakeTransactionService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Recap 다시 만들기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('recapStyleILLUSTRATION')));
+    await tester.pumpAndSettle();
+
+    expect(tripService.retriedStyles, [TripRecapStyle.illustration]);
+    expect(find.text('Recap 생성 중'), findsOneWidget);
+  });
+
+  testWidgets('생성 중인 Recap은 중복 생성 요청을 보내지 않는다', (tester) async {
+    final tripService = _FakeTripService(
+      settlementStatus: 'SETTLED',
+      recapStatus: const TripRecapStatus(
+        available: true,
+        status: TripRecapStatusValue.creating,
+        recapId: 100,
+        style: TripRecapStyle.photo,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripDetailScreen(
+          tripId: 10,
+          tripService: tripService,
+          postService: _FakePostService(posts: const []),
+          transactionService: _FakeTransactionService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Recap 생성 중'));
+    await tester.pumpAndSettle();
+
+    expect(tripService.createdStyles, isEmpty);
+    expect(tripService.retriedStyles, isEmpty);
+  });
 }
 
 class _FakeTripService extends TripService {
   final String settlementStatus;
   final bool failMyParticipant;
+  TripRecapStatus recapStatus;
+  final createdStyles = <TripRecapStyle>[];
+  final retriedStyles = <TripRecapStyle>[];
 
   _FakeTripService({
     required this.settlementStatus,
     this.failMyParticipant = false,
-  });
+    TripRecapStatus? recapStatus,
+  }) : recapStatus =
+           recapStatus ??
+           const TripRecapStatus(
+             available: false,
+             status: TripRecapStatusValue.none,
+             recapId: null,
+             style: null,
+           );
 
   @override
   Future<TripDetail> getTrip(int tripId) async {
@@ -269,6 +399,45 @@ class _FakeTripService extends TripService {
       participantRole: 'LEADER',
       participantStatus: 'ACTIVE',
       joinedAt: '2026-06-01T00:00:00Z',
+    );
+  }
+
+  @override
+  Future<TripRecapStatus> getRecapStatus(int tripId) async => recapStatus;
+
+  @override
+  Future<TripRecapCreateResult> createRecap(
+    int tripId,
+    TripRecapStyle style,
+  ) async {
+    createdStyles.add(style);
+    recapStatus = TripRecapStatus(
+      available: true,
+      status: TripRecapStatusValue.creating,
+      recapId: 100,
+      style: style,
+    );
+    return const TripRecapCreateResult(
+      recapId: 100,
+      status: TripRecapStatusValue.creating,
+    );
+  }
+
+  @override
+  Future<TripRecapCreateResult> retryRecap(
+    int tripId,
+    TripRecapStyle style,
+  ) async {
+    retriedStyles.add(style);
+    recapStatus = TripRecapStatus(
+      available: true,
+      status: TripRecapStatusValue.creating,
+      recapId: 100,
+      style: style,
+    );
+    return const TripRecapCreateResult(
+      recapId: 100,
+      status: TripRecapStatusValue.creating,
     );
   }
 }

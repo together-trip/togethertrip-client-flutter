@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_design.dart';
 import '../../trip/screen/trip_detail_screen.dart';
+import '../../trip/screen/trip_recap_screen.dart';
 import '../../trip/service/trip_service.dart';
 import '../service/notification_service.dart';
 
@@ -114,11 +115,17 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TripDetailScreen(
-          tripId: target.tripId,
-          tripService: _tripService,
-          onClose: (_) => Navigator.of(context).pop(),
-        ),
+        builder: (_) => target.isRecap
+            ? TripRecapScreen(
+                tripId: target.tripId,
+                tripRecapId: target.recapId,
+                tripService: _tripService,
+              )
+            : TripDetailScreen(
+                tripId: target.tripId,
+                tripService: _tripService,
+                onClose: (_) => Navigator.of(context).pop(),
+              ),
       ),
     );
   }
@@ -391,8 +398,11 @@ class _NotificationTile extends StatelessWidget {
 
 class NotificationDeepLinkTarget {
   final int tripId;
+  final int? recapId;
 
-  const NotificationDeepLinkTarget({required this.tripId});
+  const NotificationDeepLinkTarget({required this.tripId, this.recapId});
+
+  bool get isRecap => recapId != null;
 
   static NotificationDeepLinkTarget? parse(String? value) {
     if (value == null || value.isEmpty) return null;
@@ -407,6 +417,11 @@ class NotificationDeepLinkTarget {
     final tripId = int.tryParse(segments[tripIndex + 1]);
     if (tripId == null) return null;
 
-    return NotificationDeepLinkTarget(tripId: tripId);
+    final recapIndex = segments.indexOf('recap');
+    final recapId = recapIndex >= 0 && recapIndex + 1 < segments.length
+        ? int.tryParse(segments[recapIndex + 1])
+        : null;
+
+    return NotificationDeepLinkTarget(tripId: tripId, recapId: recapId);
   }
 }
