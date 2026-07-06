@@ -46,7 +46,10 @@ app.*.map.json
 ios/Flutter/LocalConfig.xcconfig
 config/local.json
 android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
 
 # 로컬 백업/임시 산출물
 build.xattr-backup/
 ios_backup_broken/
+ios/Runner.xcworkspace/xcshareddata/swiftpm/
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
