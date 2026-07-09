@@ -2,6 +2,30 @@
 
 A new Flutter project.
 
+## Local run
+
+Create a local config file first:
+
+```bash
+cp config/local.example.json config/local.json
+```
+
+Run the app with local `dart-define` values:
+
+```bash
+./scripts/run_app.sh
+```
+
+The script automatically selects the first iPhone listed by `flutter devices`
+when no device option is provided.
+
+Flutter run options can be passed through:
+
+```bash
+./scripts/run_app.sh -d chrome
+./scripts/run_app.sh -d ios --debug
+```
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
