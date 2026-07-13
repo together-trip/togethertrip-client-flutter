@@ -481,6 +481,131 @@ void main() {
       expect(joined.tripId, 10);
       expect(joined.participant.displayName, '홍길동');
     });
+
+    test('Recap 상태를 조회하고 모델로 변환한다', () async {
+      Uri? capturedUrl;
+      String? capturedAuth;
+      final apiClient = ApiClient(
+        client: MockClient((request) async {
+          capturedUrl = request.url;
+          capturedAuth = request.headers['Authorization'];
+          return http.Response(
+            jsonEncode(
+              _apiResponse({
+                'available': true,
+                'status': 'COMPLETED',
+                'recapId': 100,
+                'style': 'PHOTO',
+              }),
+            ),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+      final tripService = TripService(
+        apiClient: apiClient,
+        authService: _FakeAuthService(),
+      );
+
+      final status = await tripService.getRecapStatus(10);
+
+      expect(capturedUrl!.path, '/api/trips/10/recap/status');
+      expect(capturedAuth, 'Bearer access-token');
+      expect(status.available, true);
+      expect(status.status, TripRecapStatusValue.completed);
+      expect(status.recapId, 100);
+      expect(status.style, TripRecapStyle.photo);
+    });
+
+    test('Recap 생성과 재시도 요청에 style을 전송한다', () async {
+      final calls = <String>[];
+      final bodies = <Map<String, dynamic>>[];
+      final apiClient = ApiClient(
+        client: MockClient((request) async {
+          calls.add('${request.method} ${request.url.path}');
+          bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+          return http.Response(
+            jsonEncode(_apiResponse({'recapId': 100, 'status': 'CREATING'})),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+      final tripService = TripService(
+        apiClient: apiClient,
+        authService: _FakeAuthService(),
+      );
+
+      final created = await tripService.createRecap(10, TripRecapStyle.photo);
+      final retried = await tripService.retryRecap(
+        10,
+        TripRecapStyle.illustration,
+      );
+
+      expect(calls, [
+        'POST /api/trips/10/recap',
+        'POST /api/trips/10/recap/retry',
+      ]);
+      expect(bodies, [
+        {'style': 'PHOTO'},
+        {'style': 'ILLUSTRATION'},
+      ]);
+      expect(created.status, TripRecapStatusValue.creating);
+      expect(retried.recapId, 100);
+    });
+
+    test('완료된 Recap 장면과 인증 이미지 bytes를 조회한다', () async {
+      final calls = <String>[];
+      final authHeaders = <String?>[];
+      final apiClient = ApiClient(
+        client: MockClient((request) async {
+          calls.add('${request.method} ${request.url.path}');
+          authHeaders.add(request.headers['Authorization']);
+          if (request.url.path.endsWith('/image')) {
+            return http.Response.bytes([1, 2, 3], 200);
+          }
+
+          return http.Response(
+            jsonEncode(
+              _apiResponse({
+                'recapId': 100,
+                'tripId': 10,
+                'style': 'PHOTO',
+                'status': 'COMPLETED',
+                'scenes': [
+                  {
+                    'sceneId': 200,
+                    'order': 1,
+                    'imageUrl': '/api/trips/10/recap/scenes/200/image',
+                    'aspectRatio': '9:16',
+                  },
+                ],
+              }),
+            ),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+      final tripService = TripService(
+        apiClient: apiClient,
+        authService: _FakeAuthService(),
+      );
+
+      final recap = await tripService.getRecap(10);
+      final bytes = await tripService.getRecapSceneImageBytes(
+        recap.scenes.single.imageUrl,
+      );
+
+      expect(calls, [
+        'GET /api/trips/10/recap',
+        'GET /api/trips/10/recap/scenes/200/image',
+      ]);
+      expect(authHeaders, ['Bearer access-token', 'Bearer access-token']);
+      expect(recap.scenes.single.numericAspectRatio, 9 / 16);
+      expect(bytes, [1, 2, 3]);
+    });
   });
 }
 

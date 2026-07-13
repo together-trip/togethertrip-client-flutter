@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../trip/screen/trip_detail_screen.dart';
+import '../../trip/screen/trip_recap_screen.dart';
 import '../../trip/service/trip_service.dart';
 import '../screen/notification_list_screen.dart';
 import 'notification_service.dart';
@@ -117,11 +118,17 @@ class NotificationPushMessageHandler {
 
     await navigator.push(
       MaterialPageRoute<void>(
-        builder: (_) => TripDetailScreen(
-          tripId: target.tripId,
-          tripService: _tripService,
-          onClose: (_) => navigator.pop(),
-        ),
+        builder: (_) => target.isRecap
+            ? TripRecapScreen(
+                tripId: target.tripId,
+                tripRecapId: target.recapId,
+                tripService: _tripService,
+              )
+            : TripDetailScreen(
+                tripId: target.tripId,
+                tripService: _tripService,
+                onClose: (_) => navigator.pop(),
+              ),
       ),
     );
   }

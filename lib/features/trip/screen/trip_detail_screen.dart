@@ -14,6 +14,7 @@ import '../../transaction/service/transaction_service.dart';
 import '../service/trip_service.dart';
 import '../widget/trip_invite_participant_sheets.dart';
 import 'trip_form_screen.dart';
+import 'trip_recap_screen.dart';
 
 class TripDetailScreen extends StatefulWidget {
   final int tripId;
@@ -46,12 +47,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   final Map<int, TransactionDetail> _transactionsById = {};
 
   TripDetail? _trip;
+  TripRecapStatus? _recapStatus;
   int? _currentUserId;
   int? _currentParticipantId;
   _PostFeedFilter _selectedFilter = _PostFeedFilter.all;
   bool _isLoading = true;
   bool _isLoadingPosts = false;
   bool _isLoadingMore = false;
+  bool _isLoadingRecapStatus = false;
+  bool _isSubmittingRecap = false;
   bool _hasNext = false;
   String? _nextCursor;
   String? _errorMessage;
@@ -88,6 +92,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
     try {
       final trip = await _tripService.getTrip(widget.tripId);
+      final recapStatus = await _loadRecapStatusSilently();
       final currentUser = await _tripService.getCurrentUser();
       int? currentParticipantId;
       try {
@@ -105,6 +110,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       if (!mounted) return;
       setState(() {
         _trip = trip;
+        _recapStatus = recapStatus;
         _currentUserId = currentUser.id;
         _currentParticipantId = currentParticipantId;
         _posts
@@ -129,6 +135,39 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   Future<void> _refreshAll() async {
     await _loadInitial();
+  }
+
+  Future<TripRecapStatus?> _loadRecapStatusSilently() async {
+    try {
+      return await _tripService.getRecapStatus(widget.tripId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _reloadRecapStatus() async {
+    setState(() {
+      _isLoadingRecapStatus = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final status = await _tripService.getRecapStatus(widget.tripId);
+      if (!mounted) return;
+      setState(() => _recapStatus = status);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Recap 상태를 불러오지 못했습니다: $e')));
+    } finally {
+      if (mounted) setState(() => _isLoadingRecapStatus = false);
+    }
   }
 
   Future<void> _loadPosts() async {
@@ -294,6 +333,106 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       _changed = true;
       await _refreshAll();
     }
+  }
+
+  Future<void> _openRecap() async {
+    final status = _recapStatus;
+    if (status == null || !status.available || _isSubmittingRecap) return;
+
+    switch (status.status) {
+      case TripRecapStatusValue.none:
+        await _requestRecap(isRetry: false);
+      case TripRecapStatusValue.creating:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Recap을 만들고 있습니다. 완료되면 알림으로 알려드릴게요.')),
+        );
+      case TripRecapStatusValue.completed:
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => TripRecapScreen(
+              tripId: widget.tripId,
+              tripRecapId: status.recapId,
+              tripService: _tripService,
+            ),
+          ),
+        );
+      case TripRecapStatusValue.failed:
+        await _requestRecap(isRetry: true);
+    }
+  }
+
+  Future<void> _requestRecap({required bool isRetry}) async {
+    final style = await _selectRecapStyle();
+    if (style == null || _isSubmittingRecap) return;
+
+    setState(() => _isSubmittingRecap = true);
+    try {
+      final result = isRetry
+          ? await _tripService.retryRecap(widget.tripId, style)
+          : await _tripService.createRecap(widget.tripId, style);
+      if (!mounted) return;
+      setState(() {
+        _recapStatus = TripRecapStatus(
+          available: true,
+          status: result.status,
+          recapId: result.recapId,
+          style: style,
+        );
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Recap 생성 요청을 보냈습니다.')));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+      await _reloadRecapStatus();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Recap 요청에 실패했습니다: $e')));
+    } finally {
+      if (mounted) setState(() => _isSubmittingRecap = false);
+    }
+  }
+
+  Future<TripRecapStyle?> _selectRecapStyle() {
+    return showAppBottomSheet<TripRecapStyle>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Recap 스타일',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 12),
+                for (final style in TripRecapStyle.values) ...[
+                  _CreateOptionTile(
+                    key: ValueKey('recapStyle${style.apiValue}'),
+                    icon: style == TripRecapStyle.photo
+                        ? Icons.photo_camera_outlined
+                        : Icons.palette_outlined,
+                    title: style == TripRecapStyle.photo ? '사진' : '일러스트',
+                    subtitle: style.label,
+                    selected: false,
+                    onTap: () => Navigator.of(context).pop(style),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _openInfoSheet() async {
@@ -879,7 +1018,12 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           SliverToBoxAdapter(
             child: _TripFeedHeader(
               trip: trip,
+              recapStatus: _recapStatus,
+              isLoadingRecapStatus: _isLoadingRecapStatus,
+              isSubmittingRecap: _isSubmittingRecap,
               onSettlementTap: _openSettlement,
+              onRecapTap: _openRecap,
+              onRecapStatusRetry: _reloadRecapStatus,
             ),
           ),
           if (_isLoadingPosts)
@@ -1005,9 +1149,22 @@ class _CreateOptionTile extends StatelessWidget {
 
 class _TripFeedHeader extends StatelessWidget {
   final TripDetail trip;
+  final TripRecapStatus? recapStatus;
+  final bool isLoadingRecapStatus;
+  final bool isSubmittingRecap;
   final VoidCallback onSettlementTap;
+  final VoidCallback onRecapTap;
+  final VoidCallback onRecapStatusRetry;
 
-  const _TripFeedHeader({required this.trip, required this.onSettlementTap});
+  const _TripFeedHeader({
+    required this.trip,
+    required this.recapStatus,
+    required this.isLoadingRecapStatus,
+    required this.isSubmittingRecap,
+    required this.onSettlementTap,
+    required this.onRecapTap,
+    required this.onRecapStatusRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1046,10 +1203,188 @@ class _TripFeedHeader extends StatelessWidget {
               ),
             ),
           ),
+          _TripRecapAction(
+            status: recapStatus,
+            isLoading: isLoadingRecapStatus,
+            isSubmitting: isSubmittingRecap,
+            onTap: onRecapTap,
+            onRetry: onRecapStatusRetry,
+          ),
         ],
       ),
     );
   }
+}
+
+class _TripRecapAction extends StatelessWidget {
+  final TripRecapStatus? status;
+  final bool isLoading;
+  final bool isSubmitting;
+  final VoidCallback onTap;
+  final VoidCallback onRetry;
+
+  const _TripRecapAction({
+    required this.status,
+    required this.isLoading,
+    required this.isSubmitting,
+    required this.onTap,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final current = status;
+    if (isLoading) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8),
+        child: _RecapActionShell(
+          icon: Icons.auto_awesome,
+          title: 'Recap 상태 확인 중',
+          trailing: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    if (current == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: _RecapActionShell(
+          icon: Icons.error_outline,
+          title: 'Recap 상태를 확인하지 못했어요',
+          subtitle: '다시 시도해 주세요.',
+          onTap: onRetry,
+          trailing: const Icon(Icons.refresh, size: 20),
+        ),
+      );
+    }
+    if (!current.available) return const SizedBox.shrink();
+
+    final action = _recapActionCopy(current.status);
+    final disabled =
+        isSubmitting || current.status == TripRecapStatusValue.creating;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: _RecapActionShell(
+        icon: action.icon,
+        title: action.title,
+        subtitle: action.subtitle,
+        onTap: disabled ? null : onTap,
+        trailing: isSubmitting
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(action.trailingIcon, size: 20),
+      ),
+    );
+  }
+}
+
+class _RecapActionShell extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget trailing;
+  final VoidCallback? onTap;
+
+  const _RecapActionShell({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.trailing,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE5E5E5)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        color: AppColors.textSubtle,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            trailing,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecapActionCopy {
+  final IconData icon;
+  final IconData trailingIcon;
+  final String title;
+  final String? subtitle;
+
+  const _RecapActionCopy({
+    required this.icon,
+    required this.trailingIcon,
+    required this.title,
+    this.subtitle,
+  });
+}
+
+_RecapActionCopy _recapActionCopy(TripRecapStatusValue status) {
+  return switch (status) {
+    TripRecapStatusValue.none => const _RecapActionCopy(
+      icon: Icons.auto_awesome_outlined,
+      trailingIcon: Icons.chevron_right,
+      title: '지난 여행 Recap 만들기',
+      subtitle: '사진 또는 일러스트 스타일을 선택해요.',
+    ),
+    TripRecapStatusValue.creating => const _RecapActionCopy(
+      icon: Icons.hourglass_top,
+      trailingIcon: Icons.lock_clock_outlined,
+      title: 'Recap 생성 중',
+      subtitle: '완료되면 알림으로 알려드릴게요.',
+    ),
+    TripRecapStatusValue.completed => const _RecapActionCopy(
+      icon: Icons.auto_stories_outlined,
+      trailingIcon: Icons.chevron_right,
+      title: '지난 여행 Recap 보기',
+    ),
+    TripRecapStatusValue.failed => const _RecapActionCopy(
+      icon: Icons.refresh,
+      trailingIcon: Icons.chevron_right,
+      title: 'Recap 다시 만들기',
+      subtitle: '스타일을 다시 선택할 수 있어요.',
+    ),
+  };
 }
 
 class _PostFeedTabs extends StatelessWidget {

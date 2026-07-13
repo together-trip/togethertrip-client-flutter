@@ -77,6 +77,24 @@ class ApiClient {
     throw FormatException('응답 data가 배열이 아닙니다.', decoded);
   }
 
+  Future<List<int>> getBytes(String path, {String? accessToken}) async {
+    final response = await _client.get(
+      _uriFor(path),
+      headers: {
+        if (accessToken != null) 'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: _errorMessage(response),
+      );
+    }
+
+    return response.bodyBytes;
+  }
+
   Future<Map<String, dynamic>?> post(
     String path,
     Map<String, dynamic> body, {
@@ -235,6 +253,12 @@ class ApiClient {
     if (data is Map<String, dynamic>) return data;
     return null;
   }
+}
+
+Uri _uriFor(String path) {
+  final uri = Uri.parse(path);
+  if (uri.hasScheme) return uri;
+  return Uri.parse(_baseUrl).resolve(path);
 }
 
 Map<String, dynamic>? _decodeResponseBody(String body) {

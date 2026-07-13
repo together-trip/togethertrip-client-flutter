@@ -215,7 +215,18 @@ void main() {
       );
 
       expect(target!.tripId, 10);
+      expect(target.isRecap, isFalse);
       expect(NotificationDeepLinkTarget.parse('https://example.com'), isNull);
+    });
+
+    test('recap deeplink에서 tripId와 recapId를 파싱한다', () {
+      final target = NotificationDeepLinkTarget.parse(
+        'togethertrip://trips/10/recap/100',
+      );
+
+      expect(target!.tripId, 10);
+      expect(target.recapId, 100);
+      expect(target.isRecap, isTrue);
     });
   });
 

@@ -259,6 +259,79 @@ class TripService {
 
   Future<UserProfile> getCurrentUser() => _authService.getMe();
 
+  Future<TripRecapStatus> getRecapStatus(int tripId) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.get(
+        '/api/trips/$tripId/recap/status',
+        accessToken: accessToken,
+      ),
+    );
+    if (data == null) {
+      throw const ApiException(
+        statusCode: 500,
+        message: 'Recap 상태 응답이 비어 있습니다.',
+      );
+    }
+
+    return TripRecapStatus.fromJson(data);
+  }
+
+  Future<TripRecapCreateResult> createRecap(
+    int tripId,
+    TripRecapStyle style,
+  ) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.post('/api/trips/$tripId/recap', {
+        'style': style.apiValue,
+      }, accessToken: accessToken),
+    );
+    if (data == null) {
+      throw const ApiException(
+        statusCode: 500,
+        message: 'Recap 생성 응답이 비어 있습니다.',
+      );
+    }
+
+    return TripRecapCreateResult.fromJson(data);
+  }
+
+  Future<TripRecapCreateResult> retryRecap(
+    int tripId,
+    TripRecapStyle style,
+  ) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) => _apiClient.post('/api/trips/$tripId/recap/retry', {
+        'style': style.apiValue,
+      }, accessToken: accessToken),
+    );
+    if (data == null) {
+      throw const ApiException(
+        statusCode: 500,
+        message: 'Recap 재시도 응답이 비어 있습니다.',
+      );
+    }
+
+    return TripRecapCreateResult.fromJson(data);
+  }
+
+  Future<TripRecap> getRecap(int tripId) async {
+    final data = await _authService.runWithAccessToken(
+      (accessToken) =>
+          _apiClient.get('/api/trips/$tripId/recap', accessToken: accessToken),
+    );
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: 'Recap 응답이 비어 있습니다.');
+    }
+
+    return TripRecap.fromJson(data);
+  }
+
+  Future<List<int>> getRecapSceneImageBytes(String imageUrl) {
+    return _authService.runWithAccessToken(
+      (accessToken) => _apiClient.getBytes(imageUrl, accessToken: accessToken),
+    );
+  }
+
   String _appendParticipantId(String inviteUrl, {required int participantId}) {
     final uri = Uri.tryParse(inviteUrl);
     if (uri == null) {
@@ -300,6 +373,149 @@ class TripListPage {
       hasNext: json['hasNext'] as bool? ?? false,
     );
   }
+}
+
+enum TripRecapStatusValue { none, creating, completed, failed }
+
+enum TripRecapStyle {
+  photo('PHOTO', '현실 사진 느낌'),
+  illustration('ILLUSTRATION', '일러스트/감성 포스터 느낌');
+
+  final String apiValue;
+  final String label;
+
+  const TripRecapStyle(this.apiValue, this.label);
+
+  static TripRecapStyle? fromName(String? value) {
+    return switch (value) {
+      'PHOTO' => TripRecapStyle.photo,
+      'ILLUSTRATION' => TripRecapStyle.illustration,
+      _ => null,
+    };
+  }
+}
+
+class TripRecapStatus {
+  final bool available;
+  final TripRecapStatusValue status;
+  final int? recapId;
+  final TripRecapStyle? style;
+
+  const TripRecapStatus({
+    required this.available,
+    required this.status,
+    required this.recapId,
+    required this.style,
+  });
+
+  factory TripRecapStatus.fromJson(Map<String, dynamic> json) {
+    return TripRecapStatus(
+      available: json['available'] as bool? ?? false,
+      status: _recapStatusFromName(json['status'] as String?),
+      recapId: (json['recapId'] as num?)?.toInt(),
+      style: TripRecapStyle.fromName(json['style'] as String?),
+    );
+  }
+
+  TripRecapStatus copyWith({
+    bool? available,
+    TripRecapStatusValue? status,
+    int? recapId,
+    TripRecapStyle? style,
+  }) {
+    return TripRecapStatus(
+      available: available ?? this.available,
+      status: status ?? this.status,
+      recapId: recapId ?? this.recapId,
+      style: style ?? this.style,
+    );
+  }
+}
+
+class TripRecapCreateResult {
+  final int recapId;
+  final TripRecapStatusValue status;
+
+  const TripRecapCreateResult({required this.recapId, required this.status});
+
+  factory TripRecapCreateResult.fromJson(Map<String, dynamic> json) {
+    return TripRecapCreateResult(
+      recapId: (json['recapId'] as num).toInt(),
+      status: _recapStatusFromName(json['status'] as String?),
+    );
+  }
+}
+
+class TripRecap {
+  final int recapId;
+  final int tripId;
+  final TripRecapStyle? style;
+  final TripRecapStatusValue status;
+  final List<TripRecapScene> scenes;
+
+  const TripRecap({
+    required this.recapId,
+    required this.tripId,
+    required this.style,
+    required this.status,
+    required this.scenes,
+  });
+
+  factory TripRecap.fromJson(Map<String, dynamic> json) {
+    return TripRecap(
+      recapId: (json['recapId'] as num).toInt(),
+      tripId: (json['tripId'] as num).toInt(),
+      style: TripRecapStyle.fromName(json['style'] as String?),
+      status: _recapStatusFromName(json['status'] as String?),
+      scenes: (json['scenes'] as List<dynamic>? ?? [])
+          .map((item) => TripRecapScene.fromJson(item as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class TripRecapScene {
+  final int sceneId;
+  final int order;
+  final String imageUrl;
+  final String? aspectRatio;
+
+  const TripRecapScene({
+    required this.sceneId,
+    required this.order,
+    required this.imageUrl,
+    required this.aspectRatio,
+  });
+
+  double get numericAspectRatio {
+    final value = aspectRatio;
+    if (value == null || !value.contains(':')) return 9 / 16;
+    final parts = value.split(':');
+    final width = double.tryParse(parts[0]);
+    final height = double.tryParse(parts[1]);
+    if (width == null || height == null || width <= 0 || height <= 0) {
+      return 9 / 16;
+    }
+    return width / height;
+  }
+
+  factory TripRecapScene.fromJson(Map<String, dynamic> json) {
+    return TripRecapScene(
+      sceneId: (json['sceneId'] as num).toInt(),
+      order: (json['order'] as num).toInt(),
+      imageUrl: json['imageUrl'] as String,
+      aspectRatio: json['aspectRatio'] as String?,
+    );
+  }
+}
+
+TripRecapStatusValue _recapStatusFromName(String? value) {
+  return switch (value) {
+    'CREATING' => TripRecapStatusValue.creating,
+    'COMPLETED' => TripRecapStatusValue.completed,
+    'FAILED' => TripRecapStatusValue.failed,
+    _ => TripRecapStatusValue.none,
+  };
 }
 
 class TripSummary {
