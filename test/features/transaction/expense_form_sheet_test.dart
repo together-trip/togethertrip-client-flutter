@@ -38,6 +38,47 @@ void main() {
     expect(find.text('소비 날짜는 여행 기간 내로 선택해주세요.'), findsOneWidget);
     expect(submitCallCount, 0);
   });
+
+  testWidgets('기존 장소 좌표를 소비 수정 폼에서 유지해 전송한다', (tester) async {
+    PostFormInput? submitted;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ExpenseFormSheet(
+            trip: _trip(),
+            currentParticipantId: 100,
+            initialPost: _post(
+              occurredAt: '2026-07-02T03:00:00Z',
+              placeName: '도쿄역',
+              latitude: 35.681236,
+              longitude: 139.767125,
+            ),
+            initialTransaction: _transaction(
+              occurredAt: '2026-07-02T03:00:00Z',
+            ),
+            onSubmit: ({required transactionInput, required postInput}) async {
+              submitted = postInput;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final saveButton = find.byKey(const ValueKey('saveExpenseButton'));
+    await tester.scrollUntilVisible(
+      saveButton,
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(submitted?.placeName, '도쿄역');
+    expect(submitted?.latitude, 35.681236);
+    expect(submitted?.longitude, 139.767125);
+  });
 }
 
 TripDetail _trip() {
@@ -67,8 +108,13 @@ TripDetail _trip() {
   );
 }
 
-PostDetail _post() {
-  return const PostDetail(
+PostDetail _post({
+  String occurredAt = '2026-06-09T03:00:00Z',
+  String? placeName,
+  double? latitude,
+  double? longitude,
+}) {
+  return PostDetail(
     id: 2,
     tripId: 10,
     transactionId: 200,
@@ -78,10 +124,10 @@ PostDetail _post() {
     title: '라멘',
     category: '식비',
     content: '내용',
-    occurredAt: '2026-06-09T03:00:00Z',
-    placeName: null,
-    latitude: null,
-    longitude: null,
+    occurredAt: occurredAt,
+    placeName: placeName,
+    latitude: latitude,
+    longitude: longitude,
     commentCount: 0,
     attachments: [],
     createdAt: '2026-06-09T03:00:00Z',
@@ -89,8 +135,8 @@ PostDetail _post() {
   );
 }
 
-TransactionDetail _transaction() {
-  return const TransactionDetail(
+TransactionDetail _transaction({String occurredAt = '2026-06-09T03:00:00Z'}) {
+  return TransactionDetail(
     summary: TransactionSummary(
       id: 200,
       tripId: 10,
@@ -101,7 +147,7 @@ TransactionDetail _transaction() {
       baseCurrency: 'KRW',
       baseAmount: 114000,
       category: '식비',
-      occurredAt: '2026-06-09T03:00:00Z',
+      occurredAt: occurredAt,
       status: 'ACTIVE',
       createdByUserId: 1,
       createdAt: null,

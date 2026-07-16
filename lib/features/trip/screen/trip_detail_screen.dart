@@ -701,6 +701,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       useSafeArea: true,
       builder: (context) {
         return PostFormSheet(
+          tripId: widget.tripId,
           postType: postType,
           initialPost: initialPost,
           onSubmit: (input) async {

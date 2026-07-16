@@ -3,19 +3,26 @@ import 'package:flutter/material.dart';
 import '../../../core/widget/app_design.dart';
 
 import '../../../core/widget/app_date_picker.dart';
+import '../../place/model/place_models.dart';
+import '../../place/service/place_service.dart';
+import '../../place/widget/place_input_field.dart';
 import '../service/post_service.dart';
 import '../widget/attachment_input_section.dart';
 
 class PostFormSheet extends StatefulWidget {
+  final int tripId;
   final String postType;
   final PostDetail? initialPost;
   final Future<void> Function(PostFormInput input) onSubmit;
+  final PlaceService? placeService;
 
   const PostFormSheet({
     super.key,
+    required this.tripId,
     required this.postType,
     required this.onSubmit,
     this.initialPost,
+    this.placeService,
   });
 
   @override
@@ -27,7 +34,6 @@ class _PostFormSheetState extends State<PostFormSheet> {
 
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
-  final _placeController = TextEditingController();
   final _otherCategoryController = TextEditingController();
   final List<AttachmentDraft> _attachments = [];
   final List<PostAttachment> _existingAttachments = [];
@@ -37,6 +43,7 @@ class _PostFormSheetState extends State<PostFormSheet> {
   bool _isSubmitting = false;
   String? _errorMessage;
   bool _attachmentsChanged = false;
+  PlaceSelection? _selectedPlace;
 
   bool get _isEditing => widget.initialPost != null;
 
@@ -48,7 +55,16 @@ class _PostFormSheetState extends State<PostFormSheet> {
 
     _titleController.text = initialPost.title;
     _contentController.text = initialPost.content ?? '';
-    _placeController.text = initialPost.placeName ?? '';
+    final placeName = initialPost.placeName?.trim();
+    if (placeName != null && placeName.isNotEmpty) {
+      _selectedPlace = PlaceSelection(
+        placeId: null,
+        name: placeName,
+        address: placeName,
+        latitude: initialPost.latitude,
+        longitude: initialPost.longitude,
+      );
+    }
     if (_categories.contains(initialPost.category)) {
       _selectedCategory = initialPost.category;
     } else {
@@ -63,7 +79,6 @@ class _PostFormSheetState extends State<PostFormSheet> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
-    _placeController.dispose();
     _otherCategoryController.dispose();
     super.dispose();
   }
@@ -108,9 +123,9 @@ class _PostFormSheetState extends State<PostFormSheet> {
           content: _nullableText(_contentController.text),
           postType: widget.initialPost?.postType ?? widget.postType,
           occurredAt: _toOccurredAt(_selectedDate),
-          placeName: _nullableText(_placeController.text),
-          latitude: null,
-          longitude: null,
+          placeName: _selectedPlace?.name,
+          latitude: _selectedPlace?.latitude,
+          longitude: _selectedPlace?.longitude,
           files: buildAttachmentInputs(_attachments),
           replaceAttachments: _attachmentsChanged,
         ),
@@ -215,10 +230,14 @@ class _PostFormSheetState extends State<PostFormSheet> {
                 ),
               ),
               const SizedBox(height: 14),
-              TextField(
-                controller: _placeController,
+              PlaceInputField(
+                tripId: widget.tripId,
+                selection: _selectedPlace,
                 enabled: !_isSubmitting,
-                decoration: AppInputDecorations.filled(labelText: '장소'),
+                placeService: widget.placeService,
+                onChanged: (selection) {
+                  setState(() => _selectedPlace = selection);
+                },
               ),
               const SizedBox(height: 14),
               TextField(

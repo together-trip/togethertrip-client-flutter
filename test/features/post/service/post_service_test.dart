@@ -121,8 +121,8 @@ void main() {
           postType: 'RECORD',
           occurredAt: '2026-06-09T03:00:00.000Z',
           placeName: 'Ichiran',
-          latitude: null,
-          longitude: null,
+          latitude: 35.681236,
+          longitude: 139.767125,
         ),
       );
 
@@ -136,6 +136,10 @@ void main() {
       expect(capturedBody, contains('RECORD'));
       expect(capturedBody, contains('name="occurredAt"'));
       expect(capturedBody, contains('2026-06-09T03:00:00.000Z'));
+      expect(capturedBody, contains('name="latitude"'));
+      expect(capturedBody, contains('35.681236'));
+      expect(capturedBody, contains('name="longitude"'));
+      expect(capturedBody, contains('139.767125'));
     });
 
     test('소비 게시글 통합 작성 요청을 multipart 서버 DTO 형태로 전송한다', () async {

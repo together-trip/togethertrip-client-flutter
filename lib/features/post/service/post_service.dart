@@ -515,8 +515,8 @@ class PostFormInput {
       'content': content ?? '',
       'occurredAt': occurredAt,
       'placeName': placeName ?? '',
-      if (latitude != null) 'latitude': latitude.toString(),
-      if (longitude != null) 'longitude': longitude.toString(),
+      if (latitude != null) 'latitude': latitude!.toStringAsFixed(7),
+      if (longitude != null) 'longitude': longitude!.toStringAsFixed(7),
     };
   }
 }
