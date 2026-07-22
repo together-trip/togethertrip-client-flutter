@@ -1,3 +1,4 @@
 // 이 파일을 LocalConfig.xcconfig 로 복사하고 실제 값을 입력하세요.
 // LocalConfig.xcconfig 는 .gitignore 에 포함되어 있습니다.
 KAKAO_NATIVE_APP_KEY=여기에_카카오_네이티브_앱_키_입력
+GOOGLE_MAPS_API_KEY=여기에_iOS_Google_Maps_API_키_입력

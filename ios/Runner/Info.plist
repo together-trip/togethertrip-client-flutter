@@ -49,6 +49,10 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>프로필 이미지와 여행 사진을 선택하기 위해 사진 보관함 접근이 필요합니다.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>여행 기록에 현재 장소를 선택할 때 위치 접근이 필요합니다.</string>
+	<key>GOOGLE_MAPS_API_KEY</key>
+	<string>$(GOOGLE_MAPS_API_KEY)</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

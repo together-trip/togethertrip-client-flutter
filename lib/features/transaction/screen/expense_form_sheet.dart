@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_date_picker.dart';
+import '../../place/model/place_models.dart';
+import '../../place/service/place_service.dart';
+import '../../place/widget/place_input_field.dart';
 import '../../post/service/post_service.dart';
 import '../../post/widget/attachment_input_section.dart';
 import '../../trip/service/trip_service.dart';
@@ -20,6 +23,7 @@ class ExpenseFormSheet extends StatefulWidget {
     required PostFormInput postInput,
   })
   onSubmit;
+  final PlaceService? placeService;
 
   const ExpenseFormSheet({
     super.key,
@@ -28,6 +32,7 @@ class ExpenseFormSheet extends StatefulWidget {
     this.initialPost,
     this.initialTransaction,
     required this.onSubmit,
+    this.placeService,
   });
 
   @override
@@ -40,7 +45,6 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   final _amountController = TextEditingController();
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
-  final _placeController = TextEditingController();
   final _otherCategoryController = TextEditingController();
   final Map<int, TextEditingController> _paymentControllers = {};
   final Map<int, TextEditingController> _shareControllers = {};
@@ -54,6 +58,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
   bool _isSubmitting = false;
   bool _attachmentsChanged = false;
   String? _errorMessage;
+  PlaceSelection? _selectedPlace;
 
   bool get _isEditing => widget.initialPost != null;
 
@@ -83,7 +88,6 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
     _amountController.dispose();
     _titleController.dispose();
     _contentController.dispose();
-    _placeController.dispose();
     _otherCategoryController.dispose();
     for (final controller in _paymentControllers.values) {
       controller.dispose();
@@ -153,7 +157,16 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
     _currency = initialTransaction.summary.currency;
     _titleController.text = initialPost.title;
     _contentController.text = initialPost.content ?? '';
-    _placeController.text = initialPost.placeName ?? '';
+    final placeName = initialPost.placeName?.trim();
+    if (placeName != null && placeName.isNotEmpty) {
+      _selectedPlace = PlaceSelection(
+        placeId: null,
+        name: placeName,
+        address: placeName,
+        latitude: initialPost.latitude,
+        longitude: initialPost.longitude,
+      );
+    }
     final initialCategory =
         initialTransaction.summary.category ?? initialPost.category;
     if (_categories.contains(initialCategory)) {
@@ -279,9 +292,9 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
           content: _nullableText(_contentController.text),
           postType: 'EXPENSE',
           occurredAt: _toOccurredAt(_selectedDate),
-          placeName: _nullableText(_placeController.text),
-          latitude: null,
-          longitude: null,
+          placeName: _selectedPlace?.name,
+          latitude: _selectedPlace?.latitude,
+          longitude: _selectedPlace?.longitude,
           files: buildAttachmentInputs(_attachments),
           replaceAttachments: _attachmentsChanged,
         ),
@@ -494,10 +507,14 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                 ),
               ),
               const SizedBox(height: 14),
-              TextField(
-                controller: _placeController,
+              PlaceInputField(
+                tripId: widget.trip.id,
+                selection: _selectedPlace,
                 enabled: !_isSubmitting,
-                decoration: AppInputDecorations.filled(labelText: '장소'),
+                placeService: widget.placeService,
+                onChanged: (selection) {
+                  setState(() => _selectedPlace = selection);
+                },
               ),
               const SizedBox(height: 14),
               TextField(

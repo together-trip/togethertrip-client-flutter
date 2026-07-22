@@ -10,10 +10,12 @@ show_help() {
   cat <<'USAGE'
 Usage:
   ./scripts/run_app.sh [flutter run options]
+  ./scripts/run_app.sh --ios-local [flutter run options]
   ./scripts/run_app.sh --config config/local.json [flutter run options]
 
 Examples:
   ./scripts/run_app.sh              Auto-select the first iPhone from flutter devices.
+  ./scripts/run_app.sh --ios-local  Use the iOS target without Push Notifications.
   ./scripts/run_app.sh -d chrome
   ./scripts/run_app.sh -d ios --debug
 
@@ -23,8 +25,13 @@ USAGE
 }
 
 args=()
+ios_local=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --ios-local)
+      ios_local=true
+      shift
+      ;;
     --config)
       if [[ $# -lt 2 ]]; then
         echo "error: --config requires a file path" >&2
@@ -47,6 +54,10 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "${ios_local}" == true ]]; then
+  args=("--flavor" "local" "${args[@]}")
+fi
 
 has_device_arg() {
   local arg

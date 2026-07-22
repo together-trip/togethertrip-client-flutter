@@ -42,6 +42,8 @@ android {
             ?: emptyMap()
         manifestPlaceholders["kakaoNativeAppKey"] =
             dartDefines["KAKAO_NATIVE_APP_KEY"] ?: System.getenv("KAKAO_NATIVE_APP_KEY") ?: ""
+        manifestPlaceholders["googleMapsApiKey"] =
+            dartDefines["GOOGLE_MAPS_API_KEY"] ?: System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
     }
 
     buildTypes {
