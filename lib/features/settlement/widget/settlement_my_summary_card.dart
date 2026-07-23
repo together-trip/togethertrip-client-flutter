@@ -20,20 +20,20 @@ class SettlementMySummaryCard extends StatelessWidget {
         .length;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.ink, width: 2),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.brandSoft,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '내 정산 요약',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            '내가 확인할 정산',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -82,12 +82,16 @@ class _SummaryMetric extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 11, color: AppColors.textSubtle),
+          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 5),
         Text(
           value,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: AppColors.ink,
+          ),
         ),
       ],
     );

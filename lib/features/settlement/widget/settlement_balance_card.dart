@@ -28,11 +28,11 @@ class SettlementBalanceCard extends StatelessWidget {
         : 0;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 1),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.ink, width: balance.isMe ? 2 : 1),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.lineSoft)),
       ),
       child: Column(
         children: [
@@ -40,7 +40,9 @@ class SettlementBalanceCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 14,
-                backgroundColor: const Color(0xFFF2F2F2),
+                backgroundColor: balance.isMe
+                    ? AppColors.brandSoft
+                    : AppColors.neutralSoft,
                 child: Text(
                   balance.isWithdrawn
                       ? '탈'
@@ -96,12 +98,16 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.ink),
+        color: AppColors.brandSoft,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: AppColors.brandStrong,
+        ),
       ),
     );
   }

@@ -224,9 +224,9 @@ class _SettlementScreenState extends State<SettlementScreen> {
         _close();
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.background,
           elevation: 0,
           centerTitle: false,
           leading: IconButton(
@@ -268,6 +268,7 @@ class _SettlementScreenState extends State<SettlementScreen> {
   Widget _buildContent(SettlementOverview overview) {
     return Column(
       children: [
+        SettlementMySummaryCard(overview: overview),
         SettlementStatusSummary(
           overview: overview,
           isBusy: _isBusy,
@@ -279,7 +280,6 @@ class _SettlementScreenState extends State<SettlementScreen> {
             selectedMockCase: _selectedMockCase,
             onSelect: _selectMockCase,
           ),
-        SettlementMySummaryCard(overview: overview),
         _SettlementTabs(selectedTab: _selectedTab, onSelect: _selectTab),
         Expanded(child: _buildTabBody(overview)),
       ],
@@ -383,35 +383,40 @@ class _SettlementTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 54,
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+      height: 48,
+      color: AppColors.background,
       child: Row(
-        spacing: 8,
         children: _SettlementTab.values.map((tab) {
           final selected = selectedTab == tab;
           return Expanded(
             child: InkWell(
               key: ValueKey('settlementTab${tab.name}'),
               onTap: () => onSelect(tab),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.ink : Colors.white,
-                  border: Border.all(
-                    color: selected ? AppColors.ink : const Color(0xFFE2E2E2),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        tab.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: selected
+                              ? FontWeight.w800
+                              : FontWeight.w500,
+                          color: selected
+                              ? AppColors.brandStrong
+                              : AppColors.textMuted,
+                        ),
+                      ),
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  tab.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                    color: selected ? Colors.white : const Color(0xFF4A4A4A),
+                  Container(
+                    height: 2,
+                    width: selected ? 48 : 0,
+                    color: AppColors.brand,
                   ),
-                ),
+                ],
               ),
             ),
           );
