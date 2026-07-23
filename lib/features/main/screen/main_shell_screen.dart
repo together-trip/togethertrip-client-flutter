@@ -84,17 +84,17 @@ class _MainShellScreenState extends State<MainShellScreen> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(58, 0, 58, 14),
+          padding: const EdgeInsets.fromLTRB(44, 0, 44, 14),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: const Color(0xFFE2E2E2)),
+              border: Border.all(color: AppColors.line),
               borderRadius: BorderRadius.circular(999),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
+                  color: AppColors.ink.withValues(alpha: 0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
@@ -160,7 +160,7 @@ class _TabItem extends StatelessWidget {
             Icon(
               isActive ? activeIcon : icon,
               size: 22,
-              color: isActive ? AppColors.ink : const Color(0xFF8A8A8A),
+              color: isActive ? AppColors.brand : AppColors.textMuted,
             ),
             const SizedBox(height: 3),
             Text(
@@ -168,7 +168,7 @@ class _TabItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
-                color: isActive ? AppColors.ink : AppColors.textSubtle,
+                color: isActive ? AppColors.brandStrong : AppColors.textMuted,
               ),
             ),
           ],

@@ -940,9 +940,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         Navigator.of(context).pop(_changed);
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.background,
           elevation: 0,
           centerTitle: false,
           title: Text(
@@ -973,7 +973,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             const SizedBox(width: 8),
           ],
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(56),
+            preferredSize: const Size.fromHeight(48),
             child: _PostFeedTabs(
               selectedFilter: _selectedFilter,
               onSelect: _selectFilter,
@@ -984,7 +984,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           padding: const EdgeInsets.only(bottom: 112),
           child: FloatingActionButton(
             onPressed: _openCreateChooser,
-            backgroundColor: AppColors.ink,
+            backgroundColor: AppColors.brand,
             foregroundColor: Colors.white,
             child: const Icon(Icons.add),
           ),
@@ -1040,7 +1040,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           else
             SliverList.separated(
               itemCount: _posts.length + (_isLoadingMore ? 1 : 0),
-              separatorBuilder: (_, index) => const SizedBox(height: 10),
+              separatorBuilder: (_, index) => const Divider(indent: 20),
               itemBuilder: (context, index) {
                 if (index >= _posts.length) {
                   return const Padding(
@@ -1170,7 +1170,7 @@ class _TripFeedHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1181,17 +1181,21 @@ class _TripFeedHeader extends StatelessWidget {
           const SizedBox(height: 12),
           InkWell(
             onTap: onSettlementTap,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE5E5E5)),
-                borderRadius: BorderRadius.circular(8),
+                color: AppColors.brandSoft,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.receipt_long_outlined, size: 18),
+                  const Icon(
+                    Icons.receipt_long_outlined,
+                    size: 18,
+                    color: AppColors.brandStrong,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1304,13 +1308,13 @@ class _RecapActionShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE5E5E5)),
-          borderRadius: BorderRadius.circular(8),
+          color: AppColors.neutralSoft,
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
@@ -1397,34 +1401,39 @@ class _PostFeedTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+      height: 48,
+      color: AppColors.background,
       child: Row(
-        spacing: 8,
         children: _PostFeedFilter.values.map((filter) {
           final selected = selectedFilter == filter;
           return Expanded(
             child: InkWell(
               onTap: () => onSelect(filter),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.ink : Colors.white,
-                  border: Border.all(
-                    color: selected ? AppColors.ink : const Color(0xFFE2E2E2),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        filter.label,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: selected
+                              ? FontWeight.w800
+                              : FontWeight.w500,
+                          color: selected
+                              ? AppColors.brandStrong
+                              : AppColors.textMuted,
+                        ),
+                      ),
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  filter.label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                    color: selected ? Colors.white : const Color(0xFF4A4A4A),
+                  Container(
+                    height: 2,
+                    width: selected ? 48 : 0,
+                    color: AppColors.brand,
                   ),
-                ),
+                ],
               ),
             ),
           );

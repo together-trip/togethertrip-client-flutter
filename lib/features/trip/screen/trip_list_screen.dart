@@ -176,9 +176,9 @@ class _TripListScreenState extends State<TripListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: false,
         title: const Text(
@@ -276,9 +276,9 @@ class _TripListScreenState extends State<TripListScreen> {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 112),
       itemCount: _trips.length + 1,
-      separatorBuilder: (_, index) => const SizedBox(height: 10),
+      separatorBuilder: (_, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         if (index == _trips.length) {
           if (!_hasNext) return const SizedBox(height: 4);
@@ -453,7 +453,7 @@ class _TripHomeTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 44,
-      color: Colors.white,
+      color: AppColors.background,
       child: Row(
         children: _TripHomeFilter.values.map((filter) {
           final isActive = filter == selectedFilter;
@@ -474,8 +474,8 @@ class _TripHomeTabs extends StatelessWidget {
                               ? FontWeight.w800
                               : FontWeight.w400,
                           color: isActive
-                              ? AppColors.ink
-                              : AppColors.textSubtle,
+                              ? AppColors.brandStrong
+                              : AppColors.textMuted,
                         ),
                       ),
                     ),
@@ -483,7 +483,7 @@ class _TripHomeTabs extends StatelessWidget {
                   Container(
                     height: 2,
                     width: isActive ? 52 : 0,
-                    color: AppColors.ink,
+                    color: AppColors.brand,
                   ),
                 ],
               ),
@@ -503,48 +503,89 @@ class _TripCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onTap(trip),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          border: Border.all(color: const Color(0xFFE2E2E2)),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    trip.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
+    return Semantics(
+      button: true,
+      label: '${trip.title} 여행 열기',
+      child: GestureDetector(
+        onTap: () => onTap(trip),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.ink.withValues(alpha: 0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 104,
+                padding: const EdgeInsets.all(16),
+                color: AppColors.brandSoft,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(
+                        color: AppColors.surface,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.flight_takeoff_rounded,
+                        color: AppColors.brand,
+                        size: 22,
+                      ),
                     ),
-                  ),
+                    const Spacer(),
+                    _StatusChip(label: _tripStatusLabel(trip.tripStatus)),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                _StatusChip(label: _tripStatusLabel(trip.tripStatus)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              _dateRangeLabel(trip.startDate, trip.endDate),
-              style: const TextStyle(fontSize: 13, color: Color(0xFF4A4A4A)),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${trip.defaultCurrency} · 정산 ${_settlementDisplayStatusLabel(trip.effectiveSettlementDisplayStatus)}',
-              style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
-            ),
-          ],
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      trip.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _dateRangeLabel(trip.startDate, trip.endDate),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSubtle,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '${trip.defaultCurrency} · 정산 ${_settlementDisplayStatusLabel(trip.effectiveSettlementDisplayStatus)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -561,13 +602,16 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE2E2E2)),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppColors.brandStrong,
+        ),
       ),
     );
   }
