@@ -1,8 +1,15 @@
+import java.util.Base64
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 android {
@@ -15,10 +22,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         applicationId = "com.togethertrip.togethertrip"
         minSdk = flutter.minSdkVersion
@@ -27,15 +30,20 @@ android {
         versionName = flutter.versionName
 
         // --dart-define=KAKAO_NATIVE_APP_KEY=xxx 값을 Android Manifest에 주입
-        val dartDefines = (project.findProperty("dart-defines") as? String)
+        val dartDefines: Map<String, String> = (project.findProperty("dart-defines") as? String)
             ?.split(",")
-            ?.associate { encoded ->
-                val decoded = String(java.util.Base64.getDecoder().decode(encoded))
+            ?.filter { it.isNotBlank() }
+            ?.mapNotNull { encoded ->
+                val decoded = String(Base64.getDecoder().decode(encoded))
                 val idx = decoded.indexOf('=')
-                decoded.substring(0, idx) to decoded.substring(idx + 1)
-            } ?: emptyMap()
+                if (idx <= 0) null else decoded.substring(0, idx) to decoded.substring(idx + 1)
+            }
+            ?.toMap()
+            ?: emptyMap()
         manifestPlaceholders["kakaoNativeAppKey"] =
             dartDefines["KAKAO_NATIVE_APP_KEY"] ?: System.getenv("KAKAO_NATIVE_APP_KEY") ?: ""
+        manifestPlaceholders["googleMapsApiKey"] =
+            dartDefines["GOOGLE_MAPS_API_KEY"] ?: System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
     }
 
     buildTypes {
@@ -44,6 +52,12 @@ android {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 

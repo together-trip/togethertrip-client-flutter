@@ -1,0 +1,591 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+
+import '../../../core/network/api_client.dart';
+import '../../../core/widget/app_design.dart';
+import '../../main/screen/main_shell_screen.dart';
+import '../../trip/service/trip_service.dart';
+import '../service/auth_service.dart';
+import '../service/terms_agreement_service.dart';
+import 'sign_up_profile_screen.dart';
+
+class OnboardingScreen extends StatefulWidget {
+  final AuthService authService;
+  final TripService? tripService;
+  final TermsAgreementService? termsAgreementService;
+
+  const OnboardingScreen({
+    super.key,
+    required this.authService,
+    this.tripService,
+    this.termsAgreementService,
+  });
+
+  @override
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
+}
+
+class _OnboardingScreenState extends State<OnboardingScreen> {
+  late final PageController _pageController;
+  bool _isLoading = false;
+  int _pageIndex = 0;
+  String? _errorMessage;
+
+  static const _pages = [
+    _OnboardingPageData(
+      icon: Icons.edit_note_outlined,
+      title: '함께 떠나는 여행을\n가볍게 기록하세요',
+      description: '동행자와 일정, 지출, 기록을 한 곳에서 관리합니다.',
+      visualTitle: '오사카 3박4일',
+      rows: [('항공권', '320,000원'), ('숙소', '180,000원')],
+      footerIcon: Icons.payments_outlined,
+      footerLabel: '민서에게 보낼 돈',
+      footerValue: '42,000원',
+    ),
+    _OnboardingPageData(
+      icon: Icons.photo_camera_outlined,
+      title: '순간은 피드처럼\n자연스럽게 남겨요',
+      description: '사진, 장소, 메모를 여행 기록과 소비 내역으로 이어서 봅니다.',
+      visualTitle: '오늘의 기록',
+      rows: [('도톤보리 산책', '사진 4장'), ('라멘 저녁', '소비 연결')],
+      footerIcon: Icons.chat_bubble_outline,
+      footerLabel: '댓글과 반응',
+      footerValue: '함께 보기',
+    ),
+    _OnboardingPageData(
+      icon: Icons.currency_exchange_outlined,
+      title: '환율과 정산까지\n끝까지 맞춰요',
+      description: '여행 중 쓴 돈을 통화별로 기록하고 정산 흐름까지 확인합니다.',
+      visualTitle: '정산 미리보기',
+      rows: [('JPY 환율', '9.18 KRW'), ('총 지출', '582,000원')],
+      footerIcon: Icons.check_circle_outline,
+      footerLabel: '정산 준비',
+      footerValue: '완료',
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startWithKakao() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await widget.authService.loginWithKakao();
+      if (!mounted) return;
+
+      if (result.isAuthenticated) {
+        await _openMainOrRepairSignup();
+        return;
+      }
+
+      if (result.isProfileRequired) {
+        _openSignUpProfile(result);
+        return;
+      }
+
+      if (result.isPhoneVerificationRequired && result.temporaryToken != null) {
+        _openSignUpProfile(result);
+        return;
+      }
+
+      setState(() => _errorMessage = '로그인 응답 상태를 확인할 수 없습니다.');
+    } on KakaoAuthException catch (e) {
+      if (e.error == AuthErrorCause.accessDenied) {
+        _clearLoginError();
+      } else {
+        setState(() => _errorMessage = '카카오 로그인 실패: ${e.message}');
+      }
+    } on KakaoClientException catch (e) {
+      if (_isKakaoLoginCancelled(e)) {
+        _clearLoginError();
+      } else {
+        setState(() => _errorMessage = '카카오 SDK 오류: ${e.message}');
+      }
+    } on PlatformException catch (e) {
+      if (_isKakaoLoginCancelled(e)) {
+        _clearLoginError();
+      } else {
+        setState(() => _errorMessage = '카카오 SDK 오류: ${e.message ?? e.code}');
+      }
+    } on ApiException catch (e) {
+      setState(() => _errorMessage = e.message);
+    } catch (e) {
+      if (_isKakaoLoginCancelled(e)) {
+        _clearLoginError();
+      } else {
+        setState(() => _errorMessage = '오류가 발생했습니다: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _clearLoginError() {
+    if (!mounted) return;
+    setState(() => _errorMessage = null);
+  }
+
+  bool _isKakaoLoginCancelled(Object error) {
+    final text = error.toString().toLowerCase();
+    return text.contains('cancel') ||
+        text.contains('canceled') ||
+        text.contains('cancelled') ||
+        text.contains('accessdenied') ||
+        text.contains('access_denied');
+  }
+
+  Future<void> _openMainOrRepairSignup() async {
+    final termsAgreementService =
+        widget.termsAgreementService ??
+        TermsAgreementService(authService: widget.authService);
+    final profile = await widget.authService.getMe();
+    if (!profile.phoneVerified) {
+      if (!mounted) return;
+      setState(() => _errorMessage = '전화번호 인증 상태를 확인할 수 없습니다. 다시 로그인해주세요.');
+      return;
+    }
+
+    final terms = await termsAgreementService.getTerms();
+    final agreedCodes = await termsAgreementService.getAgreedTermCodes();
+    final requiredTerms = terms.where((term) => term.required).toList();
+    final hasAgreedAllRequired =
+        requiredTerms.isNotEmpty &&
+        requiredTerms.every((term) => agreedCodes.contains(term.code));
+    final hasCompletedProfile =
+        profile.gender?.isNotEmpty == true &&
+        profile.birthDate?.isNotEmpty == true;
+
+    if (!mounted) return;
+
+    if (!hasCompletedProfile || !hasAgreedAllRequired) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => SignUpProfileScreen(
+            authService: widget.authService,
+            tripService: widget.tripService,
+            termsAgreementService: termsAgreementService,
+            temporaryToken: null,
+            prefillProfile: profile,
+            restoreExistingTerms: true,
+          ),
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => MainShellScreen(
+          authService: widget.authService,
+          tripService: widget.tripService,
+          termsAgreementService: termsAgreementService,
+        ),
+      ),
+    );
+  }
+
+  void _openSignUpProfile(AuthLoginResult result) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SignUpProfileScreen(
+          authService: widget.authService,
+          tripService: widget.tripService,
+          termsAgreementService: widget.termsAgreementService,
+          temporaryToken: result.temporaryToken,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _BrandHeader(),
+              const Spacer(),
+              SizedBox(
+                height: 338,
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: _pages.length,
+                  onPageChanged: (index) => setState(() => _pageIndex = index),
+                  itemBuilder: (context, index) {
+                    return _OnboardingPage(data: _pages[index]);
+                  },
+                ),
+              ),
+              const Spacer(),
+              _PageDots(count: _pages.length, activeIndex: _pageIndex),
+              const SizedBox(height: 18),
+              if (_errorMessage != null) ...[
+                AppErrorText(_errorMessage!, textAlign: TextAlign.center),
+                const SizedBox(height: 10),
+              ],
+              SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _startWithKakao,
+                  style: AppButtonStyles.kakao(),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black,
+                          ),
+                        )
+                      : const Text(
+                          '카카오로 시작하기',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingPageData {
+  final IconData icon;
+  final String title;
+  final String description;
+  final String visualTitle;
+  final List<(String, String)> rows;
+  final IconData footerIcon;
+  final String footerLabel;
+  final String footerValue;
+
+  const _OnboardingPageData({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.visualTitle,
+    required this.rows,
+    required this.footerIcon,
+    required this.footerLabel,
+    required this.footerValue,
+  });
+}
+
+class _OnboardingPage extends StatelessWidget {
+  final _OnboardingPageData data;
+
+  const _OnboardingPage({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < 360;
+        return Column(
+          children: [
+            _OnboardingVisual(data: data, compact: compact),
+            SizedBox(height: compact ? 14 : 24),
+            _OnboardingCopy(data: data, compact: compact),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _BrandHeader extends StatelessWidget {
+  const _BrandHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F4EE),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE6DDD0)),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.fromLTRB(12, 7, 12, 8),
+          child: Text(
+            '투게더트립',
+            style: TextStyle(
+              fontSize: 20,
+              height: 1,
+              fontWeight: FontWeight.w900,
+              color: AppColors.ink,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingVisual extends StatelessWidget {
+  final _OnboardingPageData data;
+  final bool compact;
+
+  const _OnboardingVisual({required this.data, required this.compact});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 280),
+        child: SizedBox(
+          height: compact ? 188 : 204,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFFFAFAFA),
+              border: Border.all(color: AppColors.ink),
+              borderRadius: AppRadii.controlRadius,
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(compact ? 10 : 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      _VisualIcon(icon: data.icon),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          data.visualTitle,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'D-12',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSubtle,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: compact ? 8 : 12),
+                  for (final row in data.rows) ...[
+                    _VisualRow(label: row.$1, value: row.$2, compact: compact),
+                    SizedBox(height: compact ? 6 : 8),
+                  ],
+                  const Spacer(),
+                  DecoratedBox(
+                    decoration: const BoxDecoration(
+                      color: AppColors.ink,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: compact ? 8 : 10,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(data.footerIcon, size: 16, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              data.footerLabel,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            data.footerValue,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VisualIcon extends StatelessWidget {
+  final IconData icon;
+
+  const _VisualIcon({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 30,
+      height: 30,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppColors.line),
+          borderRadius: AppRadii.controlRadius,
+        ),
+        child: Icon(icon, size: 17, color: AppColors.ink),
+      ),
+    );
+  }
+}
+
+class _VisualRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool compact;
+
+  const _VisualRow({
+    required this.label,
+    required this.value,
+    required this.compact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.lineSoft),
+        borderRadius: AppRadii.controlRadius,
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: compact ? 8 : 10,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSubtle,
+                ),
+              ),
+            ),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: AppColors.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingCopy extends StatelessWidget {
+  final _OnboardingPageData data;
+  final bool compact;
+
+  const _OnboardingCopy({required this.data, required this.compact});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          data.title,
+          style: TextStyle(
+            fontSize: compact ? 22 : 24,
+            height: 1.25,
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink,
+          ),
+        ),
+        SizedBox(height: compact ? 8 : 12),
+        Text(
+          data.description,
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1.5,
+            color: AppColors.textSubtle,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PageDots extends StatelessWidget {
+  final int count;
+  final int activeIndex;
+
+  const _PageDots({required this.count, required this.activeIndex});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (index) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3),
+          child: _Dot(isActive: index == activeIndex),
+        );
+      }),
+    );
+  }
+}
+
+class _Dot extends StatelessWidget {
+  final bool isActive;
+
+  const _Dot({required this.isActive});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: isActive ? 18 : 6,
+      height: 6,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.ink : const Color(0xFFC7C7C7),
+          borderRadius: BorderRadius.circular(3),
+        ),
+      ),
+    );
+  }
+}

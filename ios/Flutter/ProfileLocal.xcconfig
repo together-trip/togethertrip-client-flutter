@@ -1,0 +1,3 @@
+#include? "Pods/Target Support Files/Pods-RunnerLocal/Pods-RunnerLocal.profile-local.xcconfig"
+#include "Generated.xcconfig"
+#include? "LocalConfig.xcconfig"

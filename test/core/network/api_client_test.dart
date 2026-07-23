@@ -5,16 +5,16 @@ import 'package:http/testing.dart';
 import 'package:togethertrip/core/network/api_client.dart';
 
 Map<String, dynamic> _apiResponse(dynamic data) => {
-      'success': true,
-      'data': data,
-      'message': null,
-    };
+  'success': true,
+  'data': data,
+  'message': null,
+};
 
 Map<String, dynamic> _apiError(String message) => {
-      'success': false,
-      'code': 'ERROR',
-      'message': message,
-    };
+  'success': false,
+  'code': 'ERROR',
+  'message': message,
+};
 
 void main() {
   group('ApiClient', () {
@@ -51,6 +51,32 @@ void main() {
       await apiClient.post('/api/auth/logout', {}, accessToken: 'my_token');
 
       expect(capturedAuth, 'Bearer my_token');
+    });
+
+    test('get 요청 시 query와 Authorization 헤더가 포함된다', () async {
+      Uri? capturedUrl;
+      String? capturedAuth;
+      final mockClient = MockClient((request) async {
+        capturedUrl = request.url;
+        capturedAuth = request.headers['Authorization'];
+        return http.Response(
+          jsonEncode(_apiResponse({'available': true})),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      final result = await apiClient.get(
+        '/api/users/nicknames/availability',
+        queryParameters: {'nickname': '여행자'},
+        accessToken: 'my_token',
+      );
+
+      expect(capturedUrl!.path, '/api/users/nicknames/availability');
+      expect(capturedUrl!.queryParameters['nickname'], '여행자');
+      expect(capturedAuth, 'Bearer my_token');
+      expect(result!['available'], true);
     });
 
     test('서버 오류 시 ApiException을 던진다', () async {
@@ -100,6 +126,147 @@ void main() {
       final apiClient = ApiClient(client: mockClient);
       final result = await apiClient.post('/api/auth/logout', {});
       expect(result, isNull);
+    });
+
+    test('빈 2xx 응답 body는 null을 반환한다', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('', 204);
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      final result = await apiClient.post('/api/auth/logout', {});
+      expect(result, isNull);
+    });
+
+    test('빈 에러 응답 body는 기본 ApiException을 던진다', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('', 500);
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+
+      try {
+        await apiClient.post('/api/auth/oauth/kakao', {});
+        fail('예외가 발생해야 합니다');
+      } on ApiException catch (e) {
+        expect(e.statusCode, 500);
+        expect(e.message, '서버 오류가 발생했습니다.');
+      }
+    });
+
+    test('깨진 에러 응답 body는 FormatException 대신 기본 ApiException을 던진다', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response('{', 500);
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+
+      expect(
+        () => apiClient.post('/api/auth/oauth/kakao', {}),
+        throwsA(
+          isA<ApiException>().having(
+            (exception) => exception.message,
+            'message',
+            '서버 오류가 발생했습니다.',
+          ),
+        ),
+      );
+    });
+
+    test('put 요청 시 body와 Authorization 헤더가 포함된다', () async {
+      String? capturedAuth;
+      Map<String, dynamic>? capturedBody;
+      final mockClient = MockClient((request) async {
+        capturedAuth = request.headers['Authorization'];
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode(_apiResponse({'tripId': 10, 'countries': []})),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      final result = await apiClient.put('/api/trips/10/countries', {
+        'countries': [
+          {'countryCode': 'JP', 'countryName': '일본', 'sortOrder': 0},
+        ],
+      }, accessToken: 'my_token');
+
+      expect(capturedAuth, 'Bearer my_token');
+      expect(capturedBody!['countries'], isA<List<dynamic>>());
+      expect(result!['tripId'], 10);
+    });
+
+    test('getList 성공 시 data 배열을 반환한다', () async {
+      Uri? capturedUrl;
+      String? capturedAuth;
+      final mockClient = MockClient((request) async {
+        capturedUrl = request.url;
+        capturedAuth = request.headers['Authorization'];
+        return http.Response(
+          jsonEncode(
+            _apiResponse([
+              {'id': 1},
+              {'id': 2},
+            ]),
+          ),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      final result = await apiClient.getList(
+        '/api/trips/10/settlement-transfers',
+        queryParameters: {'participantId': '100'},
+        accessToken: 'my_token',
+      );
+
+      expect(capturedUrl!.path, '/api/trips/10/settlement-transfers');
+      expect(capturedUrl!.queryParameters['participantId'], '100');
+      expect(capturedAuth, 'Bearer my_token');
+      expect(result, hasLength(2));
+    });
+
+    test('getList 응답 data가 배열이 아니면 형식 오류를 던진다', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode(_apiResponse({'id': 1})),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      expect(
+        () => apiClient.getList('/api/terms'),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('delete 요청 시 JSON body와 Authorization 헤더가 포함된다', () async {
+      String? capturedAuth;
+      Map<String, dynamic>? capturedBody;
+      final mockClient = MockClient((request) async {
+        capturedAuth = request.headers['Authorization'];
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode(_apiResponse({})),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final apiClient = ApiClient(client: mockClient);
+      await apiClient.delete(
+        '/notification/api/push-tokens',
+        accessToken: 'my_token',
+        body: {'token': 'fcm-token'},
+      );
+
+      expect(capturedAuth, 'Bearer my_token');
+      expect(capturedBody, {'token': 'fcm-token'});
     });
   });
 }
