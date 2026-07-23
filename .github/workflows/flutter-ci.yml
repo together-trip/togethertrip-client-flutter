@@ -7,9 +7,6 @@ on:
     branches: [ develop, main ]
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 concurrency:
   group: flutter-${{ github.ref }}
   cancel-in-progress: true
@@ -18,9 +15,13 @@ jobs:
   flutter-ci:
     name: Analyze, Test and Build Web
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
           cache: true
@@ -34,7 +35,7 @@ jobs:
           --dart-define=API_BASE_URL=https://api.togethertrip.co.kr
       - name: Upload Flutter Web artifact
         if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && vars.DEPLOY_ENABLED == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: togethertrip-flutter-web
           path: build/web
@@ -53,13 +54,13 @@ jobs:
 
     steps:
       - name: Download Flutter Web artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: togethertrip-flutter-web
           path: build/web
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
