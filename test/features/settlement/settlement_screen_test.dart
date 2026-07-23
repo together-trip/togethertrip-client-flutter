@@ -24,7 +24,7 @@ void main() {
     expect(find.text('정산'), findsOneWidget);
     expect(find.text('정산 미시작'), findsOneWidget);
     expect(find.text('정산 미리보기'), findsOneWidget);
-    expect(find.text('내 정산 요약'), findsOneWidget);
+    expect(find.text('내가 확인할 정산'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('settlementHelpButton')));
     await tester.pumpAndSettle();

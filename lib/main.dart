@@ -97,11 +97,7 @@ class _TogetherTripAppState extends State<TogetherTripApp> {
       locale: const Locale('ko'),
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [Locale('ko'), Locale('en')],
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.ink),
-        useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white,
-      ),
+      theme: AppTheme.light(),
       home: OnboardingScreen(
         authService: _authService,
         tripService: widget.tripService,
