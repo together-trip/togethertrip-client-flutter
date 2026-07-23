@@ -37,3 +37,7 @@ flutter:
   config:
     enable-swift-package-manager: false
   uses-material-design: true
+  fonts:
+    - family: Pretendard
+      fonts:
+        - asset: assets/fonts/PretendardVariable.ttf

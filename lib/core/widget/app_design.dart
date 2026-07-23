@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const ink = Color(0xFF1A1A1A);
-  static const textSubtle = Color(0xFF6B6B6B);
-  static const textMuted = Color(0xFF9E9E9E);
-  static const line = Color(0xFFE0E0E0);
-  static const lineSoft = Color(0xFFE5E5E5);
-  static const surface = Color(0xFFFAFAFA);
-  static const danger = Color(0xFFCC0000);
-  static const disabled = Color(0xFFE8E8E8);
-  static const disabledText = Color(0xFF8A8A8A);
+  static const brand = Color(0xFFFF6854);
+  static const brandStrong = Color(0xFFE95443);
+  static const brandSoft = Color(0xFFFFF0EB);
+  static const background = Color(0xFFFFFDF9);
+  static const surface = Color(0xFFFFFFFF);
+  static const neutralSoft = Color(0xFFF2F4F6);
+  static const ink = Color(0xFF191F28);
+  static const textSubtle = Color(0xFF4E5968);
+  static const textMuted = Color(0xFF8B95A1);
+  static const line = Color(0xFFE5E8EB);
+  static const lineSoft = Color(0xFFF2F4F6);
+  static const success = Color(0xFF20A879);
+  static const danger = Color(0xFFD94B4B);
+  static const disabled = Color(0xFFE5E8EB);
+  static const disabledText = Color(0xFF8B95A1);
 }
 
 class AppRadii {
-  static const control = Radius.circular(8);
+  static const control = Radius.circular(12);
   static const pill = Radius.circular(999);
 
-  static BorderRadius get controlRadius => BorderRadius.circular(8);
+  static BorderRadius get controlRadius => BorderRadius.circular(12);
   static BorderRadius get sheetRadius =>
       const BorderRadius.vertical(top: control);
 }
@@ -54,7 +60,7 @@ class AppButtonStyles {
 
   static ButtonStyle primary({double radius = 8}) {
     return FilledButton.styleFrom(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.brand,
       foregroundColor: Colors.white,
       disabledBackgroundColor: AppColors.disabled,
       disabledForegroundColor: AppColors.disabledText,
@@ -66,7 +72,7 @@ class AppButtonStyles {
 
   static ButtonStyle elevatedPrimary({double radius = 8}) {
     return ElevatedButton.styleFrom(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.brand,
       foregroundColor: Colors.white,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -121,10 +127,86 @@ class AppIconButtonStyles {
 
   static ButtonStyle neutral({Size size = const Size(32, 32)}) {
     return IconButton.styleFrom(
-      backgroundColor: const Color(0xFFF2F2F2),
+      backgroundColor: AppColors.neutralSoft,
       foregroundColor: AppColors.textSubtle,
       fixedSize: size,
       minimumSize: size,
+    );
+  }
+}
+
+class AppTheme {
+  static ThemeData light() {
+    const colorScheme = ColorScheme.light(
+      primary: AppColors.brand,
+      onPrimary: Colors.white,
+      primaryContainer: AppColors.brandSoft,
+      onPrimaryContainer: AppColors.brandStrong,
+      secondary: AppColors.ink,
+      onSecondary: Colors.white,
+      error: AppColors.danger,
+      surface: AppColors.surface,
+      onSurface: AppColors.ink,
+      outline: AppColors.line,
+    );
+
+    final base = ThemeData(
+      colorScheme: colorScheme,
+      useMaterial3: true,
+      fontFamily: 'Pretendard',
+      scaffoldBackgroundColor: AppColors.background,
+    );
+
+    return base.copyWith(
+      textTheme: base.textTheme.apply(
+        bodyColor: AppColors.ink,
+        displayColor: AppColors.ink,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.ink,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontFamily: 'Pretendard',
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: AppColors.ink,
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.lineSoft,
+        thickness: 1,
+        space: 1,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.neutralSoft,
+        border: OutlineInputBorder(
+          borderRadius: AppRadii.controlRadius,
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: AppRadii.controlRadius,
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: AppRadii.controlRadius,
+          borderSide: const BorderSide(color: AppColors.brand, width: 1.5),
+        ),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.brand,
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        backgroundColor: AppColors.ink,
+        contentTextStyle: TextStyle(
+          fontFamily: 'Pretendard',
+          color: Colors.white,
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 }
