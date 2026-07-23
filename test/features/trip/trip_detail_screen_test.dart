@@ -146,7 +146,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('소비 수정'), findsOneWidget);
-    expect(find.text('금액'), findsOneWidget);
+    expect(find.text('지출 정보'), findsOneWidget);
     expect(transactionService.getTransactionCallCount, 1);
   });
 
