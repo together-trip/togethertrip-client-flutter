@@ -39,56 +39,8 @@ class AuthService {
     return result;
   }
 
-  Future<PhoneVerificationCodeSent> requestPhoneVerification({
-    required String temporaryToken,
-    required String phoneNumber,
-  }) async {
-    final data = await _apiClient.post('/api/auth/phone/request', {
-      'temporaryToken': temporaryToken,
-      'phoneNumber': phoneNumber,
-    });
-
-    if (data == null) {
-      throw const ApiException(
-        statusCode: 500,
-        message: '인증번호 요청 응답이 비어 있습니다.',
-      );
-    }
-
-    return PhoneVerificationCodeSent.fromJson(data);
-  }
-
-  Future<AuthLoginResult> confirmPhoneVerification({
-    required String temporaryToken,
-    required String phoneNumber,
-    required String code,
-  }) async {
-    final data = await _apiClient.post('/api/auth/phone/confirm', {
-      'temporaryToken': temporaryToken,
-      'phoneNumber': phoneNumber,
-      'code': code,
-    });
-
-    if (data == null) {
-      throw const ApiException(
-        statusCode: 500,
-        message: '전화번호 인증 응답이 비어 있습니다.',
-      );
-    }
-
-    final result = AuthLoginResult.fromJson(data);
-    await _saveTokens(
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-    );
-
-    return result;
-  }
-
   Future<void> updateMyProfile({
     required String nickname,
-    required String gender,
-    required String birthDate,
     String? profileImageUrl,
     ProfileImageInput? profileImage,
   }) async {
@@ -97,11 +49,7 @@ class AuthService {
         return _apiClient.multipart(
           'PATCH',
           '/api/users/me',
-          fields: {
-            'nickname': nickname,
-            'gender': gender,
-            'birthDate': birthDate,
-          },
+          fields: {'nickname': nickname},
           files: [
             MultipartFileInput(
               fieldName: 'profileImage',
@@ -116,8 +64,6 @@ class AuthService {
 
       return _apiClient.patch('/api/users/me', {
         'nickname': nickname,
-        'gender': gender,
-        'birthDate': birthDate,
         'profileImageUrl': profileImageUrl,
       }, accessToken: accessToken);
     });
@@ -278,13 +224,11 @@ abstract class AuthTokenLifecycle {
 
 class AuthLoginResult {
   final String status;
-  final String? temporaryToken;
   final String? accessToken;
   final String? refreshToken;
 
   const AuthLoginResult({
     required this.status,
-    required this.temporaryToken,
     required this.accessToken,
     required this.refreshToken,
   });
@@ -295,27 +239,11 @@ class AuthLoginResult {
 
   bool get hasToken => isAuthenticated || isProfileRequired;
 
-  bool get isPhoneVerificationRequired =>
-      status == 'PHONE_VERIFICATION_REQUIRED';
-
   factory AuthLoginResult.fromJson(Map<String, dynamic> json) {
     return AuthLoginResult(
       status: json['status'] as String,
-      temporaryToken: json['temporaryToken'] as String?,
       accessToken: json['accessToken'] as String?,
       refreshToken: json['refreshToken'] as String?,
-    );
-  }
-}
-
-class PhoneVerificationCodeSent {
-  final int expiresInSeconds;
-
-  const PhoneVerificationCodeSent({required this.expiresInSeconds});
-
-  factory PhoneVerificationCodeSent.fromJson(Map<String, dynamic> json) {
-    return PhoneVerificationCodeSent(
-      expiresInSeconds: (json['expiresInSeconds'] as num).toInt(),
     );
   }
 }
@@ -335,34 +263,19 @@ class ProfileImageInput {
 class UserProfile {
   final int id;
   final String nickname;
-  final String? gender;
-  final String? birthDate; // yyyy-MM-dd
   final String? profileImageUrl;
-  final String? phoneNumberMasked;
-  final String? phoneVerifiedAt;
-  final bool phoneVerified;
 
   const UserProfile({
     required this.id,
     required this.nickname,
-    required this.gender,
-    required this.birthDate,
     required this.profileImageUrl,
-    required this.phoneNumberMasked,
-    required this.phoneVerifiedAt,
-    required this.phoneVerified,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       id: (json['id'] as num).toInt(),
       nickname: json['nickname'] as String,
-      gender: json['gender'] as String?,
-      birthDate: json['birthDate'] as String?,
       profileImageUrl: json['profileImageUrl'] as String?,
-      phoneNumberMasked: json['phoneNumberMasked'] as String?,
-      phoneVerifiedAt: json['phoneVerifiedAt'] as String?,
-      phoneVerified: json['phoneVerified'] as bool? ?? false,
     );
   }
 }

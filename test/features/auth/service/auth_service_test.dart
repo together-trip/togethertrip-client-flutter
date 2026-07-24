@@ -69,30 +69,25 @@ class _FakeSecureStorage extends Fake implements FlutterSecureStorage {
 
 void main() {
   group('AuthService', () {
-    test('인증번호 요청 응답은 phoneNumber 없이 만료 시간만 파싱한다', () async {
-      final tokenStorage = TokenStorage(storage: _FakeSecureStorage());
-      final service = AuthService(
-        tokenStorage: tokenStorage,
-        apiClient: ApiClient(
-          client: MockClient((request) async {
-            return http.Response(
-              jsonEncode(_apiResponse({'expiresInSeconds': 180})),
-              200,
-              headers: {'content-type': 'application/json'},
-            );
-          }),
-        ),
-      );
+    test('로그인 응답은 인증 완료와 프로필 입력 필요 상태만 해석한다', () {
+      final authenticated = AuthLoginResult.fromJson({
+        'status': 'AUTHENTICATED',
+        'accessToken': 'access-token',
+        'refreshToken': 'refresh-token',
+      });
+      final profileRequired = AuthLoginResult.fromJson({
+        'status': 'PROFILE_REQUIRED',
+        'accessToken': 'access-token',
+        'refreshToken': 'refresh-token',
+      });
 
-      final result = await service.requestPhoneVerification(
-        temporaryToken: 'temporary-token',
-        phoneNumber: '01012345678',
-      );
-
-      expect(result.expiresInSeconds, 180);
+      expect(authenticated.isAuthenticated, isTrue);
+      expect(authenticated.hasToken, isTrue);
+      expect(profileRequired.isProfileRequired, isTrue);
+      expect(profileRequired.hasToken, isTrue);
     });
 
-    test('내 정보 응답의 마스킹 전화번호와 인증 상태를 파싱한다', () async {
+    test('내 정보 응답의 기본 프로필을 파싱한다', () async {
       final tokenStorage = TokenStorage(storage: _FakeSecureStorage());
       await tokenStorage.save(accessToken: 'access-token', refreshToken: 'rt');
       final service = AuthService(
@@ -104,12 +99,7 @@ void main() {
                 _apiResponse({
                   'id': 1,
                   'nickname': '재완',
-                  'gender': 'MALE',
-                  'birthDate': '1990-01-01',
                   'profileImageUrl': '/uploads/user-profile-images/a.jpg',
-                  'phoneNumberMasked': '010-****-5678',
-                  'phoneVerifiedAt': '2026-06-12T00:00:00Z',
-                  'phoneVerified': true,
                 }),
               ),
               200,
@@ -121,9 +111,8 @@ void main() {
 
       final profile = await service.getMe();
 
-      expect(profile.phoneNumberMasked, '010-****-5678');
-      expect(profile.phoneVerifiedAt, '2026-06-12T00:00:00Z');
-      expect(profile.phoneVerified, isTrue);
+      expect(profile.nickname, '재완');
+      expect(profile.profileImageUrl, '/uploads/user-profile-images/a.jpg');
     });
 
     test('프로필 이미지가 있으면 multipart PATCH로 profileImage를 전송한다', () async {
@@ -160,8 +149,6 @@ void main() {
 
       await service.updateMyProfile(
         nickname: '새닉네임',
-        gender: 'FEMALE',
-        birthDate: '1995-05-01',
         profileImage: ProfileImageInput(
           path: file.path,
           filename: 'profile.jpg',
@@ -204,8 +191,6 @@ void main() {
 
       await service.updateMyProfile(
         nickname: '새닉네임',
-        gender: 'FEMALE',
-        birthDate: '1995-05-01',
         profileImageUrl: '/uploads/user-profile-images/current.jpg',
       );
 
@@ -214,8 +199,6 @@ void main() {
       expect(capturedAuth, 'Bearer access-token');
       expect(capturedBody, {
         'nickname': '새닉네임',
-        'gender': 'FEMALE',
-        'birthDate': '1995-05-01',
         'profileImageUrl': '/uploads/user-profile-images/current.jpg',
       });
     });
@@ -259,12 +242,7 @@ void main() {
                 _apiResponse({
                   'id': 1,
                   'nickname': '재완',
-                  'gender': null,
-                  'birthDate': null,
                   'profileImageUrl': null,
-                  'phoneNumberMasked': null,
-                  'phoneVerifiedAt': null,
-                  'phoneVerified': false,
                 }),
               ),
               200,

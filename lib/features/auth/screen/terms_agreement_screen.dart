@@ -10,14 +10,12 @@ class TermsAgreementScreen extends StatefulWidget {
   final AuthService authService;
   final TripService? tripService;
   final TermsAgreementService termsAgreementService;
-  final AuthLoginResult loginResult;
 
   const TermsAgreementScreen({
     super.key,
     required this.authService,
     this.tripService,
     required this.termsAgreementService,
-    required this.loginResult,
   });
 
   @override
@@ -56,7 +54,6 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
           authService: widget.authService,
           tripService: widget.tripService,
           termsAgreementService: widget.termsAgreementService,
-          temporaryToken: widget.loginResult.temporaryToken,
           initialAgreedTermCodes: Set.unmodifiable(_agreedCodes),
         ),
       ),
