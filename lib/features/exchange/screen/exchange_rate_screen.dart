@@ -530,27 +530,34 @@ class _RateSummaryCard extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: TextField(
-                          key: const ValueKey('exchangeAmountField'),
-                          controller: amountController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          inputFormatters: const [_MoneyInputFormatter()],
-                          onChanged: (_) => onAmountChanged(),
-                          style: const TextStyle(
-                            color: AppColors.ink,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            isDense: true,
-                            labelText: '변환할 금액',
+                        child: Semantics(
+                          label: '환율 변환 금액 입력',
+                          textField: true,
+                          child: TextField(
+                            key: const ValueKey('exchangeAmountField'),
+                            controller: amountController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: const [_MoneyInputFormatter()],
+                            onChanged: (_) => onAmountChanged(),
+                            style: const TextStyle(
+                              color: AppColors.ink,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              isDense: true,
+                              hintText: '0',
+                              contentPadding: EdgeInsets.zero,
+                            ),
                           ),
                         ),
                       ),
+                      const SizedBox(width: 20),
                       Text(
+                        key: const ValueKey('exchangeInputCurrency'),
                         inputCurrency,
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),

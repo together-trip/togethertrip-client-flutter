@@ -30,8 +30,19 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('환산 금액'), findsOneWidget);
+    expect(find.text('변환할 금액'), findsNothing);
     expect(find.text('1,000.00'), findsOneWidget);
     expect(find.text('9,512.30 KRW'), findsOneWidget);
+    final amountFieldRect = tester.getRect(
+      find.byKey(const ValueKey('exchangeAmountField')),
+    );
+    final inputCurrencyRect = tester.getRect(
+      find.byKey(const ValueKey('exchangeInputCurrency')),
+    );
+    expect(
+      inputCurrencyRect.left - amountFieldRect.right,
+      greaterThanOrEqualTo(20),
+    );
     expect(tester.takeException(), isNull);
 
     await tester.enterText(
