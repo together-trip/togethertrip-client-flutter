@@ -1,9 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:togethertrip/core/widget/app_design.dart';
 import 'package:togethertrip/features/trip/screen/trip_form_screen.dart';
 import 'package:togethertrip/features/trip/service/trip_service.dart';
 
 void main() {
+  testWidgets('여행 생성 단계는 이전 화면을 즉시 끊지 않고 전환한다', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: TripFormScreen(tripService: _FakeTripService())),
+    );
+
+    await tester.tap(find.text('일본'));
+    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('tripFormStep_0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tripFormStep_1')), findsOneWidget);
+
+    await tester.pump(AppMotion.standard);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('tripFormStep_0')), findsNothing);
+    expect(find.byKey(const ValueKey('tripFormStep_1')), findsOneWidget);
+  });
+
   testWidgets('여행 일정은 시작일이 종료일보다 늦으면 다음 단계로 진행하지 않는다', (
     WidgetTester tester,
   ) async {

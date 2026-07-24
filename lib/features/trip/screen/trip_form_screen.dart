@@ -679,83 +679,101 @@ class _TripFormScreenState extends State<TripFormScreen> {
   Widget build(BuildContext context) {
     final createdTrip = _createdTrip;
     if (createdTrip != null) {
-      return _TripCreatedScreen(
-        trip: createdTrip,
-        isCreatingInvite: _isCreatingInvite,
-        onCreateInvite: _createGeneralInvite,
-        onManageParticipants: _manageCreatedTripParticipants,
-        onClose: () => Navigator.of(context).pop(createdTrip),
+      return AppMotionSwitcher(
+        alignment: Alignment.center,
+        child: _TripCreatedScreen(
+          key: const ValueKey('tripCreatedScreen'),
+          trip: createdTrip,
+          isCreatingInvite: _isCreatingInvite,
+          onCreateInvite: _createGeneralInvite,
+          onManageParticipants: _manageCreatedTripParticipants,
+          onClose: () => Navigator.of(context).pop(createdTrip),
+        ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(56),
-        child: SafeArea(
-          bottom: false,
-          child: _TripWizardHeader(title: _headerTitle, onBack: _goBack),
+    return AppMotionSwitcher(
+      alignment: Alignment.center,
+      child: Scaffold(
+        key: const ValueKey('tripFormWizard'),
+        backgroundColor: AppColors.background,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: SafeArea(
+            bottom: false,
+            child: _TripWizardHeader(title: _headerTitle, onBack: _goBack),
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 28, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _StepIndicator(currentStep: _step, stepCount: _lastStep + 1),
-              const SizedBox(height: 20),
-              Expanded(child: _buildStep()),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: AppColors.danger, fontSize: 12),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 52,
-                      child: OutlinedButton(
-                        key: const ValueKey('cancelTripButton'),
-                        onPressed: _isSaving
-                            ? null
-                            : () => Navigator.of(context).maybePop(),
-                        style:
-                            AppButtonStyles.outlined(
-                              sideColor: AppColors.lineSoft,
-                            ).copyWith(
-                              side: const WidgetStatePropertyAll(
-                                BorderSide(color: AppColors.lineSoft),
-                              ),
-                            ),
-                        child: const Text('취소'),
-                      ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 28, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _StepIndicator(currentStep: _step, stepCount: _lastStep + 1),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: AppMotionSwitcher(
+                    child: KeyedSubtree(
+                      key: ValueKey('tripFormStep_$_step'),
+                      child: _buildStep(),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SizedBox(
-                      height: 52,
-                      child: ElevatedButton(
-                        key: const ValueKey('saveTripButton'),
-                        onPressed: _isSaving ? null : _handlePrimaryAction,
-                        style: AppButtonStyles.elevatedPrimary(),
-                        child: Text(
-                          _isSaving
-                              ? '저장 중...'
-                              : (_step == _lastStep ? '여행 만들기' : '다음'),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
+                ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      color: AppColors.danger,
+                      fontSize: 12,
                     ),
                   ),
                 ],
-              ),
-            ],
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 52,
+                        child: OutlinedButton(
+                          key: const ValueKey('cancelTripButton'),
+                          onPressed: _isSaving
+                              ? null
+                              : () => Navigator.of(context).maybePop(),
+                          style:
+                              AppButtonStyles.outlined(
+                                sideColor: AppColors.lineSoft,
+                              ).copyWith(
+                                side: const WidgetStatePropertyAll(
+                                  BorderSide(color: AppColors.lineSoft),
+                                ),
+                              ),
+                          child: const Text('취소'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SizedBox(
+                        height: 52,
+                        child: ElevatedButton(
+                          key: const ValueKey('saveTripButton'),
+                          onPressed: _isSaving ? null : _handlePrimaryAction,
+                          style: AppButtonStyles.elevatedPrimary(),
+                          child: Text(
+                            _isSaving
+                                ? '저장 중...'
+                                : (_step == _lastStep ? '여행 만들기' : '다음'),
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -841,9 +859,13 @@ class _TripWizardHeader extends StatelessWidget {
               tooltip: '뒤로',
             ),
           ),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          AppMotionSwitcher(
+            alignment: Alignment.center,
+            child: Text(
+              title,
+              key: ValueKey(title),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),
@@ -859,6 +881,7 @@ class _TripCreatedScreen extends StatelessWidget {
   final VoidCallback onClose;
 
   const _TripCreatedScreen({
+    super.key,
     required this.trip,
     required this.isCreatingInvite,
     required this.onCreateInvite,

@@ -58,18 +58,20 @@ class _MainShellScreenState extends State<MainShellScreen> {
         widget.tripService ?? TripService(authService: authService);
     final exchangeRateService = ExchangeRateService(authService: authService);
     final selectedTrip = _selectedTrip;
+    final tripScreen = selectedTrip == null
+        ? TripListScreen(
+            key: ValueKey('tripList_$_tripListVersion'),
+            tripService: tripService,
+            onOpenTripDetail: _openTripDetail,
+          )
+        : TripDetailScreen(
+            key: ValueKey('tripDetail_${selectedTrip.id}'),
+            tripId: selectedTrip.id,
+            tripService: tripService,
+            onClose: _closeTripDetail,
+          );
     final screens = <Widget>[
-      selectedTrip == null
-          ? TripListScreen(
-              key: ValueKey(_tripListVersion),
-              tripService: tripService,
-              onOpenTripDetail: _openTripDetail,
-            )
-          : TripDetailScreen(
-              tripId: selectedTrip.id,
-              tripService: tripService,
-              onClose: _closeTripDetail,
-            ),
+      AppMotionSwitcher(child: tripScreen),
       ExchangeRateScreen(exchangeRateService: exchangeRateService),
       MyPlaceholderScreen(
         authService: authService,
@@ -77,9 +79,22 @@ class _MainShellScreenState extends State<MainShellScreen> {
         onBack: () => _selectTab(0),
       ),
     ];
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: screens),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          for (var index = 0; index < screens.length; index++)
+            _AnimatedTabSurface(
+              key: ValueKey('mainTabSurface_$index'),
+              active: _currentIndex == index,
+              horizontalOffset: index < _currentIndex ? -0.018 : 0.018,
+              reduceMotion: reduceMotion,
+              child: screens[index],
+            ),
+        ],
+      ),
       extendBody: true,
       bottomNavigationBar: SafeArea(
         top: false,
@@ -154,24 +169,74 @@ class _TabItem extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isActive ? activeIcon : icon,
-              size: 22,
-              color: isActive ? AppColors.brand : AppColors.textMuted,
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
-                color: isActive ? AppColors.brandStrong : AppColors.textMuted,
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.curve,
+          margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.brandSoft : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedSwitcher(
+                duration: AppMotion.fast,
+                child: Icon(
+                  isActive ? activeIcon : icon,
+                  key: ValueKey(isActive),
+                  size: 21,
+                  color: isActive ? AppColors.brand : AppColors.textMuted,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
+                  color: isActive ? AppColors.brandStrong : AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedTabSurface extends StatelessWidget {
+  final bool active;
+  final double horizontalOffset;
+  final bool reduceMotion;
+  final Widget child;
+
+  const _AnimatedTabSurface({
+    super.key,
+    required this.active,
+    required this.horizontalOffset,
+    required this.reduceMotion,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = reduceMotion ? Duration.zero : AppMotion.standard;
+    return ExcludeSemantics(
+      excluding: !active,
+      child: IgnorePointer(
+        ignoring: !active,
+        child: AnimatedOpacity(
+          opacity: active ? 1 : 0,
+          duration: duration,
+          curve: AppMotion.curve,
+          child: AnimatedSlide(
+            offset: active ? Offset.zero : Offset(horizontalOffset, 0),
+            duration: duration,
+            curve: AppMotion.curve,
+            child: TickerMode(enabled: active, child: child),
+          ),
         ),
       ),
     );
