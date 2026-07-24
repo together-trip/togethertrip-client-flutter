@@ -24,9 +24,7 @@ void main() {
     expect(find.byKey(const ValueKey('tripFormStep_1')), findsOneWidget);
   });
 
-  testWidgets('여행 일정은 시작일이 종료일보다 늦으면 다음 단계로 진행하지 않는다', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('여행 일정을 선택하지 않으면 다음 단계로 진행하지 않는다', (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(home: TripFormScreen(tripService: _FakeTripService())),
     );
@@ -35,14 +33,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('tripStartDateField')),
-      '2026-07-05',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('tripEndDateField')),
-      '2026-07-01',
-    );
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
@@ -50,9 +40,7 @@ void main() {
     expect(find.byKey(const ValueKey('tripCompanionsField')), findsNothing);
   });
 
-  testWidgets('여행 날짜는 숫자 입력을 yyyy-MM-dd 형식으로 자동 포맷한다', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('여행 기간 선택 결과를 yyyy-MM-dd 형식으로 반영한다', (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(home: TripFormScreen(tripService: _FakeTripService())),
     );
@@ -61,18 +49,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('tripStartDateField')),
-      '20260701',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('tripEndDateField')),
-      '20260705',
-    );
-    await tester.pumpAndSettle();
+    await _applyInitialTripRange(tester);
 
-    expect(find.text('2026-07-01'), findsOneWidget);
-    expect(find.text('2026-07-05'), findsOneWidget);
+    final today = DateTime.now();
+    expect(find.text(_formatDate(today)), findsOneWidget);
+    expect(
+      find.text(_formatDate(today.add(const Duration(days: 3)))),
+      findsOneWidget,
+    );
   });
 
   testWidgets('국가 선택 순서를 보존해 생성 요청에 반영한다', (WidgetTester tester) async {
@@ -86,14 +70,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('tripStartDateField')),
-      '2026-07-01',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('tripEndDateField')),
-      '2026-07-05',
-    );
+    await _applyInitialTripRange(tester);
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
@@ -121,14 +98,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('tripStartDateField')),
-      '2026-07-01',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('tripEndDateField')),
-      '2026-07-05',
-    );
+    await _applyInitialTripRange(tester);
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
@@ -157,6 +127,18 @@ void main() {
     );
   });
 }
+
+Future<void> _applyInitialTripRange(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('tripStartDateField')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('confirmDateRangeButton')));
+  await tester.pumpAndSettle();
+}
+
+String _formatDate(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
 
 class _FakeTripService extends TripService {
   TripFormInput? createdInput;

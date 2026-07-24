@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/widget/app_date_picker.dart';
 import '../../../core/widget/app_design.dart';
 import '../service/trip_service.dart';
 import '../widget/trip_invite_participant_sheets.dart';
@@ -392,6 +392,41 @@ class _TripFormScreenState extends State<TripFormScreen> {
     final start = DateTime.tryParse(startDate);
     final end = DateTime.tryParse(endDate);
     return start != null && end != null && !start.isAfter(end);
+  }
+
+  Future<void> _pickTripDateRange() async {
+    final today = DateTime.now();
+    final firstDate = DateTime(2000);
+    final lastDate = DateTime(2100, 12, 31);
+    final parsedStart = DateTime.tryParse(_startDateController.text);
+    final initialStart = parsedStart == null
+        ? today
+        : parsedStart.isBefore(firstDate)
+        ? firstDate
+        : parsedStart.isAfter(lastDate)
+        ? lastDate
+        : parsedStart;
+    final parsedEnd = DateTime.tryParse(_endDateController.text);
+    final fallbackEnd = initialStart.add(const Duration(days: 3));
+    final initialEnd = parsedEnd != null && !parsedEnd.isBefore(initialStart)
+        ? parsedEnd
+        : fallbackEnd.isAfter(lastDate)
+        ? lastDate
+        : fallbackEnd;
+    final picked = await showTogetherTripDateRangePicker(
+      context: context,
+      initialDateRange: DateTimeRange(start: initialStart, end: initialEnd),
+      firstDate: firstDate,
+      lastDate: lastDate,
+      title: '여행 기간',
+      helpText: '여행 일정을 선택해 주세요',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _startDateController.text = _formatTripDate(picked.start);
+      _endDateController.text = _formatTripDate(picked.end);
+      _errorMessage = null;
+    });
   }
 
   Future<void> _save() async {
@@ -792,7 +827,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
       1 => _ScheduleStep(
         startDateController: _startDateController,
         endDateController: _endDateController,
-        onDateChanged: () => setState(() {}),
+        onSelectRange: _pickTripDateRange,
       ),
       2 when _isEdit => _CompanionStep(
         searchController: _companionSearchController,
@@ -1120,6 +1155,11 @@ String? _tripDurationLabel(String? startDate, String? endDate) {
   return '$nights박 ${nights + 1}일';
 }
 
+String _formatTripDate(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
+
 class _StepIndicator extends StatelessWidget {
   final int currentStep;
   final int stepCount;
@@ -1202,12 +1242,12 @@ class _CountryStep extends StatelessWidget {
 class _ScheduleStep extends StatelessWidget {
   final TextEditingController startDateController;
   final TextEditingController endDateController;
-  final VoidCallback onDateChanged;
+  final VoidCallback onSelectRange;
 
   const _ScheduleStep({
     required this.startDateController,
     required this.endDateController,
-    required this.onDateChanged,
+    required this.onSelectRange,
   });
 
   @override
@@ -1223,9 +1263,8 @@ class _ScheduleStep extends StatelessWidget {
           controller: startDateController,
           hintText: '2026-04-01',
           suffixText: '›',
-          keyboardType: TextInputType.number,
-          inputFormatters: const [_DateInputFormatter()],
-          onChanged: (_) => onDateChanged(),
+          readOnly: true,
+          onTap: onSelectRange,
         ),
         const SizedBox(height: 16),
         const _FieldLabel('종료일'),
@@ -1234,9 +1273,8 @@ class _ScheduleStep extends StatelessWidget {
           controller: endDateController,
           hintText: '2026-04-05',
           suffixText: '›',
-          keyboardType: TextInputType.number,
-          inputFormatters: const [_DateInputFormatter()],
-          onChanged: (_) => onDateChanged(),
+          readOnly: true,
+          onTap: onSelectRange,
         ),
         const SizedBox(height: 18),
         _ScheduleSummary(
@@ -1481,9 +1519,8 @@ class _BoxTextField extends StatelessWidget {
   final int? maxLength;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
+  final VoidCallback? onTap;
   final bool readOnly;
-  final TextInputType? keyboardType;
-  final List<TextInputFormatter>? inputFormatters;
 
   const _BoxTextField({
     super.key,
@@ -1494,9 +1531,8 @@ class _BoxTextField extends StatelessWidget {
     this.maxLength,
     this.onChanged,
     this.onSubmitted,
+    this.onTap,
     this.readOnly = false,
-    this.keyboardType,
-    this.inputFormatters,
   });
 
   @override
@@ -1506,9 +1542,8 @@ class _BoxTextField extends StatelessWidget {
       maxLength: maxLength,
       onChanged: onChanged,
       onSubmitted: onSubmitted,
+      onTap: onTap,
       readOnly: readOnly,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
       decoration: AppInputDecorations.filled(
         hintText: hintText,
         counterText: maxLength == null ? null : '',
@@ -1522,31 +1557,6 @@ class _BoxTextField extends StatelessWidget {
           vertical: 13,
         ),
       ),
-    );
-  }
-}
-
-class _DateInputFormatter extends TextInputFormatter {
-  const _DateInputFormatter();
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final limited = digits.length > 8 ? digits.substring(0, 8) : digits;
-    final buffer = StringBuffer();
-
-    for (var index = 0; index < limited.length; index++) {
-      if (index == 4 || index == 6) buffer.write('-');
-      buffer.write(limited[index]);
-    }
-
-    final formatted = buffer.toString();
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }
