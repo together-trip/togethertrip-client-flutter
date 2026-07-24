@@ -7,6 +7,29 @@ import 'package:togethertrip/features/trip/screen/trip_detail_screen.dart';
 import 'package:togethertrip/features/trip/service/trip_service.dart';
 
 void main() {
+  testWidgets('여행 상세는 기존 앱바, 필터, 정산, 피드, 추가 버튼 구조를 유지한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripDetailScreen(
+          tripId: 10,
+          tripService: _FakeTripService(settlementStatus: 'NOT_STARTED'),
+          postService: _FakePostService(posts: [_recordPost()]),
+          transactionService: _FakeTransactionService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('오사카 여행'), findsOneWidget);
+    expect(find.text('전체'), findsOneWidget);
+    expect(find.text('#기록'), findsOneWidget);
+    expect(find.text('#소비'), findsOneWidget);
+    expect(find.text('정산 미시작'), findsOneWidget);
+    expect(find.text('정산 보기'), findsOneWidget);
+    expect(find.text('첫날 기록'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+  });
+
   testWidgets('정산 완료 여행은 소비 등록 진입을 막고 기록 작성은 유지한다', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -173,6 +196,8 @@ void main() {
     await tester.tap(find.byTooltip('게시글 메뉴'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('postEditAction')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('expenseNextButton')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('saveExpenseButton')));
     await tester.pumpAndSettle();

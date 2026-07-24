@@ -113,6 +113,7 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
         firstDate: DateTime(2000),
         lastDate: today,
         helpText: '환율 조회 기간',
+        confirmText: '조회 기간 적용',
       );
       if (picked == null) return;
       setState(() {
@@ -240,9 +241,9 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: false,
         title: const Text(
@@ -261,7 +262,7 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
           IconButton(
             key: const ValueKey('exchangeRefreshButton'),
             onPressed: _isLoading ? null : _loadRates,
-            icon: const Icon(Icons.refresh, size: 22),
+            icon: const Icon(Icons.refresh_rounded, size: 22),
             color: AppColors.ink,
             tooltip: '환율 새로고침',
           ),
@@ -277,12 +278,6 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
               selectedCountry: _selectedCountry,
               onChanged: _isLoading ? null : _selectCountry,
             ),
-            const SizedBox(height: 12),
-            _PeriodSelector(
-              selectedPeriod: _selectedPeriod,
-              customRange: _customRange,
-              onSelect: _isLoading ? null : _selectPeriod,
-            ),
             const SizedBox(height: 14),
             _RateSummaryCard(
               country: _selectedCountry,
@@ -294,6 +289,12 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
               onAmountChanged: () => setState(() {}),
               onSwapDirection: _swapDirection,
               onShowSettlementNotice: _showSettlementNotice,
+            ),
+            const SizedBox(height: 14),
+            _PeriodSelector(
+              selectedPeriod: _selectedPeriod,
+              customRange: _customRange,
+              onSelect: _isLoading ? null : _selectPeriod,
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
@@ -325,9 +326,9 @@ class _CountrySelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E2E2)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.lineSoft),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -347,7 +348,7 @@ class _CountrySelector extends StatelessWidget {
               child: DropdownButton<ExchangeCountryOption>(
                 value: selectedCountry,
                 isExpanded: true,
-                icon: const Icon(Icons.keyboard_arrow_down),
+                icon: const Icon(Icons.keyboard_arrow_down_rounded),
                 items: exchangeCountryOptions
                     .map(
                       (country) => DropdownMenuItem<ExchangeCountryOption>(
@@ -406,7 +407,7 @@ class _PeriodSelector extends StatelessWidget {
             label: Text(option.$2),
             selected: selected,
             onSelected: onSelect == null ? null : (_) => onSelect!(option.$1),
-            selectedColor: AppColors.ink,
+            selectedColor: AppColors.brand,
             backgroundColor: Colors.white,
             labelStyle: TextStyle(
               color: selected ? Colors.white : AppColors.ink,
@@ -414,7 +415,7 @@ class _PeriodSelector extends StatelessWidget {
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(999),
-              side: const BorderSide(color: Color(0xFFE2E2E2)),
+              side: const BorderSide(color: AppColors.lineSoft),
             ),
           );
         },
@@ -461,8 +462,8 @@ class _RateSummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.ink,
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.brandSoft,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -470,10 +471,10 @@ class _RateSummaryCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  '${country.countryName} ${country.currencyCode}',
-                  style: const TextStyle(
-                    color: Colors.white70,
+                child: const Text(
+                  '오늘의 환율',
+                  style: TextStyle(
+                    color: AppColors.brandStrong,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -483,17 +484,9 @@ class _RateSummaryCard extends StatelessWidget {
                 IconButton(
                   key: const ValueKey('exchangeSettlementNoticeButton'),
                   onPressed: onShowSettlementNotice,
-                  icon: const Icon(Icons.info_outline),
-                  color: Colors.white,
+                  icon: const Icon(Icons.info_outline_rounded),
+                  color: AppColors.brandStrong,
                   tooltip: '정산 환율 안내',
-                  visualDensity: VisualDensity.compact,
-                ),
-                IconButton(
-                  key: const ValueKey('exchangeSwapDirectionButton'),
-                  onPressed: onSwapDirection,
-                  icon: const Icon(Icons.swap_vert),
-                  color: Colors.white,
-                  tooltip: '계산 방향 바꾸기',
                   visualDensity: VisualDensity.compact,
                 ),
               ],
@@ -503,18 +496,18 @@ class _RateSummaryCard extends StatelessWidget {
           if (isLoading)
             const Text(
               '환율을 불러오는 중입니다.',
-              style: TextStyle(color: Colors.white, fontSize: 15),
+              style: TextStyle(color: AppColors.ink, fontSize: 15),
             )
           else if (rate == null)
             const Text(
               '선택한 기간의 환율이 없습니다.',
-              style: TextStyle(color: Colors.white, fontSize: 15),
+              style: TextStyle(color: AppColors.ink, fontSize: 15),
             )
           else ...[
             Text(
               '1 ${rate.targetCurrency} = ${_formatRate(rate.rate)} KRW',
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.ink,
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
               ),
@@ -522,68 +515,94 @@ class _RateSummaryCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '${rate.rateDate} 기준${rate.source == null ? '' : ' · ${rate.source}'}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 14),
-            TextField(
-              key: const ValueKey('exchangeAmountField'),
-              controller: amountController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: const [_MoneyInputFormatter()],
-              onChanged: (_) => onAmountChanged(),
-              style: const TextStyle(
-                color: AppColors.ink,
-                fontWeight: FontWeight.w700,
-              ),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white,
-                isDense: true,
-                hintText: '금액 입력',
-                suffixText: inputCurrency,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white24),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.lineSoft),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  const Text(
-                    '계산 결과',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _formatMoney(convertedAmount, outputCurrency),
-                      textAlign: TextAlign.end,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Semantics(
+                          label: '환율 변환 금액 입력',
+                          textField: true,
+                          child: TextField(
+                            key: const ValueKey('exchangeAmountField'),
+                            controller: amountController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: const [_MoneyInputFormatter()],
+                            onChanged: (_) => onAmountChanged(),
+                            style: const TextStyle(
+                              color: AppColors.ink,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              isDense: true,
+                              hintText: '0',
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 20),
+                      Text(
+                        key: const ValueKey('exchangeInputCurrency'),
+                        inputCurrency,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24, color: AppColors.lineSoft),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '환산 금액',
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _formatMoney(convertedAmount, outputCurrency),
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.brandStrong,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        key: const ValueKey('exchangeSwapDirectionButton'),
+                        onPressed: onSwapDirection,
+                        tooltip: '계산 방향 바꾸기',
+                        style: AppIconButtonStyles.neutral(),
+                        icon: const Icon(
+                          Icons.swap_vert_rounded,
+                          color: AppColors.brandStrong,
+                          size: 21,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

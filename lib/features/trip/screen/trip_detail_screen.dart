@@ -618,7 +618,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 const SizedBox(height: 12),
                 _CreateOptionTile(
                   key: const ValueKey('createRecordOption'),
-                  icon: Icons.edit_note_outlined,
+                  icon: Icons.edit_outlined,
                   title: '기록',
                   selected: defaultPostType == 'RECORD',
                   onTap: () => Navigator.of(context).pop('RECORD'),
@@ -626,7 +626,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 const SizedBox(height: 8),
                 _CreateOptionTile(
                   key: const ValueKey('createExpenseOption'),
-                  icon: Icons.payments_outlined,
+                  icon: Icons.account_balance_wallet_outlined,
                   title: '소비',
                   subtitle: isExpenseLocked ? _expenseLockedMessage : null,
                   selected: !isExpenseLocked && defaultPostType == 'EXPENSE',
@@ -764,7 +764,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 ListTile(
                   key: const ValueKey('postDeleteAction'),
                   leading: Icon(
-                    Icons.delete_outline,
+                    Icons.delete_outline_rounded,
                     color: isLockedExpensePost
                         ? AppColors.textSubtle
                         : AppColors.danger,
@@ -944,16 +944,22 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         appBar: AppBar(
           backgroundColor: AppColors.background,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           centerTitle: false,
           title: Text(
             _trip?.title ?? '여행',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+            ),
           ),
           leading: onClose == null
               ? null
               : IconButton(
                   onPressed: () => onClose(_changed),
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(Icons.chevron_left_rounded),
                   tooltip: '뒤로',
                 ),
           actions: [
@@ -973,7 +979,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             const SizedBox(width: 8),
           ],
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(48),
+            preferredSize: const Size.fromHeight(52),
             child: _PostFeedTabs(
               selectedFilter: _selectedFilter,
               onSelect: _selectFilter,
@@ -986,7 +992,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             onPressed: _openCreateChooser,
             backgroundColor: AppColors.brand,
             foregroundColor: Colors.white,
-            child: const Icon(Icons.add),
+            child: const Icon(Icons.add_rounded),
           ),
         ),
         body: _buildBody(),
@@ -1170,21 +1176,26 @@ class _TripFeedHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${_dateRangeLabel(trip.startDate, trip.endDate)} · ${_countrySummary(trip)}',
-            style: const TextStyle(fontSize: 13, color: AppColors.textSubtle),
+            '${_dateRangeLabel(trip.startDate, trip.endDate)} · ${_countrySummary(trip)} · ${trip.participants.length}명',
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSubtle,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           InkWell(
             onTap: onSettlementTap,
             borderRadius: BorderRadius.circular(14),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
               decoration: BoxDecoration(
                 color: AppColors.brandSoft,
                 borderRadius: BorderRadius.circular(14),
@@ -1196,14 +1207,30 @@ class _TripFeedHeader extends StatelessWidget {
                     size: 18,
                     color: AppColors.brandStrong,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '정산 ${_settlementDisplayStatusLabel(trip.effectiveSettlementDisplayStatus)}',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
                     ),
                   ),
-                  const Icon(Icons.chevron_right, size: 20),
+                  const Text(
+                    '정산 보기',
+                    style: TextStyle(
+                      color: AppColors.textSubtle,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 19,
+                    color: AppColors.textSubtle,
+                  ),
                 ],
               ),
             ),
@@ -1261,7 +1288,7 @@ class _TripRecapAction extends StatelessWidget {
           title: 'Recap 상태를 확인하지 못했어요',
           subtitle: '다시 시도해 주세요.',
           onTap: onRetry,
-          trailing: const Icon(Icons.refresh, size: 20),
+          trailing: const Icon(Icons.refresh_rounded, size: 20),
         ),
       );
     }
@@ -1368,7 +1395,7 @@ _RecapActionCopy _recapActionCopy(TripRecapStatusValue status) {
   return switch (status) {
     TripRecapStatusValue.none => const _RecapActionCopy(
       icon: Icons.auto_awesome_outlined,
-      trailingIcon: Icons.chevron_right,
+      trailingIcon: Icons.chevron_right_rounded,
       title: '지난 여행 Recap 만들기',
       subtitle: '사진 또는 일러스트 스타일을 선택해요.',
     ),
@@ -1380,12 +1407,12 @@ _RecapActionCopy _recapActionCopy(TripRecapStatusValue status) {
     ),
     TripRecapStatusValue.completed => const _RecapActionCopy(
       icon: Icons.auto_stories_outlined,
-      trailingIcon: Icons.chevron_right,
+      trailingIcon: Icons.chevron_right_rounded,
       title: '지난 여행 Recap 보기',
     ),
     TripRecapStatusValue.failed => const _RecapActionCopy(
-      icon: Icons.refresh,
-      trailingIcon: Icons.chevron_right,
+      icon: Icons.refresh_rounded,
+      trailingIcon: Icons.chevron_right_rounded,
       title: 'Recap 다시 만들기',
       subtitle: '스타일을 다시 선택할 수 있어요.',
     ),
@@ -1401,14 +1428,20 @@ class _PostFeedTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 48,
-      color: AppColors.background,
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        border: Border(bottom: BorderSide(color: AppColors.lineSoft)),
+      ),
       child: Row(
+        spacing: 20,
         children: _PostFeedFilter.values.map((filter) {
           final selected = selectedFilter == filter;
-          return Expanded(
-            child: InkWell(
-              onTap: () => onSelect(filter),
+          return InkWell(
+            onTap: () => onSelect(filter),
+            child: SizedBox(
+              height: 52,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -1424,14 +1457,19 @@ class _PostFeedTabs extends StatelessWidget {
                           color: selected
                               ? AppColors.brandStrong
                               : AppColors.textMuted,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     ),
                   ),
-                  Container(
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: selected ? 24 : 0,
                     height: 2,
-                    width: selected ? 48 : 0,
-                    color: AppColors.brand,
+                    decoration: BoxDecoration(
+                      color: AppColors.brand,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
                   ),
                 ],
               ),
@@ -1487,107 +1525,122 @@ class _PostFeedCardState extends State<_PostFeedCard> {
     final isExpense = widget.post.postType == 'EXPENSE';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppColors.lineSoft),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PostTypeBadge(postType: widget.post.postType),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  widget.post.authorDisplayName,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
+              Row(
+                children: [
+                  _PostTypeBadge(postType: widget.post.postType),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.post.authorDisplayName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
                   ),
-                ),
+                  Text(
+                    widget.post.category,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSubtle,
+                    ),
+                  ),
+                  if (widget.showActions) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      onPressed: widget.onActionsTap,
+                      icon: const Icon(Icons.more_horiz, size: 22),
+                      tooltip: '게시글 메뉴',
+                    ),
+                  ],
+                ],
               ),
-              Text(
-                widget.post.category,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSubtle,
-                ),
-              ),
-              if (widget.showActions) ...[
-                const SizedBox(width: 4),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  onPressed: widget.onActionsTap,
-                  icon: const Icon(Icons.more_horiz, size: 22),
-                  tooltip: '게시글 메뉴',
+              if (widget.attachments.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _AttachmentCarousel(
+                  attachments: widget.attachments,
+                  pageController: _pageController,
+                  pageIndex: _pageIndex,
+                  onPageChanged: (value) => setState(() => _pageIndex = value),
                 ),
               ],
-            ],
-          ),
-          if (widget.attachments.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _AttachmentCarousel(
-              attachments: widget.attachments,
-              pageController: _pageController,
-              pageIndex: _pageIndex,
-              onPageChanged: (value) => setState(() => _pageIndex = value),
-            ),
-          ],
-          const SizedBox(height: 12),
-          Text(
-            widget.post.title,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-          ),
-          if (content.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              visibleContent,
-              style: const TextStyle(fontSize: 14, height: 1.45),
-            ),
-            if (shouldClamp)
-              TextButton(
-                onPressed: () => setState(() => _isExpanded = !_isExpanded),
-                style: AppButtonStyles.inlineText(),
-                child: Text(_isExpanded ? '접기' : '더 보기'),
+              const SizedBox(height: 12),
+              Text(
+                widget.post.title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
               ),
-          ],
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (widget.post.occurredAt != null)
-                _MetaChip(
-                  icon: Icons.calendar_today_outlined,
-                  label: _dateOnlyLabel(widget.post.occurredAt!),
+              if (content.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  visibleContent,
+                  style: const TextStyle(fontSize: 14, height: 1.45),
                 ),
-              if ((widget.post.placeName ?? '').isNotEmpty)
-                _MetaChip(
-                  icon: Icons.place_outlined,
-                  label: widget.post.placeName!,
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 14,
-            runSpacing: 6,
-            children: [
-              _FeedAction(
-                icon: Icons.chat_bubble_outline,
-                label: '댓글 ${widget.post.commentCount}',
-                onTap: widget.onCommentsTap,
+                if (shouldClamp)
+                  TextButton(
+                    onPressed: () => setState(() => _isExpanded = !_isExpanded),
+                    style: AppButtonStyles.inlineText(),
+                    child: Text(_isExpanded ? '접기' : '더 보기'),
+                  ),
+              ],
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 12,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (widget.post.occurredAt != null)
+                    _MetaChip(
+                      icon: Icons.calendar_today_outlined,
+                      label: _dateOnlyLabel(widget.post.occurredAt!),
+                    ),
+                  if ((widget.post.placeName ?? '').isNotEmpty)
+                    _MetaChip(
+                      icon: Icons.place_outlined,
+                      label: widget.post.placeName!,
+                    ),
+                ],
               ),
-              if (isExpense && widget.onTransactionTap != null)
-                _FeedAction(
-                  icon: Icons.payments_outlined,
-                  label: widget.transaction == null
-                      ? '소비 정보'
-                      : _moneyLabel(widget.transaction!.summary),
-                  onTap: widget.onTransactionTap,
-                ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 14,
+                runSpacing: 6,
+                children: [
+                  _FeedAction(
+                    icon: Icons.chat_bubble_outline,
+                    label: '댓글 ${widget.post.commentCount}',
+                    onTap: widget.onCommentsTap,
+                  ),
+                  if (isExpense && widget.onTransactionTap != null)
+                    _FeedAction(
+                      icon: Icons.account_balance_wallet_outlined,
+                      label: widget.transaction == null
+                          ? '소비 정보'
+                          : _moneyLabel(widget.transaction!.summary),
+                      onTap: widget.onTransactionTap,
+                    ),
+                ],
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1605,12 +1658,11 @@ class _PostTypeBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: const Color(0xFFF4F4F4),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
         isExpense ? '소비' : '기록',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -1641,7 +1693,7 @@ class _FeedAction extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -1878,13 +1930,13 @@ class _TripInfoSheet extends StatelessWidget {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onCreateInviteLink,
-                  icon: const Icon(Icons.link, size: 18),
+                  icon: const Icon(Icons.link_rounded, size: 18),
                   label: const Text('초대 링크 공유'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onCreateInviteCode,
-                  icon: const Icon(Icons.pin_outlined, size: 18),
+                  icon: const Icon(Icons.key_rounded, size: 18),
                   label: const Text('초대 코드 공유'),
                 ),
                 const SizedBox(height: 8),
@@ -1896,7 +1948,7 @@ class _TripInfoSheet extends StatelessWidget {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline, size: 18),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
                   label: const Text('여행 삭제'),
                   style: AppButtonStyles.outlined(sideColor: AppColors.danger)
                       .copyWith(
@@ -2312,7 +2364,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                     IconButton(
                                       onPressed: () => _delete(comment),
                                       icon: const Icon(
-                                        Icons.delete_outline,
+                                        Icons.delete_outline_rounded,
                                         size: 20,
                                       ),
                                       tooltip: '댓글 삭제',

@@ -13,6 +13,13 @@ void main() {
     );
 
     expect(find.text('검색하거나 지도에서 선택'), findsOneWidget);
+    final labelBottom = tester.getBottomLeft(find.text('장소')).dy;
+    final hintTop = tester.getTopLeft(find.text('검색하거나 지도에서 선택')).dy;
+    expect(labelBottom, lessThan(hintTop));
+    expect(
+      tester.getSize(find.byKey(const ValueKey('placeInputField'))).height,
+      greaterThanOrEqualTo(52),
+    );
     await tester.tap(find.byKey(const ValueKey('placeInputField')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('inputFieldFakeMap')));
@@ -63,7 +70,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('placeInputField')));
     await tester.pumpAndSettle();
-    await tester.pageBack();
+    await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
 
     expect(changes, 0);

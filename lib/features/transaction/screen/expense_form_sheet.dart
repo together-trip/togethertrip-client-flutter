@@ -82,17 +82,23 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
       _shareControllers[participant.id] = TextEditingController(text: '0');
     }
     _applyInitialValues();
-    if (_isEditing) _currentStep = 1;
   }
 
-  void _goToDetailStep() {
-    final amount = _amountCents;
-    if (amount == null || amount <= 0) {
-      setState(() => _errorMessage = '금액을 입력해주세요.');
+  void _goToAmountStep() {
+    final title = _titleController.text.trim();
+    final category = _selectedCategory == '기타'
+        ? _otherCategoryController.text.trim()
+        : _selectedCategory;
+    if (title.isEmpty) {
+      setState(() => _errorMessage = '제목을 입력해주세요.');
       return;
     }
-    if (_paymentTotalCents != amount || _shareTotalCents != amount) {
-      setState(() => _errorMessage = '결제 합계와 부담 합계를 금액에 맞춰주세요.');
+    if (category.isEmpty) {
+      setState(() => _errorMessage = '기타 카테고리를 입력해주세요.');
+      return;
+    }
+    if (!_isDateWithinTripRange(_selectedDate)) {
+      setState(() => _errorMessage = '소비 날짜는 여행 기간 내로 선택해주세요.');
       return;
     }
     setState(() {
@@ -370,199 +376,219 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
               const SizedBox(height: 18),
               _ExpenseStepHeader(currentStep: _currentStep),
               const SizedBox(height: 22),
-              if (_currentStep == 0) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              AppMotionSwitcher(
+                child: Column(
+                  key: ValueKey('expenseFormStep_$_currentStep'),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _amountController,
-                        enabled: !_isSubmitting,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: const [_MoneyInputFormatter()],
-                        onChanged: (_) => _syncAmountDefaults(),
-                        decoration: AppInputDecorations.filled(labelText: '금액'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 96,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: _currency,
-                        items: _currencyOptions
-                            .map(
-                              (currency) => DropdownMenuItem(
-                                value: currency,
-                                child: Text(currency),
+                    if (_currentStep == 1) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _amountController,
+                              enabled: !_isSubmitting,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              inputFormatters: const [_MoneyInputFormatter()],
+                              onChanged: (_) => _syncAmountDefaults(),
+                              decoration: AppInputDecorations.filled(
+                                labelText: '금액',
                               ),
-                            )
-                            .toList(),
-                        onChanged: _isSubmitting
-                            ? null
-                            : (value) {
-                                if (value == null) return;
-                                setState(() => _currency = value);
-                              },
-                        decoration: AppInputDecorations.filled(labelText: '통화'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        '결제자',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _isSubmitting
-                          ? null
-                          : _fillPaymentByDefaultPayer,
-                      child: const Text('전액 입력'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                ..._participants.map((participant) {
-                  return _ParticipantAmountRow(
-                    participant: participant,
-                    controller: _paymentControllers[participant.id]!,
-                    enabled: !_isSubmitting,
-                    onChanged: () => setState(() {}),
-                  );
-                }),
-                _AmountTotalRow(
-                  label: '결제 합계',
-                  amountCents: _paymentTotalCents,
-                  expectedCents: _amountCents,
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        '부담자',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _isSubmitting ? null : _splitEvenly,
-                      child: const Text('균등 분배'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                ..._participants.map((participant) {
-                  return _ParticipantAmountRow(
-                    participant: participant,
-                    controller: _shareControllers[participant.id]!,
-                    enabled: !_isSubmitting,
-                    onChanged: () => setState(() {}),
-                  );
-                }),
-                _AmountTotalRow(
-                  label: '부담 합계',
-                  amountCents: _shareTotalCents,
-                  expectedCents: _amountCents,
-                ),
-              ] else ...[
-                TextField(
-                  controller: _titleController,
-                  enabled: !_isSubmitting,
-                  decoration: AppInputDecorations.filled(labelText: '제목'),
-                ),
-                const SizedBox(height: 14),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _categories.map((category) {
-                      final selected = _selectedCategory == category;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(category),
-                          selected: selected,
-                          selectedColor: AppColors.ink,
-                          backgroundColor: Colors.white,
-                          side: const BorderSide(color: Color(0xFFE0E0E0)),
-                          labelStyle: TextStyle(
-                            color: selected ? Colors.white : AppColors.ink,
-                            fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          onSelected: _isSubmitting
-                              ? null
-                              : (_) => setState(
-                                  () => _selectedCategory = category,
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            width: 96,
+                            child: DropdownButtonFormField<String>(
+                              isExpanded: true,
+                              initialValue: _currency,
+                              items: _currencyOptions
+                                  .map(
+                                    (currency) => DropdownMenuItem(
+                                      value: currency,
+                                      child: Text(currency),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: _isSubmitting
+                                  ? null
+                                  : (value) {
+                                      if (value == null) return;
+                                      setState(() => _currency = value);
+                                    },
+                              decoration: AppInputDecorations.filled(
+                                labelText: '통화',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              '결제자',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _isSubmitting
+                                ? null
+                                : _fillPaymentByDefaultPayer,
+                            child: const Text('전액 입력'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ..._participants.map((participant) {
+                        return _ParticipantAmountRow(
+                          participant: participant,
+                          controller: _paymentControllers[participant.id]!,
+                          enabled: !_isSubmitting,
+                          onChanged: () => setState(() {}),
+                        );
+                      }),
+                      _AmountTotalRow(
+                        label: '결제 합계',
+                        amountCents: _paymentTotalCents,
+                        expectedCents: _amountCents,
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              '부담자',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _isSubmitting ? null : _splitEvenly,
+                            child: const Text('균등 분배'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ..._participants.map((participant) {
+                        return _ParticipantAmountRow(
+                          participant: participant,
+                          controller: _shareControllers[participant.id]!,
+                          enabled: !_isSubmitting,
+                          onChanged: () => setState(() {}),
+                        );
+                      }),
+                      _AmountTotalRow(
+                        label: '부담 합계',
+                        amountCents: _shareTotalCents,
+                        expectedCents: _amountCents,
+                      ),
+                    ] else ...[
+                      TextField(
+                        controller: _titleController,
+                        enabled: !_isSubmitting,
+                        decoration: AppInputDecorations.filled(labelText: '제목'),
+                      ),
+                      const SizedBox(height: 14),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _categories.map((category) {
+                            final selected = _selectedCategory == category;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(category),
+                                selected: selected,
+                                selectedColor: AppColors.ink,
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(
+                                  color: Color(0xFFE0E0E0),
                                 ),
+                                labelStyle: TextStyle(
+                                  color: selected
+                                      ? Colors.white
+                                      : AppColors.ink,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                onSelected: _isSubmitting
+                                    ? null
+                                    : (_) => setState(
+                                        () => _selectedCategory = category,
+                                      ),
+                              ),
+                            );
+                          }).toList(),
                         ),
-                      );
-                    }).toList(),
-                  ),
+                      ),
+                      if (_selectedCategory == '기타') ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _otherCategoryController,
+                          enabled: !_isSubmitting,
+                          decoration: AppInputDecorations.filled(
+                            labelText: '기타 카테고리',
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      OutlinedButton.icon(
+                        onPressed: _isSubmitting ? null : _pickDate,
+                        icon: const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 18,
+                        ),
+                        label: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(_dateLabel(_selectedDate)),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      PlaceInputField(
+                        tripId: widget.trip.id,
+                        selection: _selectedPlace,
+                        enabled: !_isSubmitting,
+                        placeService: widget.placeService,
+                        onChanged: (selection) {
+                          setState(() => _selectedPlace = selection);
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: _contentController,
+                        enabled: !_isSubmitting,
+                        minLines: 4,
+                        maxLines: 8,
+                        decoration: AppInputDecorations.filled(
+                          labelText: '내용',
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      AttachmentInputSection(
+                        attachments: _attachments,
+                        existingAttachments: _attachmentsChanged
+                            ? const []
+                            : _existingAttachments,
+                        enabled: !_isSubmitting,
+                        onChanged: (changed) {
+                          setState(() => _attachmentsChanged = changed);
+                        },
+                      ),
+                    ],
+                  ],
                 ),
-                if (_selectedCategory == '기타') ...[
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _otherCategoryController,
-                    enabled: !_isSubmitting,
-                    decoration: AppInputDecorations.filled(
-                      labelText: '기타 카테고리',
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                OutlinedButton.icon(
-                  onPressed: _isSubmitting ? null : _pickDate,
-                  icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                  label: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(_dateLabel(_selectedDate)),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                PlaceInputField(
-                  tripId: widget.trip.id,
-                  selection: _selectedPlace,
-                  enabled: !_isSubmitting,
-                  placeService: widget.placeService,
-                  onChanged: (selection) {
-                    setState(() => _selectedPlace = selection);
-                  },
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: _contentController,
-                  enabled: !_isSubmitting,
-                  minLines: 4,
-                  maxLines: 8,
-                  decoration: AppInputDecorations.filled(
-                    labelText: '내용',
-                    alignLabelWithHint: true,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                AttachmentInputSection(
-                  attachments: _attachments,
-                  existingAttachments: _attachmentsChanged
-                      ? const []
-                      : _existingAttachments,
-                  enabled: !_isSubmitting,
-                  onChanged: (changed) {
-                    setState(() => _attachmentsChanged = changed);
-                  },
-                ),
-              ],
+              ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -591,9 +617,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                         height: 50,
                         child: FilledButton(
                           key: const ValueKey('expenseNextButton'),
-                          onPressed: _isSubmitting || _participants.isEmpty
-                              ? null
-                              : _goToDetailStep,
+                          onPressed: _isSubmitting ? null : _goToAmountStep,
                           style: AppButtonStyles.primary(),
                           child: const Text('다음'),
                         ),
@@ -669,11 +693,11 @@ class _ExpenseStepHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _StepLabel(index: 0, label: '금액과 분담', selected: currentStep == 0),
+        _StepLabel(index: 0, label: '지출 정보', selected: currentStep == 0),
         const SizedBox(width: 8),
         const Expanded(child: Divider()),
         const SizedBox(width: 8),
-        _StepLabel(index: 1, label: '지출 정보', selected: currentStep == 1),
+        _StepLabel(index: 1, label: '금액과 분담', selected: currentStep == 1),
       ],
     );
   }

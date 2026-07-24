@@ -23,7 +23,6 @@ class _TripListScreenState extends State<TripListScreen> {
   late final TripService _tripService;
 
   final List<TripSummary> _trips = [];
-  _TripHomeFilter _selectedFilter = _TripHomeFilter.all;
   bool _isLoading = true;
   bool _isLoadingMore = false;
   String? _nextCursor;
@@ -44,7 +43,7 @@ class _TripListScreenState extends State<TripListScreen> {
     });
 
     try {
-      final page = await _tripService.getTrips(status: _selectedFilter.status);
+      final page = await _tripService.getTrips();
       if (!mounted) return;
       setState(() {
         _trips
@@ -69,10 +68,7 @@ class _TripListScreenState extends State<TripListScreen> {
 
     setState(() => _isLoadingMore = true);
     try {
-      final page = await _tripService.getTrips(
-        status: _selectedFilter.status,
-        cursor: _nextCursor,
-      );
+      final page = await _tripService.getTrips(cursor: _nextCursor);
       if (!mounted) return;
       setState(() {
         _trips.addAll(page.items);
@@ -148,12 +144,6 @@ class _TripListScreenState extends State<TripListScreen> {
     );
   }
 
-  Future<void> _selectFilter(_TripHomeFilter filter) async {
-    if (_selectedFilter == filter) return;
-    setState(() => _selectedFilter = filter);
-    await _loadTrips();
-  }
-
   Future<void> _openDetail(TripSummary trip) async {
     final onOpenTripDetail = widget.onOpenTripDetail;
     if (onOpenTripDetail != null) {
@@ -197,28 +187,21 @@ class _TripListScreenState extends State<TripListScreen> {
           IconButton(
             key: const ValueKey('joinTripByInviteCodeButton'),
             onPressed: _openJoinByInviteCode,
-            icon: const Icon(Icons.pin_outlined, size: 22),
+            icon: const Icon(Icons.key_rounded, size: 21),
             color: AppColors.ink,
-            tooltip: '초대 코드 입력',
+            tooltip: '초대로 여행 참여',
           ),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: IconButton(
               key: const ValueKey('createTripButton'),
               onPressed: _openCreate,
-              icon: const Icon(Icons.add, size: 24),
+              icon: const Icon(Icons.add_rounded, size: 24),
               color: AppColors.ink,
               tooltip: '여행 만들기',
             ),
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(44),
-          child: _TripHomeTabs(
-            selectedFilter: _selectedFilter,
-            onSelect: _selectFilter,
-          ),
-        ),
       ),
       body: RefreshIndicator(onRefresh: _loadTrips, child: _buildBody()),
     );
@@ -275,35 +258,54 @@ class _TripListScreenState extends State<TripListScreen> {
       );
     }
 
-    return ListView.separated(
+    final ongoingTrips = _trips
+        .where((trip) => trip.tripStatus == 'ONGOING')
+        .toList();
+    final plannedTrips = _trips
+        .where((trip) => trip.tripStatus == 'PLANNED')
+        .toList();
+    final completedTrips = _trips
+        .where((trip) => trip.tripStatus == 'COMPLETED')
+        .toList();
+    final currentTrip = ongoingTrips.isEmpty ? null : ongoingTrips.first;
+    final remainingTrips = [...ongoingTrips.skip(1), ...plannedTrips];
+
+    return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 112),
-      itemCount: _trips.length + 1,
-      separatorBuilder: (_, index) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        if (index == _trips.length) {
-          if (!_hasNext) return const SizedBox(height: 4);
-          return OutlinedButton(
+      children: [
+        if (currentTrip != null) ...[
+          _CurrentTripCover(trip: currentTrip, onTap: _openDetail),
+          const SizedBox(height: 28),
+        ],
+        if (currentTrip == null) ...[
+          _TripStartBanner(onCreate: _openCreate),
+          const SizedBox(height: 28),
+        ],
+        if (remainingTrips.isNotEmpty) ...[
+          const _TripSectionTitle(title: '다음 여행'),
+          const SizedBox(height: 8),
+          ...remainingTrips.map(
+            (trip) => _TripListRow(trip: trip, onTap: _openDetail),
+          ),
+        ],
+        if (completedTrips.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const _TripSectionTitle(title: '지난 여행'),
+          const SizedBox(height: 8),
+          ...completedTrips.map(
+            (trip) => _TripListRow(trip: trip, onTap: _openDetail),
+          ),
+        ],
+        if (_hasNext) ...[
+          const SizedBox(height: 16),
+          OutlinedButton(
             onPressed: _isLoadingMore ? null : _loadMore,
             child: Text(_isLoadingMore ? '불러오는 중...' : '더 보기'),
-          );
-        }
-
-        return _TripCard(trip: _trips[index], onTap: _openDetail);
-      },
+          ),
+        ],
+      ],
     );
   }
-}
-
-enum _TripHomeFilter {
-  all(label: '전체', status: null),
-  ongoing(label: '진행 중', status: 'ONGOING'),
-  planned(label: '계획 중', status: 'PLANNED'),
-  completed(label: '지난 여행', status: 'COMPLETED');
-
-  final String label;
-  final String? status;
-
-  const _TripHomeFilter({required this.label, required this.status});
 }
 
 class _JoinByInviteCodeDialog extends StatefulWidget {
@@ -443,63 +445,11 @@ class _InviteJoinInput {
   const _InviteJoinInput({this.code, this.token, this.participantId});
 }
 
-class _TripHomeTabs extends StatelessWidget {
-  final _TripHomeFilter selectedFilter;
-  final ValueChanged<_TripHomeFilter> onSelect;
-
-  const _TripHomeTabs({required this.selectedFilter, required this.onSelect});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 44,
-      color: AppColors.background,
-      child: Row(
-        children: _TripHomeFilter.values.map((filter) {
-          final isActive = filter == selectedFilter;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => onSelect(filter),
-              behavior: HitTestBehavior.opaque,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        filter.label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isActive
-                              ? FontWeight.w800
-                              : FontWeight.w400,
-                          color: isActive
-                              ? AppColors.brandStrong
-                              : AppColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    height: 2,
-                    width: isActive ? 52 : 0,
-                    color: AppColors.brand,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _TripCard extends StatelessWidget {
+class _CurrentTripCover extends StatelessWidget {
   final TripSummary trip;
   final ValueChanged<TripSummary> onTap;
 
-  const _TripCard({required this.trip, required this.onTap});
+  const _CurrentTripCover({required this.trip, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -510,78 +460,61 @@ class _TripCard extends StatelessWidget {
         onTap: () => onTap(trip),
         behavior: HitTestBehavior.opaque,
         child: Container(
+          height: 218,
+          padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.ink.withValues(alpha: 0.05),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.brand, AppColors.brandStrong],
+            ),
+            borderRadius: BorderRadius.circular(24),
           ),
-          clipBehavior: Clip.antiAlias,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                height: 104,
-                padding: const EdgeInsets.all(16),
-                color: AppColors.brandSoft,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(
-                        color: AppColors.surface,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.flight_takeoff_rounded,
-                        color: AppColors.brand,
-                        size: 22,
-                      ),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.flight_takeoff_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _tripProgressLabel(trip),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
-                    const Spacer(),
-                    _StatusChip(label: _tripStatusLabel(trip.tripStatus)),
-                  ],
+                  ),
+                  const Spacer(),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 21,
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                trip.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 28,
+                  height: 1.2,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      trip.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _dateRangeLabel(trip.startDate, trip.endDate),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSubtle,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '${trip.defaultCurrency} · 정산 ${_settlementDisplayStatusLabel(trip.effectiveSettlementDisplayStatus)}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 10),
+              Text(
+                '${_dateRangeLabel(trip.startDate, trip.endDate)} · ${trip.defaultCurrency}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.82),
                 ),
               ),
             ],
@@ -592,25 +525,127 @@ class _TripCard extends StatelessWidget {
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  final String label;
+class _TripStartBanner extends StatelessWidget {
+  final VoidCallback onCreate;
 
-  const _StatusChip({required this.label});
+  const _TripStartBanner({required this.onCreate});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(999),
+        color: AppColors.brandSoft,
+        borderRadius: BorderRadius.circular(24),
       ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: AppColors.brandStrong,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.luggage_rounded,
+            color: AppColors.brandStrong,
+            size: 28,
+          ),
+          const SizedBox(height: 20),
+          const Text('다음 여행을 준비해 볼까요?', style: AppTextStyles.sectionTitle),
+          const SizedBox(height: 6),
+          const Text(
+            '여행을 만들고 동행자를 초대해보세요.',
+            style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 18),
+          ElevatedButton.icon(
+            onPressed: onCreate,
+            style: AppButtonStyles.elevatedPrimary(),
+            icon: const Icon(Icons.add_rounded, size: 20),
+            label: const Text('여행 만들기'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TripSectionTitle extends StatelessWidget {
+  final String title;
+
+  const _TripSectionTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(title, style: AppTextStyles.sectionTitle);
+  }
+}
+
+class _TripListRow extends StatelessWidget {
+  final TripSummary trip;
+  final ValueChanged<TripSummary> onTap;
+
+  const _TripListRow({required this.trip, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '${trip.title} 여행 열기',
+      child: InkWell(
+        onTap: () => onTap(trip),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: trip.tripStatus == 'ONGOING'
+                      ? AppColors.brandSoft
+                      : AppColors.neutralSoft,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  trip.tripStatus == 'COMPLETED'
+                      ? Icons.photo_album_outlined
+                      : Icons.map_outlined,
+                  color: trip.tripStatus == 'ONGOING'
+                      ? AppColors.brandStrong
+                      : AppColors.textMuted,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      trip.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_dateRangeLabel(trip.startDate, trip.endDate)} · ${trip.defaultCurrency}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+                size: 22,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -625,18 +660,12 @@ String _dateRangeLabel(String? startDate, String? endDate) {
   return '${startDate ?? '시작 미정'} - ${endDate ?? '종료 미정'}';
 }
 
-String _tripStatusLabel(String status) {
-  return switch (status) {
-    'ONGOING' => '진행중',
-    'COMPLETED' => '완료',
-    _ => '예정',
-  };
-}
-
-String _settlementDisplayStatusLabel(String status) {
-  return switch (status) {
-    'IN_PROGRESS' => '진행중',
-    'COMPLETED' => '완료',
-    _ => '미시작',
-  };
+String _tripProgressLabel(TripSummary trip) {
+  final start = DateTime.tryParse(trip.startDate ?? '');
+  final end = DateTime.tryParse(trip.endDate ?? '');
+  final now = DateTime.now();
+  if (start == null || end == null) return '여행 중';
+  final day = now.difference(start).inDays + 1;
+  final total = end.difference(start).inDays + 1;
+  return '여행 중 · ${day.clamp(1, total)}일째';
 }

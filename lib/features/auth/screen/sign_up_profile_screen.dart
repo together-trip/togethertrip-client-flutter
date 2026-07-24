@@ -516,25 +516,85 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     });
   }
 
+  Widget _buildGenderField() {
+    return LabeledField(
+      label: '성별',
+      child: Row(
+        children: [
+          Expanded(
+            child: GenderButton(
+              label: _Gender.male.label,
+              isSelected: _gender == _Gender.male,
+              onPressed: () => setState(() => _gender = _Gender.male),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: GenderButton(
+              label: _Gender.female.label,
+              isSelected: _gender == _Gender.female,
+              onPressed: () => setState(() => _gender = _Gender.female),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBirthDateField() {
+    return LabeledField(
+      label: '생년월일',
+      child: TextFormField(
+        key: const ValueKey('birthDateField'),
+        controller: _birthDateController,
+        decoration: AppInputDecorations.filled(hintText: 'YYYY.MM.DD'),
+        keyboardType: TextInputType.datetime,
+        textInputAction: TextInputAction.next,
+        inputFormatters: const [BirthDateInputFormatter()],
+        validator: _validateBirthDate,
+      ),
+    );
+  }
+
+  Widget _buildIdentityFields() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 330) {
+          return Column(
+            children: [_buildGenderField(), _buildBirthDateField()],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildGenderField()),
+            const SizedBox(width: 12),
+            Expanded(child: _buildBirthDateField()),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         leading: IconButton(
           tooltip: '뒤로',
           onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.chevron_left, size: 24),
+          icon: const Icon(Icons.chevron_left_rounded, size: 24),
           color: AppColors.ink,
         ),
         title: Text(
           _isEditMode ? '개인정보 수정' : '프로필 설정',
           style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
             color: AppColors.ink,
           ),
         ),
@@ -545,21 +605,43 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      LabeledField(
-                        label: '프로필 이미지',
-                        child: ProfileImagePicker(
-                          nickname: _currentNickname(),
-                          currentImageUrl: _profileForPrefill?.profileImageUrl,
-                          selectedImage: _selectedProfileImage,
-                          onPick: _pickProfileImage,
+                      if (!_isEditMode) ...[
+                        const Text(
+                          '가입 정보를 입력해주세요',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                            letterSpacing: -0.5,
+                          ),
                         ),
+                        const SizedBox(height: 7),
+                        const Text(
+                          '모든 항목을 입력하면 바로 시작할 수 있어요.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSubtle,
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                      ],
+                      ProfileImagePicker(
+                        nickname: _currentNickname(),
+                        currentImageUrl: _profileForPrefill?.profileImageUrl,
+                        selectedImage: _selectedProfileImage,
+                        onPick: _pickProfileImage,
                       ),
+                      const SizedBox(height: 22),
+                      if (_isEditMode) ...[
+                        const _ProfileSectionHeading(label: '기본 정보'),
+                        const SizedBox(height: 10),
+                      ],
                       LabeledField(
                         label: '닉네임',
                         child: Column(
@@ -572,7 +654,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                   child: TextFormField(
                                     key: const ValueKey('nicknameField'),
                                     controller: _nicknameController,
-                                    decoration: const InputDecoration(
+                                    decoration: AppInputDecorations.filled(
                                       hintText: '2~20자, 한글/영문/숫자',
                                     ),
                                     textInputAction: TextInputAction.next,
@@ -593,8 +675,8 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                     style: AppButtonStyles.outlined().copyWith(
                                       backgroundColor: WidgetStatePropertyAll(
                                         _isNicknameConfirmed
-                                            ? AppColors.surface
-                                            : AppColors.ink,
+                                            ? AppColors.brandSoft
+                                            : AppColors.neutralSoft,
                                       ),
                                       foregroundColor:
                                           WidgetStateProperty.resolveWith((
@@ -606,8 +688,8 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                               return AppColors.textMuted;
                                             }
                                             return _isNicknameConfirmed
-                                                ? AppColors.ink
-                                                : Colors.white;
+                                                ? AppColors.brandStrong
+                                                : AppColors.ink;
                                           }),
                                     ),
                                     child: Text(
@@ -626,7 +708,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                               const Text(
                                 '사용 가능한 닉네임입니다.',
                                 style: TextStyle(
-                                  color: AppColors.ink,
+                                  color: AppColors.success,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -645,45 +727,10 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                           ],
                         ),
                       ),
-                      LabeledField(
-                        label: '성별',
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: GenderButton(
-                                label: _Gender.male.label,
-                                isSelected: _gender == _Gender.male,
-                                onPressed: () =>
-                                    setState(() => _gender = _Gender.male),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: GenderButton(
-                                label: _Gender.female.label,
-                                isSelected: _gender == _Gender.female,
-                                onPressed: () =>
-                                    setState(() => _gender = _Gender.female),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      LabeledField(
-                        label: '생년월일',
-                        child: TextFormField(
-                          key: const ValueKey('birthDateField'),
-                          controller: _birthDateController,
-                          decoration: const InputDecoration(
-                            hintText: 'YYYY.MM.DD',
-                          ),
-                          keyboardType: TextInputType.datetime,
-                          textInputAction: TextInputAction.next,
-                          inputFormatters: const [BirthDateInputFormatter()],
-                          validator: _validateBirthDate,
-                        ),
-                      ),
-                      if (_isEditMode)
+                      _buildIdentityFields(),
+                      if (_isEditMode) ...[
+                        const _ProfileSectionHeading(label: '인증 정보'),
+                        const SizedBox(height: 10),
                         LabeledField(
                           label: '전화번호',
                           child: _ReadOnlyPhoneInfo(
@@ -693,6 +740,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                 widget.initialProfile?.phoneVerified ?? false,
                           ),
                         ),
+                      ],
                       if (_requiresPhoneVerification)
                         LabeledField(
                           label: '전화번호',
@@ -706,7 +754,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                     child: TextFormField(
                                       key: const ValueKey('phoneField'),
                                       controller: _phoneController,
-                                      decoration: const InputDecoration(
+                                      decoration: AppInputDecorations.filled(
                                         hintText: '010-0000-0000',
                                       ),
                                       keyboardType: TextInputType.phone,
@@ -731,7 +779,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                           .copyWith(
                                             backgroundColor:
                                                 const WidgetStatePropertyAll(
-                                                  AppColors.ink,
+                                                  AppColors.neutralSoft,
                                                 ),
                                             foregroundColor:
                                                 WidgetStateProperty.resolveWith(
@@ -742,7 +790,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                                       return AppColors
                                                           .textMuted;
                                                     }
-                                                    return Colors.white;
+                                                    return AppColors.ink;
                                                   },
                                                 ),
                                           ),
@@ -768,7 +816,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                       child: TextFormField(
                                         key: const ValueKey('codeField'),
                                         controller: _codeController,
-                                        decoration: InputDecoration(
+                                        decoration: AppInputDecorations.filled(
                                           hintText: '인증번호 6자리',
                                           suffixText: _isPhoneVerified
                                               ? '인증완료'
@@ -817,23 +865,35 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                         AppErrorText(_errorMessage!),
                         const SizedBox(height: 12),
                       ],
-                      SizedBox(
-                        height: 52,
-                        child: ElevatedButton(
-                          key: const ValueKey('submitButton'),
-                          onPressed: _isSubmitting ? null : _submit,
-                          style: AppButtonStyles.elevatedPrimary(),
-                          child: Text(
-                            _isSubmitting
-                                ? '저장중'
-                                : _isEditMode
-                                ? '저장'
-                                : '완료',
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                      ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+            DecoratedBox(
+              decoration: const BoxDecoration(
+                color: AppColors.background,
+                border: Border(top: BorderSide(color: AppColors.lineSoft)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+                  child: SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      key: const ValueKey('submitButton'),
+                      onPressed: _isSubmitting ? null : _submit,
+                      style: AppButtonStyles.elevatedPrimary(radius: 12),
+                      child: Text(
+                        _isSubmitting
+                            ? '저장중'
+                            : _isEditMode
+                            ? '변경사항 저장'
+                            : '완료',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -842,6 +902,17 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
         ),
       ),
     );
+  }
+}
+
+class _ProfileSectionHeading extends StatelessWidget {
+  final String label;
+
+  const _ProfileSectionHeading({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(label, style: AppTextStyles.caption);
   }
 }
 
@@ -883,6 +954,7 @@ class _TermsAgreementSection extends StatelessWidget {
             terms.isNotEmpty &&
             terms.every((term) => agreedCodes.contains(term.code));
         final requiredTerms = terms.where((term) => term.required).toList();
+        final optionalTerms = terms.where((term) => !term.required).toList();
         final agreedRequired =
             requiredTerms.isNotEmpty &&
             requiredTerms.every((term) => agreedCodes.contains(term.code));
@@ -904,42 +976,29 @@ class _TermsAgreementSection extends StatelessWidget {
                 onChanged: (checked) => onToggleAll(terms, checked),
                 emphasized: true,
               ),
-              const SizedBox(height: 10),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: AppRadii.controlRadius,
-                  border: Border.all(color: AppColors.lineSoft),
-                ),
-                child: Column(
-                  children: [
-                    for (var index = 0; index < terms.length; index++) ...[
-                      _TermsCheckboxRow(
-                        key: ValueKey('termsCheckbox_${terms[index].code}'),
-                        title: terms[index].title,
-                        subtitle: '버전 ${terms[index].version}',
-                        value: agreedCodes.contains(terms[index].code),
-                        onChanged: (checked) =>
-                            onToggleTerm(terms[index], checked),
-                        onView: () => showTermsDetailSheet(
-                          context: context,
-                          term: terms[index],
-                        ),
-                        required: terms[index].required,
-                      ),
-                      if (index < terms.length - 1)
-                        const Divider(height: 1, color: AppColors.lineSoft),
-                    ],
-                  ],
-                ),
+              const SizedBox(height: 14),
+              _TermsGroup(
+                label: '필수 약관',
+                terms: requiredTerms,
+                agreedCodes: agreedCodes,
+                onToggleTerm: onToggleTerm,
               ),
+              if (optionalTerms.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                _TermsGroup(
+                  label: '선택 약관',
+                  terms: optionalTerms,
+                  agreedCodes: agreedCodes,
+                  onToggleTerm: onToggleTerm,
+                ),
+              ],
               const SizedBox(height: 8),
               Text(
                 agreedRequired ? '필수 약관 동의 완료' : '필수 약관에 모두 동의해야 가입할 수 있어요.',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: agreedRequired ? AppColors.ink : AppColors.danger,
+                  color: agreedRequired ? AppColors.success : AppColors.danger,
                 ),
               ),
             ],
@@ -950,9 +1009,60 @@ class _TermsAgreementSection extends StatelessWidget {
   }
 }
 
+class _TermsGroup extends StatelessWidget {
+  final String label;
+  final List<TermsAgreementItem> terms;
+  final Set<String> agreedCodes;
+  final void Function(TermsAgreementItem term, bool? checked) onToggleTerm;
+
+  const _TermsGroup({
+    required this.label,
+    required this.terms,
+    required this.agreedCodes,
+    required this.onToggleTerm,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppTextStyles.caption),
+        const SizedBox(height: 6),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadii.controlRadius,
+            border: Border.all(color: AppColors.lineSoft),
+          ),
+          child: Column(
+            children: [
+              for (var index = 0; index < terms.length; index++) ...[
+                _TermsCheckboxRow(
+                  key: ValueKey('termsCheckbox_${terms[index].code}'),
+                  title: terms[index].title,
+                  value: agreedCodes.contains(terms[index].code),
+                  onChanged: (checked) => onToggleTerm(terms[index], checked),
+                  onView: () => showTermsDetailSheet(
+                    context: context,
+                    term: terms[index],
+                  ),
+                  required: terms[index].required,
+                ),
+                if (index < terms.length - 1)
+                  const Divider(height: 1, color: AppColors.lineSoft),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _TermsCheckboxRow extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final bool value;
   final ValueChanged<bool?> onChanged;
   final VoidCallback? onView;
@@ -962,7 +1072,7 @@ class _TermsCheckboxRow extends StatelessWidget {
   const _TermsCheckboxRow({
     super.key,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.value,
     required this.onChanged,
     this.onView,
@@ -973,7 +1083,7 @@ class _TermsCheckboxRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backgroundColor = emphasized && value
-        ? const Color(0xFFF4F7F4)
+        ? AppColors.brandSoft
         : AppColors.surface;
 
     return Material(
@@ -1017,16 +1127,18 @@ class _TermsCheckboxRow extends StatelessWidget {
                         color: AppColors.ink,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSubtle,
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSubtle,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -1036,7 +1148,7 @@ class _TermsCheckboxRow extends StatelessWidget {
                   key: ValueKey('termsDetailButton_$title'),
                   tooltip: '약관 보기',
                   onPressed: onView,
-                  icon: const Icon(Icons.chevron_right, size: 20),
+                  icon: const Icon(Icons.chevron_right_rounded, size: 20),
                   color: AppColors.textSubtle,
                 ),
               ],
@@ -1060,7 +1172,7 @@ class _InlineRequirementBadge extends StatelessWidget {
       height: 24,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: required ? AppColors.ink : Colors.white,
+        color: required ? AppColors.brandSoft : AppColors.neutralSoft,
         borderRadius: BorderRadius.circular(6),
         border: required ? null : Border.all(color: AppColors.lineSoft),
       ),
@@ -1069,7 +1181,7 @@ class _InlineRequirementBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: required ? Colors.white : AppColors.textSubtle,
+          color: required ? AppColors.brandStrong : AppColors.textSubtle,
         ),
       ),
     );
@@ -1095,8 +1207,8 @@ class _ReadOnlyPhoneInfo extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F8F8),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.neutralSoft,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
@@ -1115,7 +1227,7 @@ class _ReadOnlyPhoneInfo extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: phoneVerified ? AppColors.ink : AppColors.textMuted,
+              color: phoneVerified ? AppColors.success : AppColors.textMuted,
             ),
           ),
         ],

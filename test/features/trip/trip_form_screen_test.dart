@@ -1,13 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:togethertrip/features/auth/service/auth_service.dart';
+import 'package:togethertrip/core/widget/app_design.dart';
 import 'package:togethertrip/features/trip/screen/trip_form_screen.dart';
 import 'package:togethertrip/features/trip/service/trip_service.dart';
 
 void main() {
-  testWidgets('여행 일정은 시작일이 종료일보다 늦으면 다음 단계로 진행하지 않는다', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('여행 생성 단계는 이전 화면을 즉시 끊지 않고 전환한다', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: TripFormScreen(tripService: _FakeTripService())),
+    );
+
+    await tester.tap(find.text('일본'));
+    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('tripFormStep_0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tripFormStep_1')), findsOneWidget);
+
+    await tester.pump(AppMotion.standard);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('tripFormStep_0')), findsNothing);
+    expect(find.byKey(const ValueKey('tripFormStep_1')), findsOneWidget);
+  });
+
+  testWidgets('여행 일정을 선택하지 않으면 다음 단계로 진행하지 않는다', (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(home: TripFormScreen(tripService: _FakeTripService())),
     );
@@ -16,14 +33,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('tripStartDateField')),
-      '2026-07-05',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('tripEndDateField')),
-      '2026-07-01',
-    );
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
@@ -31,9 +40,7 @@ void main() {
     expect(find.byKey(const ValueKey('tripCompanionsField')), findsNothing);
   });
 
-  testWidgets('여행 날짜는 숫자 입력을 yyyy-MM-dd 형식으로 자동 포맷한다', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('여행 기간 선택 결과를 yyyy-MM-dd 형식으로 반영한다', (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(home: TripFormScreen(tripService: _FakeTripService())),
     );
@@ -42,18 +49,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('tripStartDateField')),
-      '20260701',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('tripEndDateField')),
-      '20260705',
-    );
-    await tester.pumpAndSettle();
+    await _applyInitialTripRange(tester);
 
-    expect(find.text('2026-07-01'), findsOneWidget);
-    expect(find.text('2026-07-05'), findsOneWidget);
+    final today = DateTime.now();
+    expect(find.text(_formatDate(today)), findsOneWidget);
+    expect(
+      find.text(_formatDate(today.add(const Duration(days: 3)))),
+      findsOneWidget,
+    );
   });
 
   testWidgets('국가 선택 순서를 보존해 생성 요청에 반영한다', (WidgetTester tester) async {
@@ -67,17 +70,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('tripStartDateField')),
-      '2026-07-01',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('tripEndDateField')),
-      '2026-07-05',
-    );
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
-    await tester.pumpAndSettle();
-
+    await _applyInitialTripRange(tester);
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
@@ -95,7 +88,7 @@ void main() {
     expect(tripService.createInviteLinkCallCount, 0);
   });
 
-  testWidgets('닉네임 검색 결과를 클릭하면 실제 사용자 동행자로 추가한다', (WidgetTester tester) async {
+  testWidgets('여행을 먼저 만들고 동행은 생성 후 추가한다', (WidgetTester tester) async {
     final tripService = _FakeTripService();
     await tester.pumpWidget(
       MaterialApp(home: TripFormScreen(tripService: tripService)),
@@ -105,130 +98,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('tripStartDateField')),
-      '2026-07-01',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('tripEndDateField')),
-      '2026-07-05',
-    );
+    await _applyInitialTripRange(tester);
     await tester.tap(find.byKey(const ValueKey('saveTripButton')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('tripCompanionsField')),
-      '홍길동',
-    );
-    await tester.tap(find.text('사용자 검색'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('홍길동'), findsWidgets);
-
-    await tester.tap(find.byKey(const ValueKey('tripUserSearchResult-2')));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(
-      find.byKey(const ValueKey('tripTitleField')),
-      '오사카 여행',
-    );
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
-    await tester.pumpAndSettle();
-
-    final participant = tripService.createdInput!.participants.single;
-    expect(participant.displayName, '홍길동');
-    expect(participant.userId, 2);
-    expect(
-      participant.profileImageUrl,
-      '/uploads/user-profile-images/user.png',
-    );
-  });
-
-  testWidgets('비회원 동행은 기본 이름으로 추가하고 이름을 수정해 생성 요청에 반영한다', (
-    WidgetTester tester,
-  ) async {
-    final tripService = _FakeTripService();
-    await tester.pumpWidget(
-      MaterialApp(home: TripFormScreen(tripService: tripService)),
-    );
-
-    await tester.tap(find.text('일본'));
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(
-      find.byKey(const ValueKey('tripStartDateField')),
-      '2026-07-01',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('tripEndDateField')),
-      '2026-07-05',
-    );
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('addGuestCompanionButton')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('동행자 1'), findsOneWidget);
-
-    await tester.enterText(
-      find.byKey(const ValueKey('guestCompanionNameField')),
-      '민수',
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('민수'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(
-      find.byKey(const ValueKey('tripTitleField')),
-      '오사카 여행',
-    );
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
-    await tester.pumpAndSettle();
-
-    final participant = tripService.createdInput!.participants.single;
-    expect(participant.displayName, '민수');
-    expect(participant.userId, isNull);
-  });
-
-  testWidgets('비회원 동행을 삭제하면 생성 요청에서 제외한다', (WidgetTester tester) async {
-    final tripService = _FakeTripService();
-    await tester.pumpWidget(
-      MaterialApp(home: TripFormScreen(tripService: tripService)),
-    );
-
-    await tester.tap(find.text('일본'));
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(
-      find.byKey(const ValueKey('tripStartDateField')),
-      '2026-07-01',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('tripEndDateField')),
-      '2026-07-05',
-    );
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('addGuestCompanionButton')));
-    await tester.pumpAndSettle();
-    expect(find.text('동행자 1'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('removeCompanionButton')));
-    await tester.pumpAndSettle();
-    expect(find.text('동행자 1'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
-    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('tripCompanionsField')), findsNothing);
+    expect(find.byKey(const ValueKey('tripTitleField')), findsOneWidget);
+    expect(find.text('여행 만들기'), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const ValueKey('tripTitleField')),
@@ -238,47 +114,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tripService.createdInput!.participants, isEmpty);
-  });
+    expect(find.text('여행을 만들었어요'), findsOneWidget);
+    expect(find.text('초대 링크 보내기'), findsOneWidget);
+    expect(find.text('나중에'), findsOneWidget);
 
-  testWidgets('본인 닉네임 검색 결과는 동행자로 추가하지 못하게 안내한다', (WidgetTester tester) async {
-    final tripService = _FakeTripService(searchUserId: 1);
-    await tester.pumpWidget(
-      MaterialApp(home: TripFormScreen(tripService: tripService)),
-    );
-
-    await tester.tap(find.text('일본'));
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
+    await tester.tap(find.text('비회원 동행 추가'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('tripStartDateField')),
-      '2026-07-01',
+    expect(
+      find.byKey(const ValueKey('guestParticipantNameField')),
+      findsOneWidget,
     );
-    await tester.enterText(
-      find.byKey(const ValueKey('tripEndDateField')),
-      '2026-07-05',
-    );
-    await tester.tap(find.byKey(const ValueKey('saveTripButton')));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(
-      find.byKey(const ValueKey('tripCompanionsField')),
-      '여행자',
-    );
-    await tester.tap(find.text('사용자 검색'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('본인은 동행자로 추가할 수 없습니다.'), findsOneWidget);
-    expect(find.byKey(const ValueKey('tripUserSearchResult-1')), findsNothing);
   });
 }
 
+Future<void> _applyInitialTripRange(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('tripStartDateField')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('confirmDateRangeButton')));
+  await tester.pumpAndSettle();
+}
+
+String _formatDate(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
+
 class _FakeTripService extends TripService {
-  final int searchUserId;
   TripFormInput? createdInput;
   int createInviteLinkCallCount = 0;
-
-  _FakeTripService({this.searchUserId = 2});
 
   @override
   Future<TripDetail> createTrip(TripFormInput input) async {
@@ -296,32 +160,6 @@ class _FakeTripService extends TripService {
       settledAt: null,
       countries: const [],
       participants: const [],
-    );
-  }
-
-  @override
-  Future<UserSearchResult> searchUserByNickname(String nickname) async {
-    return UserSearchResult(
-      found: true,
-      user: UserSearchUser(
-        userId: searchUserId,
-        nickname: searchUserId == 1 ? '여행자' : '홍길동',
-        profileImageUrl: '/uploads/user-profile-images/user.png',
-      ),
-    );
-  }
-
-  @override
-  Future<UserProfile> getCurrentUser() async {
-    return const UserProfile(
-      id: 1,
-      nickname: '여행자',
-      gender: 'MALE',
-      birthDate: '1990-01-01',
-      profileImageUrl: null,
-      phoneNumberMasked: null,
-      phoneVerifiedAt: null,
-      phoneVerified: true,
     );
   }
 

@@ -229,9 +229,9 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: false,
         leading: IconButton(
@@ -241,7 +241,7 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
           tooltip: '뒤로',
         ),
         title: const Text(
-          '마이페이지',
+          '마이',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,
@@ -256,7 +256,8 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: 32),
         children: [
           MyProfileHeader(
             profile: _profile,
@@ -276,28 +277,35 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
                 ],
               ),
             ),
-          // 메뉴 목록
-          MyMenuRow(
-            icon: Icons.manage_accounts_outlined,
-            label: '개인정보 수정',
-            onTap: _isLoading || _profile == null ? null : _openProfileEdit,
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+            child: Text('설정', style: AppTextStyles.caption),
           ),
           MyMenuRow(
-            icon: Icons.notifications_none,
+            icon: Icons.notifications_outlined,
             label: '알림 설정',
             onTap: () => _showPreparingMessage('알림 설정'),
           ),
           MyMenuRow(
-            icon: Icons.article_outlined,
-            label: '약관',
+            icon: Icons.description_outlined,
+            label: '약관 및 동의 관리',
             onTap: _openTerms,
           ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 22, 20, 6),
+            child: Text('계정', style: AppTextStyles.caption),
+          ),
           MyMenuRow(icon: Icons.logout, label: '로그아웃', onTap: _confirmLogout),
-          MyMenuRow(
-            icon: Icons.person_remove_outlined,
-            label: _isWithdrawing ? '탈퇴 처리 중…' : '회원 탈퇴',
-            labelColor: AppColors.danger,
-            onTap: _isWithdrawing ? null : _confirmWithdraw,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: _isWithdrawing ? null : _confirmWithdraw,
+                style: AppButtonStyles.dangerText(),
+                child: Text(_isWithdrawing ? '탈퇴 처리 중…' : '회원 탈퇴'),
+              ),
+            ),
           ),
         ],
       ),

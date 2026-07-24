@@ -135,6 +135,95 @@ class AppIconButtonStyles {
   }
 }
 
+class AppMotion {
+  static const fast = Duration(milliseconds: 160);
+  static const standard = Duration(milliseconds: 240);
+  static const emphasized = Duration(milliseconds: 300);
+  static const curve = Curves.easeOutCubic;
+  static const reverseCurve = Curves.easeInCubic;
+}
+
+class AppPageTransitionsBuilder extends PageTransitionsBuilder {
+  const AppPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (route.isFirst || MediaQuery.disableAnimationsOf(context)) return child;
+
+    final curvedAnimation = CurvedAnimation(
+      parent: animation,
+      curve: AppMotion.curve,
+      reverseCurve: AppMotion.reverseCurve,
+    );
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.92, end: 1).animate(curvedAnimation),
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0.035, 0),
+          end: Offset.zero,
+        ).animate(curvedAnimation),
+        child: child,
+      ),
+    );
+  }
+}
+
+class AppMotionSwitcher extends StatelessWidget {
+  final Widget child;
+  final AlignmentGeometry alignment;
+
+  const AppMotionSwitcher({
+    super.key,
+    required this.child,
+    this.alignment = Alignment.topCenter,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) return child;
+
+    return AnimatedSwitcher(
+      duration: AppMotion.standard,
+      reverseDuration: AppMotion.fast,
+      switchInCurve: AppMotion.curve,
+      switchOutCurve: AppMotion.reverseCurve,
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: alignment,
+        children: [...previousChildren, ?currentChild],
+      ),
+      transitionBuilder: (transitionChild, animation) {
+        final isIncoming = transitionChild.key == child.key;
+        final offset = isIncoming
+            ? const Offset(0.035, 0)
+            : const Offset(-0.018, 0);
+        return ExcludeSemantics(
+          excluding: !isIncoming,
+          child: IgnorePointer(
+            ignoring: !isIncoming,
+            child: FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: offset,
+                  end: Offset.zero,
+                ).animate(animation),
+                child: transitionChild,
+              ),
+            ),
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
 class AppTheme {
   static ThemeData light() {
     const colorScheme = ColorScheme.light(
@@ -158,6 +247,16 @@ class AppTheme {
     );
 
     return base.copyWith(
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: AppPageTransitionsBuilder(),
+          TargetPlatform.iOS: AppPageTransitionsBuilder(),
+          TargetPlatform.macOS: AppPageTransitionsBuilder(),
+          TargetPlatform.windows: AppPageTransitionsBuilder(),
+          TargetPlatform.linux: AppPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: AppPageTransitionsBuilder(),
+        },
+      ),
       textTheme: base.textTheme.apply(
         bodyColor: AppColors.ink,
         displayColor: AppColors.ink,
@@ -293,12 +392,17 @@ Future<T?> showAppBottomSheet<T>({
   bool isScrollControlled = false,
   bool useSafeArea = false,
 }) {
+  final reduceMotion = MediaQuery.disableAnimationsOf(context);
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: isScrollControlled,
     useSafeArea: useSafeArea,
     backgroundColor: Colors.white,
     shape: RoundedRectangleBorder(borderRadius: AppRadii.sheetRadius),
+    sheetAnimationStyle: AnimationStyle(
+      duration: reduceMotion ? Duration.zero : AppMotion.emphasized,
+      reverseDuration: reduceMotion ? Duration.zero : AppMotion.standard,
+    ),
     builder: builder,
   );
 }

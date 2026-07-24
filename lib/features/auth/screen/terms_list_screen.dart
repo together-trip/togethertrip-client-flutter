@@ -72,11 +72,11 @@ class _TermsListScreenState extends State<TermsListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         leading: IconButton(
           tooltip: '뒤로',
           onPressed: () => Navigator.of(context).maybePop(),
@@ -97,6 +97,12 @@ class _TermsListScreenState extends State<TermsListScreen> {
           }
 
           final data = snapshot.data ?? const _TermsListData.empty();
+          final requiredTerms = data.terms
+              .where((term) => term.required)
+              .toList();
+          final optionalTerms = data.terms
+              .where((term) => !term.required)
+              .toList();
           return ListView(
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
             children: [
@@ -109,50 +115,47 @@ class _TermsListScreenState extends State<TermsListScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: AppRadii.controlRadius,
-                ),
-                child: data.terms.isEmpty
-                    ? const Padding(
-                        padding: EdgeInsets.all(18),
-                        child: Text(
-                          '약관 목록을 확인할 수 없습니다.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.danger,
-                          ),
-                        ),
-                      )
-                    : Column(
-                        children: [
-                          for (
-                            var index = 0;
-                            index < data.terms.length;
-                            index++
-                          )
-                            _TermsMenuRow(
-                              term: data.terms[index],
-                              agreed: data.agreedCodes.contains(
-                                data.terms[index].code,
-                              ),
-                              isSaving: _savingCodes.contains(
-                                data.terms[index].code,
-                              ),
-                              showDivider: index < data.terms.length - 1,
-                              onTap: () => _showTermsDetail(data.terms[index]),
-                              onAgreementChanged: data.terms[index].required
-                                  ? null
-                                  : (agreed) => _toggleOptionalTerm(
-                                      data.terms[index],
-                                      agreed,
-                                    ),
-                            ),
-                        ],
+              if (data.terms.isEmpty)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: AppRadii.controlRadius,
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(18),
+                    child: Text(
+                      '약관 목록을 확인할 수 없습니다.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.danger,
                       ),
-              ),
+                    ),
+                  ),
+                )
+              else ...[
+                _TermsSection(
+                  title: '필수 동의',
+                  description: '서비스 이용에 필요한 약관이에요.',
+                  terms: requiredTerms,
+                  agreedCodes: data.agreedCodes,
+                  savingCodes: _savingCodes,
+                  onOpen: _showTermsDetail,
+                  onToggle: _toggleOptionalTerm,
+                ),
+                if (optionalTerms.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  _TermsSection(
+                    title: '선택 동의',
+                    description: '선택 항목은 언제든 변경할 수 있어요.',
+                    terms: optionalTerms,
+                    agreedCodes: data.agreedCodes,
+                    savingCodes: _savingCodes,
+                    onOpen: _showTermsDetail,
+                    onToggle: _toggleOptionalTerm,
+                  ),
+                ],
+              ],
             ],
           );
         },
@@ -170,6 +173,60 @@ class _TermsListData {
   const _TermsListData.empty()
     : terms = const <TermsAgreementItem>[],
       agreedCodes = const <String>{};
+}
+
+class _TermsSection extends StatelessWidget {
+  final String title;
+  final String description;
+  final List<TermsAgreementItem> terms;
+  final Set<String> agreedCodes;
+  final Set<String> savingCodes;
+  final ValueChanged<TermsAgreementItem> onOpen;
+  final void Function(TermsAgreementItem, bool) onToggle;
+
+  const _TermsSection({
+    required this.title,
+    required this.description,
+    required this.terms,
+    required this.agreedCodes,
+    required this.savingCodes,
+    required this.onOpen,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: AppTextStyles.sectionTitle),
+        const SizedBox(height: 4),
+        Text(description, style: AppTextStyles.caption),
+        const SizedBox(height: 10),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadii.controlRadius,
+          ),
+          child: Column(
+            children: [
+              for (var index = 0; index < terms.length; index++)
+                _TermsMenuRow(
+                  term: terms[index],
+                  agreed: agreedCodes.contains(terms[index].code),
+                  isSaving: savingCodes.contains(terms[index].code),
+                  showDivider: index < terms.length - 1,
+                  onTap: () => onOpen(terms[index]),
+                  onAgreementChanged: terms[index].required
+                      ? null
+                      : (agreed) => onToggle(terms[index], agreed),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _TermsMenuRow extends StatefulWidget {
@@ -316,7 +373,7 @@ class _SoftOptionalToggle extends StatelessWidget {
           height: 26,
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: value ? AppColors.ink : const Color(0xFFEDEAE3),
+            color: value ? AppColors.brand : AppColors.line,
             borderRadius: BorderRadius.circular(999),
           ),
           child: AnimatedAlign(
@@ -335,7 +392,7 @@ class _SoftOptionalToggle extends StatelessWidget {
                       padding: EdgeInsets.all(4),
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppColors.ink,
+                        color: AppColors.brandStrong,
                       ),
                     )
                   : null,
@@ -359,7 +416,7 @@ class _TermRequirementBadge extends StatelessWidget {
       height: 24,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: required ? AppColors.ink : Colors.white,
+        color: required ? AppColors.brandSoft : AppColors.neutralSoft,
         borderRadius: BorderRadius.circular(6),
         border: required ? null : Border.all(color: AppColors.lineSoft),
       ),
@@ -368,7 +425,7 @@ class _TermRequirementBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: required ? Colors.white : AppColors.textSubtle,
+          color: required ? AppColors.brandStrong : AppColors.textSubtle,
         ),
       ),
     );

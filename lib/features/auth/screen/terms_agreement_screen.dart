@@ -88,11 +88,11 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         leading: IconButton(
           tooltip: '뒤로',
           onPressed: () => Navigator.of(context).maybePop(),
@@ -268,11 +268,9 @@ class _AllTermsTileState extends State<_AllTermsTile> {
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             decoration: BoxDecoration(
-              color: widget.value ? const Color(0xFFF4F7F4) : AppColors.surface,
+              color: widget.value ? AppColors.brandSoft : AppColors.surface,
               border: Border.all(
-                color: widget.value
-                    ? const Color(0xFFC9D8C9)
-                    : AppColors.lineSoft,
+                color: widget.value ? AppColors.brandSoft : AppColors.lineSoft,
               ),
               borderRadius: AppRadii.controlRadius,
             ),
@@ -444,7 +442,7 @@ class _SoftAgreementToggle extends StatelessWidget {
         height: 24,
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
-          color: value ? AppColors.ink : const Color(0xFFEDEAE3),
+          color: value ? AppColors.brand : AppColors.line,
           borderRadius: BorderRadius.circular(999),
         ),
         child: AnimatedAlign(
@@ -461,7 +459,11 @@ class _SoftAgreementToggle extends StatelessWidget {
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 120),
               opacity: value ? 1 : 0,
-              child: const Icon(Icons.check, size: 13, color: AppColors.ink),
+              child: const Icon(
+                Icons.check,
+                size: 13,
+                color: AppColors.brandStrong,
+              ),
             ),
           ),
         ),
@@ -482,7 +484,7 @@ class _TermRequirementBadge extends StatelessWidget {
       height: 24,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: required ? AppColors.ink : Colors.white,
+        color: required ? AppColors.brandSoft : AppColors.neutralSoft,
         borderRadius: BorderRadius.circular(6),
         border: required ? null : Border.all(color: AppColors.lineSoft),
       ),
@@ -491,7 +493,7 @@ class _TermRequirementBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: required ? Colors.white : AppColors.textSubtle,
+          color: required ? AppColors.brandStrong : AppColors.textSubtle,
         ),
       ),
     );

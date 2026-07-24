@@ -81,7 +81,10 @@ class _SettlementScreenState extends State<SettlementScreen> {
         reset: reset,
       );
       if (!mounted) return;
-      setState(() => _overview = overview);
+      setState(() {
+        _overview = overview;
+        _selectedTab = _recommendedTab(overview);
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _errorMessage = '정산 정보를 불러오지 못했습니다: $e');
@@ -110,10 +113,15 @@ class _SettlementScreenState extends State<SettlementScreen> {
     });
 
     try {
+      final previousStage = _overview?.stage;
       final overview = await action();
       if (!mounted) return;
       setState(() {
         _overview = overview;
+        if (previousStage != SettlementStage.confirmed &&
+            overview.stage == SettlementStage.confirmed) {
+          _selectedTab = _recommendedTab(overview);
+        }
         _changed = true;
       });
       if (message != null) {
@@ -231,7 +239,7 @@ class _SettlementScreenState extends State<SettlementScreen> {
           centerTitle: false,
           leading: IconButton(
             onPressed: _close,
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.chevron_left_rounded),
             tooltip: '뒤로',
           ),
           title: const Text(
@@ -246,7 +254,7 @@ class _SettlementScreenState extends State<SettlementScreen> {
                 onPressed: _showExplanation,
                 tooltip: '정산 계산 방법',
                 style: AppIconButtonStyles.neutral(),
-                icon: const Icon(Icons.question_mark, size: 17),
+                icon: const Icon(Icons.help_outline_rounded, size: 20),
               ),
             ),
           ],
@@ -268,13 +276,13 @@ class _SettlementScreenState extends State<SettlementScreen> {
   Widget _buildContent(SettlementOverview overview) {
     return Column(
       children: [
-        SettlementMySummaryCard(overview: overview),
         SettlementStatusSummary(
           overview: overview,
           isBusy: _isBusy,
           onPrimaryAction: _handlePrimaryAction,
           onShare: _handleShare,
         ),
+        SettlementMySummaryCard(overview: overview),
         if (widget.showMockCases)
           _MockCaseSelector(
             selectedMockCase: _selectedMockCase,
@@ -284,6 +292,15 @@ class _SettlementScreenState extends State<SettlementScreen> {
         Expanded(child: _buildTabBody(overview)),
       ],
     );
+  }
+
+  _SettlementTab _recommendedTab(SettlementOverview overview) {
+    if (overview.stage != SettlementStage.confirmed) {
+      return _SettlementTab.overview;
+    }
+    if (overview.hasPendingReceivedTransfers) return _SettlementTab.received;
+    if (overview.hasPendingSentTransfers) return _SettlementTab.sent;
+    return _SettlementTab.overview;
   }
 
   void _selectTab(_SettlementTab tab) {
