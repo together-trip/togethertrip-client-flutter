@@ -519,11 +519,11 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         leading: IconButton(
           tooltip: '뒤로',
           onPressed: () => Navigator.of(context).maybePop(),
@@ -594,7 +594,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                       backgroundColor: WidgetStatePropertyAll(
                                         _isNicknameConfirmed
                                             ? AppColors.surface
-                                            : AppColors.ink,
+                                            : AppColors.brand,
                                       ),
                                       foregroundColor:
                                           WidgetStateProperty.resolveWith((
@@ -626,7 +626,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                               const Text(
                                 '사용 가능한 닉네임입니다.',
                                 style: TextStyle(
-                                  color: AppColors.ink,
+                                  color: AppColors.success,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -731,7 +731,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                           .copyWith(
                                             backgroundColor:
                                                 const WidgetStatePropertyAll(
-                                                  AppColors.ink,
+                                                  AppColors.brand,
                                                 ),
                                             foregroundColor:
                                                 WidgetStateProperty.resolveWith(
@@ -939,7 +939,7 @@ class _TermsAgreementSection extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: agreedRequired ? AppColors.ink : AppColors.danger,
+                  color: agreedRequired ? AppColors.success : AppColors.danger,
                 ),
               ),
             ],
@@ -973,7 +973,7 @@ class _TermsCheckboxRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backgroundColor = emphasized && value
-        ? const Color(0xFFF4F7F4)
+        ? AppColors.brandSoft
         : AppColors.surface;
 
     return Material(
@@ -1060,7 +1060,7 @@ class _InlineRequirementBadge extends StatelessWidget {
       height: 24,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: required ? AppColors.ink : Colors.white,
+        color: required ? AppColors.brandSoft : AppColors.neutralSoft,
         borderRadius: BorderRadius.circular(6),
         border: required ? null : Border.all(color: AppColors.lineSoft),
       ),
@@ -1069,7 +1069,7 @@ class _InlineRequirementBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: required ? Colors.white : AppColors.textSubtle,
+          color: required ? AppColors.brandStrong : AppColors.textSubtle,
         ),
       ),
     );
@@ -1095,8 +1095,8 @@ class _ReadOnlyPhoneInfo extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F8F8),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.neutralSoft,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
@@ -1115,7 +1115,7 @@ class _ReadOnlyPhoneInfo extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: phoneVerified ? AppColors.ink : AppColors.textMuted,
+              color: phoneVerified ? AppColors.success : AppColors.textMuted,
             ),
           ),
         ],

@@ -72,11 +72,11 @@ class _TermsListScreenState extends State<TermsListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         leading: IconButton(
           tooltip: '뒤로',
           onPressed: () => Navigator.of(context).maybePop(),
@@ -316,7 +316,7 @@ class _SoftOptionalToggle extends StatelessWidget {
           height: 26,
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: value ? AppColors.ink : const Color(0xFFEDEAE3),
+            color: value ? AppColors.brand : AppColors.line,
             borderRadius: BorderRadius.circular(999),
           ),
           child: AnimatedAlign(
@@ -335,7 +335,7 @@ class _SoftOptionalToggle extends StatelessWidget {
                       padding: EdgeInsets.all(4),
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppColors.ink,
+                        color: AppColors.brandStrong,
                       ),
                     )
                   : null,
@@ -359,7 +359,7 @@ class _TermRequirementBadge extends StatelessWidget {
       height: 24,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: required ? AppColors.ink : Colors.white,
+        color: required ? AppColors.brandSoft : AppColors.neutralSoft,
         borderRadius: BorderRadius.circular(6),
         border: required ? null : Border.all(color: AppColors.lineSoft),
       ),
@@ -368,7 +368,7 @@ class _TermRequirementBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: required ? Colors.white : AppColors.textSubtle,
+          color: required ? AppColors.brandStrong : AppColors.textSubtle,
         ),
       ),
     );

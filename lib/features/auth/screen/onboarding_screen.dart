@@ -27,55 +27,19 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  late final PageController _pageController;
   bool _isLoading = false;
-  int _pageIndex = 0;
   String? _errorMessage;
 
-  static const _pages = [
-    _OnboardingPageData(
-      icon: Icons.edit_note_outlined,
-      title: '함께 떠나는 여행을\n가볍게 기록하세요',
-      description: '동행자와 일정, 지출, 기록을 한 곳에서 관리합니다.',
-      visualTitle: '오사카 3박4일',
-      rows: [('항공권', '320,000원'), ('숙소', '180,000원')],
-      footerIcon: Icons.payments_outlined,
-      footerLabel: '민서에게 보낼 돈',
-      footerValue: '42,000원',
-    ),
-    _OnboardingPageData(
-      icon: Icons.photo_camera_outlined,
-      title: '순간은 피드처럼\n자연스럽게 남겨요',
-      description: '사진, 장소, 메모를 여행 기록과 소비 내역으로 이어서 봅니다.',
-      visualTitle: '오늘의 기록',
-      rows: [('도톤보리 산책', '사진 4장'), ('라멘 저녁', '소비 연결')],
-      footerIcon: Icons.chat_bubble_outline,
-      footerLabel: '댓글과 반응',
-      footerValue: '함께 보기',
-    ),
-    _OnboardingPageData(
-      icon: Icons.currency_exchange_outlined,
-      title: '환율과 정산까지\n끝까지 맞춰요',
-      description: '여행 중 쓴 돈을 통화별로 기록하고 정산 흐름까지 확인합니다.',
-      visualTitle: '정산 미리보기',
-      rows: [('JPY 환율', '9.18 KRW'), ('총 지출', '582,000원')],
-      footerIcon: Icons.check_circle_outline,
-      footerLabel: '정산 준비',
-      footerValue: '완료',
-    ),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController();
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
+  static const _page = _OnboardingPageData(
+    icon: Icons.receipt_long_outlined,
+    title: '한눈에 보는 정산',
+    description: '보낼 돈과 받을 돈을 간단하게',
+    visualTitle: '오사카 3박 4일',
+    rows: [('받을 돈', '42,000원'), ('보낼 돈', '18,000원')],
+    footerIcon: Icons.check_circle_outline,
+    footerLabel: '함께 기록한 여행',
+    footerValue: '정산 준비 완료',
+  );
 
   Future<void> _startWithKakao() async {
     if (_isLoading) return;
@@ -216,6 +180,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
@@ -223,21 +188,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const _BrandHeader(),
-              const Spacer(),
-              SizedBox(
-                height: 338,
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _pages.length,
-                  onPageChanged: (index) => setState(() => _pageIndex = index),
-                  itemBuilder: (context, index) {
-                    return _OnboardingPage(data: _pages[index]);
-                  },
-                ),
-              ),
-              const Spacer(),
-              _PageDots(count: _pages.length, activeIndex: _pageIndex),
-              const SizedBox(height: 18),
+              const Spacer(flex: 2),
+              const SizedBox(height: 360, child: _OnboardingPage(data: _page)),
+              const Spacer(flex: 2),
               if (_errorMessage != null) ...[
                 AppErrorText(_errorMessage!, textAlign: TextAlign.center),
                 const SizedBox(height: 10),
@@ -321,24 +274,14 @@ class _BrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7F4EE),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE6DDD0)),
-        ),
-        child: const Padding(
-          padding: EdgeInsets.fromLTRB(12, 7, 12, 8),
-          child: Text(
-            '투게더트립',
-            style: TextStyle(
-              fontSize: 20,
-              height: 1,
-              fontWeight: FontWeight.w900,
-              color: AppColors.ink,
-              letterSpacing: 0,
-            ),
-          ),
+      child: const Text(
+        'TogetherTrip',
+        style: TextStyle(
+          fontSize: 20,
+          height: 1,
+          fontWeight: FontWeight.w800,
+          color: AppColors.brandStrong,
+          letterSpacing: -0.4,
         ),
       ),
     );
@@ -357,12 +300,11 @@ class _OnboardingVisual extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 280),
         child: SizedBox(
-          height: compact ? 188 : 204,
+          height: compact ? 198 : 216,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: const Color(0xFFFAFAFA),
-              border: Border.all(color: AppColors.ink),
-              borderRadius: AppRadii.controlRadius,
+              color: AppColors.brandSoft,
+              borderRadius: BorderRadius.circular(24),
             ),
             child: Padding(
               padding: EdgeInsets.all(compact ? 10 : 14),
@@ -401,8 +343,8 @@ class _OnboardingVisual extends StatelessWidget {
                   const Spacer(),
                   DecoratedBox(
                     decoration: const BoxDecoration(
-                      color: AppColors.ink,
-                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.all(Radius.circular(14)),
                     ),
                     child: Padding(
                       padding: EdgeInsets.symmetric(
@@ -411,14 +353,18 @@ class _OnboardingVisual extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          Icon(data.footerIcon, size: 16, color: Colors.white),
+                          Icon(
+                            data.footerIcon,
+                            size: 16,
+                            color: AppColors.brand,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               data.footerLabel,
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Colors.white,
+                                color: AppColors.textSubtle,
                               ),
                             ),
                           ),
@@ -427,7 +373,7 @@ class _OnboardingVisual extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                              color: AppColors.brandStrong,
                             ),
                           ),
                         ],
@@ -457,10 +403,9 @@ class _VisualIcon extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: AppColors.line),
-          borderRadius: AppRadii.controlRadius,
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, size: 17, color: AppColors.ink),
+        child: Icon(icon, size: 17, color: AppColors.brand),
       ),
     );
   }
@@ -482,8 +427,7 @@ class _VisualRow extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: AppColors.lineSoft),
-        borderRadius: AppRadii.controlRadius,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
         padding: EdgeInsets.symmetric(
@@ -546,46 +490,6 @@ class _OnboardingCopy extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _PageDots extends StatelessWidget {
-  final int count;
-  final int activeIndex;
-
-  const _PageDots({required this.count, required this.activeIndex});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(count, (index) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 3),
-          child: _Dot(isActive: index == activeIndex),
-        );
-      }),
-    );
-  }
-}
-
-class _Dot extends StatelessWidget {
-  final bool isActive;
-
-  const _Dot({required this.isActive});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: isActive ? 18 : 6,
-      height: 6,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: isActive ? AppColors.ink : const Color(0xFFC7C7C7),
-          borderRadius: BorderRadius.circular(3),
-        ),
-      ),
     );
   }
 }
