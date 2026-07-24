@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_design.dart';
 import '../service/trip_service.dart';
+import '../widget/trip_invite_participant_sheets.dart';
 
 class TripFormScreen extends StatefulWidget {
   final TripService? tripService;
@@ -280,7 +281,9 @@ class _TripFormScreenState extends State<TripFormScreen> {
   int _nextGuestCompanionNumber = 1;
   int _step = 0;
   bool _isSaving = false;
+  bool _isCreatingInvite = false;
   String? _errorMessage;
+  TripDetail? _createdTrip;
 
   bool get _isEdit => widget.initialTrip != null;
   int get _lastStep => _isEdit ? 3 : 2;
@@ -415,7 +418,11 @@ class _TripFormScreenState extends State<TripFormScreen> {
       }
 
       if (!mounted) return;
-      Navigator.of(context).pop(result);
+      if (_isEdit) {
+        Navigator.of(context).pop(result);
+      } else {
+        setState(() => _createdTrip = result);
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _errorMessage = e.message);
@@ -629,8 +636,55 @@ class _TripFormScreenState extends State<TripFormScreen> {
     });
   }
 
+  Future<void> _createGeneralInvite() async {
+    final trip = _createdTrip;
+    if (trip == null || _isCreatingInvite) return;
+    setState(() => _isCreatingInvite = true);
+    try {
+      final invite = await _tripService.createInviteLink(trip.id);
+      if (!mounted) return;
+      await showAppBottomSheet<void>(
+        context: context,
+        builder: (_) => TripInviteValueSheet(
+          title: '여행 초대 링크',
+          value: invite.inviteUrl,
+          copiedMessage: '여행 초대 링크를 복사했습니다.',
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _isCreatingInvite = false);
+    }
+  }
+
+  Future<void> _manageCreatedTripParticipants() async {
+    final trip = _createdTrip;
+    if (trip == null) return;
+    await showAppBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) =>
+          TripParticipantManagerSheet(trip: trip, tripService: _tripService),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final createdTrip = _createdTrip;
+    if (createdTrip != null) {
+      return _TripCreatedScreen(
+        trip: createdTrip,
+        isCreatingInvite: _isCreatingInvite,
+        onCreateInvite: _createGeneralInvite,
+        onManageParticipants: _manageCreatedTripParticipants,
+        onClose: () => Navigator.of(context).pop(createdTrip),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: PreferredSize(
@@ -792,6 +846,252 @@ class _TripWizardHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TripCreatedScreen extends StatelessWidget {
+  final TripDetail trip;
+  final bool isCreatingInvite;
+  final VoidCallback onCreateInvite;
+  final VoidCallback onManageParticipants;
+  final VoidCallback onClose;
+
+  const _TripCreatedScreen({
+    required this.trip,
+    required this.isCreatingInvite,
+    required this.onCreateInvite,
+    required this.onManageParticipants,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = _tripDurationLabel(trip.startDate, trip.endDate);
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        automaticallyImplyLeading: false,
+        centerTitle: true,
+        title: const Text('여행 만들기', style: AppTextStyles.screenTitle),
+        actions: [
+          IconButton(
+            onPressed: onClose,
+            tooltip: '닫기',
+            icon: const Icon(Icons.close_rounded, size: 22),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 30, 20, 24),
+                children: [
+                  const Center(
+                    child: CircleAvatar(
+                      radius: 34,
+                      backgroundColor: AppColors.brandSoft,
+                      child: Icon(
+                        Icons.check_rounded,
+                        color: AppColors.brandStrong,
+                        size: 34,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    '여행을 만들었어요',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '지금 동행자를 초대하거나 나중에 추가할 수 있어요.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+                  ),
+                  const SizedBox(height: 26),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: const BoxDecoration(
+                      border: Border.symmetric(
+                        horizontal: BorderSide(color: AppColors.lineSoft),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                trip.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.sectionTitle,
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                '${trip.countries.map((item) => item.countryName).join(' · ')} · ${_createdTripDateLabel(trip.startDate, trip.endDate)}',
+                                style: AppTextStyles.caption,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (duration != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.brandSoft,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              duration,
+                              style: const TextStyle(
+                                color: AppColors.brandStrong,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _InviteActionRow(
+                    icon: Icons.link_rounded,
+                    title: '초대 링크 보내기',
+                    description: '링크로 바로 여행에 참여해요.',
+                    onTap: isCreatingInvite ? null : onCreateInvite,
+                  ),
+                  _InviteActionRow(
+                    icon: Icons.person_search_outlined,
+                    title: '닉네임으로 찾기',
+                    description: 'TogetherTrip 사용자를 추가해요.',
+                    onTap: onManageParticipants,
+                  ),
+                  _InviteActionRow(
+                    icon: Icons.person_add_outlined,
+                    title: '비회원 동행 추가',
+                    description: '이름만 먼저 등록할 수 있어요.',
+                    onTap: onManageParticipants,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: onClose,
+                      style: AppButtonStyles.outlined(
+                        sideColor: AppColors.lineSoft,
+                      ),
+                      child: const Text('나중에'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      key: const ValueKey('openCreatedTripButton'),
+                      onPressed: onClose,
+                      style: AppButtonStyles.elevatedPrimary(),
+                      child: const Text('여행으로 이동'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InviteActionRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  final VoidCallback? onTap;
+
+  const _InviteActionRow({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.neutralSoft,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, size: 21, color: AppColors.ink),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(description, style: AppTextStyles.caption),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 22,
+              color: AppColors.textMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _createdTripDateLabel(String? startDate, String? endDate) {
+  if (startDate == null || endDate == null) return '일정 미정';
+  return '$startDate–$endDate';
+}
+
+String? _tripDurationLabel(String? startDate, String? endDate) {
+  final start = DateTime.tryParse(startDate ?? '');
+  final end = DateTime.tryParse(endDate ?? '');
+  if (start == null || end == null || start.isAfter(end)) return null;
+  final nights = end.difference(start).inDays;
+  return '$nights박 ${nights + 1}일';
 }
 
 class _StepIndicator extends StatelessWidget {

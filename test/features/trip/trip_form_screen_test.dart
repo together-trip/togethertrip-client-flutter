@@ -124,6 +124,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tripService.createdInput!.participants, isEmpty);
+    expect(find.text('여행을 만들었어요'), findsOneWidget);
+    expect(find.text('초대 링크 보내기'), findsOneWidget);
+    expect(find.text('나중에'), findsOneWidget);
   });
 }
 

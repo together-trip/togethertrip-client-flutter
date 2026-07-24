@@ -82,6 +82,31 @@ class TripParticipantManagerSheet extends StatefulWidget {
       _TripParticipantManagerSheetState();
 }
 
+class _ParticipantRoleBadge extends StatelessWidget {
+  final String label;
+
+  const _ParticipantRoleBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.brandSoft,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.brandStrong,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _TripParticipantManagerSheetState
     extends State<TripParticipantManagerSheet> {
   late List<TripParticipant> _participants;
@@ -90,6 +115,7 @@ class _TripParticipantManagerSheetState
   int? _selectedGuestParticipantId;
   UserSearchUser? _searchedUser;
   bool _isBusy = false;
+  bool _showAddPanel = false;
   String? _message;
   TripParticipant? _recentlyAddedGuest;
 
@@ -268,6 +294,66 @@ class _TripParticipantManagerSheetState
                   ),
                 ),
                 const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandSoft,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.trip.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.sectionTitle,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '함께하는 사람 ${_participants.length}명',
+                              style: AppTextStyles.caption,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${_participants.length}/10명',
+                          style: const TextStyle(
+                            color: AppColors.brandStrong,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '동행자',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    Text('방장만 관리 가능', style: AppTextStyles.caption),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 ..._participants.map((participant) {
                   final isLeader = participant.participantRole == 'LEADER';
                   final isGuest = participant.userId == null;
@@ -297,12 +383,12 @@ class _TripParticipantManagerSheetState
                           : '사용자',
                     ),
                     trailing: isLeader
-                        ? null
+                        ? const _ParticipantRoleBadge(label: '나')
                         : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (isGuest)
-                                IconButton(
+                                TextButton.icon(
                                   key: ValueKey(
                                     'guestInviteLinkButton-${participant.id}',
                                   ),
@@ -310,16 +396,29 @@ class _TripParticipantManagerSheetState
                                       ? null
                                       : () =>
                                             _createGuestInviteLink(participant),
-                                  icon: const Icon(Icons.link, size: 20),
-                                  tooltip: '이 동행 초대 링크',
+                                  icon: const Icon(
+                                    Icons.link_rounded,
+                                    size: 17,
+                                  ),
+                                  label: const Text('초대'),
                                 ),
-                              IconButton(
-                                onPressed: _isBusy
-                                    ? null
-                                    : () => _removeParticipant(participant),
-                                icon: const Icon(Icons.remove_circle_outline),
-                                color: AppColors.danger,
-                                tooltip: '제거',
+                              PopupMenuButton<String>(
+                                tooltip: '${participant.displayName} 관리',
+                                icon: const Icon(Icons.more_horiz_rounded),
+                                onSelected: (value) {
+                                  if (value == 'remove') {
+                                    _removeParticipant(participant);
+                                  }
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                    value: 'remove',
+                                    child: Text(
+                                      '동행자 제거',
+                                      style: TextStyle(color: AppColors.danger),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -330,112 +429,139 @@ class _TripParticipantManagerSheetState
                   child: Divider(height: 1, color: AppColors.lineSoft),
                 ),
                 const Text(
-                  '새 동행 추가',
-                  style: TextStyle(fontWeight: FontWeight.w800),
+                  '비회원 동행의 소비 기록은 실제 사용자와 연결해도 그대로 유지돼요.',
+                  style: AppTextStyles.caption,
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  '아직 가입하지 않은 사람도 이름만으로 먼저 추가할 수 있어요.',
-                  style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  key: const ValueKey('guestParticipantNameField'),
-                  controller: _nameController,
-                  decoration: AppInputDecorations.filled(hintText: '이름'),
-                  onSubmitted: (_) => _addGuest(),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  key: const ValueKey('addGuestParticipantButton'),
-                  onPressed: _isBusy ? null : _addGuest,
-                  icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-                  label: const Text('이름으로 추가'),
-                  style: AppButtonStyles.outlined(sideColor: AppColors.brand),
-                ),
-                if (_message != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _message!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSubtle,
-                    ),
+                if (_showAddPanel) ...[
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 18),
+                    child: Divider(height: 1, color: AppColors.lineSoft),
                   ),
-                ],
-                if (_recentlyAddedGuest != null) ...[
+                  const Text(
+                    '새 동행 추가',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '아직 가입하지 않은 사람도 이름만으로 먼저 추가할 수 있어요.',
+                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                  ),
                   const SizedBox(height: 8),
-                  ListTile(
-                    key: const ValueKey('recentlyAddedGuestParticipant'),
-                    contentPadding: EdgeInsets.zero,
-                    leading: const CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Color(0xFFF2F2F2),
-                      child: Icon(
-                        Icons.person_outline,
-                        size: 18,
-                        color: Color(0xFF8A8A8A),
+                  TextField(
+                    key: const ValueKey('guestParticipantNameField'),
+                    controller: _nameController,
+                    decoration: AppInputDecorations.filled(hintText: '이름'),
+                    onSubmitted: (_) => _addGuest(),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    key: const ValueKey('addGuestParticipantButton'),
+                    onPressed: _isBusy ? null : _addGuest,
+                    icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                    label: const Text('이름으로 추가'),
+                    style: AppButtonStyles.outlined(sideColor: AppColors.brand),
+                  ),
+                  if (_message != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _message!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSubtle,
                       ),
                     ),
-                    title: Text(_recentlyAddedGuest!.displayName),
-                    subtitle: const Text('방금 추가한 비회원 동행'),
-                  ),
-                ],
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 18),
-                  child: Divider(height: 1, color: AppColors.lineSoft),
-                ),
-                const Text(
-                  '비회원을 실제 사용자와 연결',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<int>(
-                  initialValue: _selectedGuestParticipantId,
-                  decoration: AppInputDecorations.filled(hintText: '비회원 동행 선택'),
-                  items: guestParticipants
-                      .map(
-                        (participant) => DropdownMenuItem<int>(
-                          value: participant.id,
-                          child: Text(participant.displayName),
+                  ],
+                  if (_recentlyAddedGuest != null) ...[
+                    const SizedBox(height: 8),
+                    ListTile(
+                      key: const ValueKey('recentlyAddedGuestParticipant'),
+                      contentPadding: EdgeInsets.zero,
+                      leading: const CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Color(0xFFF2F2F2),
+                        child: Icon(
+                          Icons.person_outline,
+                          size: 18,
+                          color: Color(0xFF8A8A8A),
                         ),
-                      )
-                      .toList(),
-                  onChanged: _isBusy
-                      ? null
-                      : (value) =>
-                            setState(() => _selectedGuestParticipantId = value),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  key: const ValueKey('participantManagerNicknameField'),
-                  controller: _nicknameController,
-                  decoration: AppInputDecorations.filled(hintText: '닉네임 검색'),
-                  onSubmitted: (_) => _searchUser(),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  key: const ValueKey('participantManagerSearchUserButton'),
-                  onPressed: _isBusy ? null : _searchUser,
-                  icon: const Icon(Icons.search, size: 18),
-                  label: const Text('사용자 검색'),
-                ),
-                if (_searchedUser != null) ...[
-                  const SizedBox(height: 8),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(_searchedUser!.nickname),
-                    subtitle: const Text('검색된 사용자'),
-                    trailing: ElevatedButton(
-                      onPressed: _isBusy ? null : _linkSelectedGuest,
-                      child: const Text('연결'),
+                      ),
+                      title: Text(_recentlyAddedGuest!.displayName),
+                      subtitle: const Text('방금 추가한 비회원 동행'),
                     ),
+                  ],
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 18),
+                    child: Divider(height: 1, color: AppColors.lineSoft),
                   ),
+                  const Text(
+                    '비회원을 실제 사용자와 연결',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<int>(
+                    initialValue: _selectedGuestParticipantId,
+                    decoration: AppInputDecorations.filled(
+                      hintText: '비회원 동행 선택',
+                    ),
+                    items: guestParticipants
+                        .map(
+                          (participant) => DropdownMenuItem<int>(
+                            value: participant.id,
+                            child: Text(participant.displayName),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _isBusy
+                        ? null
+                        : (value) => setState(
+                            () => _selectedGuestParticipantId = value,
+                          ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const ValueKey('participantManagerNicknameField'),
+                    controller: _nicknameController,
+                    decoration: AppInputDecorations.filled(hintText: '닉네임 검색'),
+                    onSubmitted: (_) => _searchUser(),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    key: const ValueKey('participantManagerSearchUserButton'),
+                    onPressed: _isBusy ? null : _searchUser,
+                    icon: const Icon(Icons.search, size: 18),
+                    label: const Text('사용자 검색'),
+                  ),
+                  if (_searchedUser != null) ...[
+                    const SizedBox(height: 8),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(_searchedUser!.nickname),
+                      subtitle: const Text('검색된 사용자'),
+                      trailing: ElevatedButton(
+                        onPressed: _isBusy ? null : _linkSelectedGuest,
+                        child: const Text('연결'),
+                      ),
+                    ),
+                  ],
                 ],
                 const SizedBox(height: 14),
                 ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
+                  key: const ValueKey('toggleParticipantAddPanelButton'),
+                  onPressed: _isBusy
+                      ? null
+                      : () {
+                          if (_showAddPanel) {
+                            setState(() => _showAddPanel = false);
+                          } else {
+                            setState(() => _showAddPanel = true);
+                          }
+                        },
                   style: AppButtonStyles.elevatedPrimary(),
+                  child: Text(_showAddPanel ? '동행자 목록으로' : '+ 동행자 추가'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
                   child: const Text('완료'),
                 ),
               ],
