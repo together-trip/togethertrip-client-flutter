@@ -8,6 +8,12 @@ import 'package:togethertrip/features/auth/service/terms_agreement_service.dart'
 import 'package:togethertrip/features/trip/service/trip_service.dart';
 import 'package:togethertrip/main.dart';
 
+Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+}
+
 void main() {
   testWidgets('TogetherTripApp smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const TogetherTripApp());
@@ -27,14 +33,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('프로필 설정'), findsOneWidget);
-    expect(find.text('프로필 이미지'), findsOneWidget);
+    expect(find.text('가입 정보를 입력해주세요'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('pickProfileImageButton')),
       findsOneWidget,
     );
     expect(find.text('이미지 선택'), findsOneWidget);
     expect(find.text('약관 동의'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('agreeAllTermsCheckbox')),
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const ValueKey('nicknameField')), '여행자');
@@ -45,7 +54,10 @@ void main() {
     await tester.ensureVisible(
       find.byKey(const ValueKey('checkNicknameButton')),
     );
-    await tester.tap(find.byKey(const ValueKey('checkNicknameButton')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('checkNicknameButton')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('사용 가능한 닉네임입니다.'), findsOneWidget);
@@ -54,13 +66,13 @@ void main() {
       find.byKey(const ValueKey('phoneField')),
       '010-1234-5678',
     );
-    await tester.tap(find.byKey(const ValueKey('requestCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('requestCodeButton')));
     await tester.pump();
 
     expect(find.text('03:00'), findsOneWidget);
 
     await tester.enterText(find.byKey(const ValueKey('codeField')), '123456');
-    await tester.tap(find.byKey(const ValueKey('confirmCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('confirmCodeButton')));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('인증완료'), findsOneWidget);
@@ -202,7 +214,10 @@ void main() {
 
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('agreeAllTermsCheckbox')),
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const ValueKey('nicknameField')), '여행자');
@@ -244,7 +259,10 @@ void main() {
 
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('agreeAllTermsCheckbox')),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('nicknameField')), '여행자');
     await tester.enterText(
@@ -277,7 +295,10 @@ void main() {
 
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('agreeAllTermsCheckbox')),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('nicknameField')), '여행자');
     await tester.enterText(
@@ -429,10 +450,10 @@ void main() {
       find.byKey(const ValueKey('phoneField')),
       '010-1234-5678',
     );
-    await tester.tap(find.byKey(const ValueKey('requestCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('requestCodeButton')));
     await tester.pump();
     await tester.enterText(find.byKey(const ValueKey('codeField')), '123456');
-    await tester.tap(find.byKey(const ValueKey('confirmCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('confirmCodeButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('프로필 설정'), findsOneWidget);
@@ -543,7 +564,10 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('agreeAllTermsCheckbox')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('continueTermsButton')));
     await tester.pumpAndSettle();
@@ -585,7 +609,10 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('agreeAllTermsCheckbox')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('continueTermsButton')));
     await tester.pumpAndSettle();
@@ -605,10 +632,10 @@ void main() {
       find.byKey(const ValueKey('phoneField')),
       '010-1234-5678',
     );
-    await tester.tap(find.byKey(const ValueKey('requestCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('requestCodeButton')));
     await tester.pump();
     await tester.enterText(find.byKey(const ValueKey('codeField')), '123456');
-    await tester.tap(find.byKey(const ValueKey('confirmCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('confirmCodeButton')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('submitButton')));
     await tester.tap(find.byKey(const ValueKey('submitButton')));
@@ -661,7 +688,10 @@ void main() {
 
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('agreeAllTermsCheckbox')),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('nicknameField')), '여행자');
     await tester.enterText(
@@ -697,7 +727,10 @@ void main() {
 
     await tester.tap(find.text('카카오로 시작하기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('agreeAllTermsCheckbox')),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('nicknameField')), '여행자');
     await tester.enterText(
@@ -740,11 +773,11 @@ void main() {
       find.byKey(const ValueKey('phoneField')),
       '010-1234-5678',
     );
-    await tester.tap(find.byKey(const ValueKey('requestCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('requestCodeButton')));
     await tester.pump();
 
     await tester.enterText(find.byKey(const ValueKey('codeField')), '123456');
-    await tester.tap(find.byKey(const ValueKey('confirmCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('confirmCodeButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('프로필 설정'), findsOneWidget);
@@ -773,7 +806,7 @@ void main() {
       find.byKey(const ValueKey('phoneField')),
       '010-1234-5678',
     );
-    await tester.tap(find.byKey(const ValueKey('requestCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('requestCodeButton')));
     await tester.pump();
 
     expect(find.byKey(const ValueKey('codeField')), findsOneWidget);
@@ -810,7 +843,7 @@ void main() {
       find.byKey(const ValueKey('phoneField')),
       '010-1234-5678',
     );
-    await tester.tap(find.byKey(const ValueKey('requestCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('requestCodeButton')));
     await tester.pump();
 
     await tester.enterText(
@@ -845,10 +878,10 @@ void main() {
       find.byKey(const ValueKey('phoneField')),
       '010-1234-5678',
     );
-    await tester.tap(find.byKey(const ValueKey('requestCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('requestCodeButton')));
     await tester.pump();
     await tester.enterText(find.byKey(const ValueKey('codeField')), '123456');
-    await tester.tap(find.byKey(const ValueKey('confirmCodeButton')));
+    await _tapVisible(tester, find.byKey(const ValueKey('confirmCodeButton')));
     await tester.pump();
 
     await tester.enterText(
@@ -877,7 +910,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('프로필 설정'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('agreeAllTermsCheckbox')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('agreeAllTermsCheckbox')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('phoneField')), findsNothing);
@@ -887,7 +923,10 @@ void main() {
       find.byKey(const ValueKey('birthDateField')),
       '1990.01.01',
     );
-    await tester.tap(find.byKey(const ValueKey('checkNicknameButton')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('checkNicknameButton')),
+    );
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('submitButton')));
     await tester.tap(find.byKey(const ValueKey('submitButton')));
