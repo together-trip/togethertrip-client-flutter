@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_design.dart';
@@ -14,12 +17,14 @@ class OnboardingScreen extends StatefulWidget {
   final AuthService authService;
   final TripService? tripService;
   final TermsAgreementService? termsAgreementService;
+  final bool? showAppleLogin;
 
   const OnboardingScreen({
     super.key,
     required this.authService,
     this.tripService,
     this.termsAgreementService,
+    this.showAppleLogin,
   });
 
   @override
@@ -53,17 +58,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final result = await widget.authService.loginWithKakao();
       if (!mounted) return;
 
-      if (result.isAuthenticated) {
-        await _openMainOrRepairSignup();
-        return;
-      }
-
-      if (result.isProfileRequired) {
-        _openSignUpProfile(result);
-        return;
-      }
-
-      setState(() => _errorMessage = '로그인 응답 상태를 확인할 수 없습니다.');
+      await _handleLoginResult(result);
     } on KakaoAuthException catch (e) {
       if (e.error == AuthErrorCause.accessDenied) {
         _clearLoginError();
@@ -92,6 +87,55 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _startWithApple() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await widget.authService.loginWithApple();
+      if (!mounted) return;
+      await _handleLoginResult(result);
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        _clearLoginError();
+      } else {
+        setState(() => _errorMessage = 'Apple 로그인에 실패했습니다. 다시 시도해주세요.');
+      }
+    } on AppleCredentialRevokedException {
+      setState(() => _errorMessage = 'Apple 로그인 권한이 해제되었습니다. 다시 승인해주세요.');
+    } on ApiException catch (e) {
+      setState(() => _errorMessage = e.message);
+    } on PlatformException catch (e) {
+      if (e.code.toLowerCase().contains('cancel')) {
+        _clearLoginError();
+      } else {
+        setState(() => _errorMessage = 'Apple 로그인에 실패했습니다. 다시 시도해주세요.');
+      }
+    } catch (_) {
+      setState(() => _errorMessage = 'Apple 로그인에 실패했습니다. 네트워크 상태를 확인해주세요.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleLoginResult(AuthLoginResult result) async {
+    if (result.isAuthenticated) {
+      await _openMainOrRepairSignup();
+      return;
+    }
+    if (result.isProfileRequired) {
+      _openSignUpProfile(result);
+      return;
+    }
+    if (mounted) {
+      setState(() => _errorMessage = '로그인 응답 상태를 확인할 수 없습니다.');
     }
   }
 
@@ -200,6 +244,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                 ),
               ),
+              if (widget.showAppleLogin ?? Platform.isIOS) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 52,
+                  child: IgnorePointer(
+                    ignoring: _isLoading,
+                    child: Opacity(
+                      opacity: _isLoading ? 0.55 : 1,
+                      child: SignInWithAppleButton(
+                        onPressed: _startWithApple,
+                        style: SignInWithAppleButtonStyle.black,
+                        text: 'Apple로 시작하기',
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

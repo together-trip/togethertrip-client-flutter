@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:togethertrip/features/auth/screen/sign_up_profile_screen.dart';
+import 'package:togethertrip/features/auth/screen/onboarding_screen.dart';
 import 'package:togethertrip/features/auth/service/auth_service.dart';
 import 'package:togethertrip/features/auth/service/terms_agreement_service.dart';
 import 'package:togethertrip/features/trip/service/trip_service.dart';
@@ -258,6 +259,22 @@ void main() {
     expect(find.textContaining('카카오 SDK 오류'), findsNothing);
     expect(find.textContaining('오류가 발생했습니다'), findsNothing);
   });
+
+  testWidgets('iOS 로그인 화면은 Apple 버튼을 동등하게 노출하고 가입 흐름으로 연결한다', (tester) async {
+    final authService = _FakeAuthService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OnboardingScreen(authService: authService, showAppleLogin: true),
+      ),
+    );
+
+    expect(find.text('카카오로 시작하기'), findsOneWidget);
+    expect(find.text('Apple로 시작하기'), findsOneWidget);
+    await tester.tap(find.text('Apple로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('프로필 설정'), findsOneWidget);
+  });
 }
 
 class _FakeAuthService extends AuthService {
@@ -280,6 +297,15 @@ class _FakeAuthService extends AuthService {
 
   @override
   Future<AuthLoginResult> loginWithKakao() async {
+    return AuthLoginResult(
+      status: authenticatedLogin ? 'AUTHENTICATED' : 'PROFILE_REQUIRED',
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    );
+  }
+
+  @override
+  Future<AuthLoginResult> loginWithApple() async {
     return AuthLoginResult(
       status: authenticatedLogin ? 'AUTHENTICATED' : 'PROFILE_REQUIRED',
       accessToken: 'access-token',
