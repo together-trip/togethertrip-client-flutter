@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widget/app_design.dart';
 import '../model/place_models.dart';
 import '../screen/place_picker_screen.dart';
 import '../service/place_location_provider.dart';
@@ -27,35 +28,81 @@ class PlaceInputField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      key: const ValueKey('placeInputField'),
-      onTap: enabled ? () => _openPicker(context) : null,
-      borderRadius: BorderRadius.circular(12),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: '장소',
-          prefixIcon: const Icon(Icons.place_outlined),
-          suffixIcon: selection == null
-              ? const Icon(Icons.chevron_right_rounded)
-              : IconButton(
-                  key: const ValueKey('clearPlaceButton'),
-                  tooltip: '장소 지우기',
-                  onPressed: enabled ? () => onChanged(null) : null,
-                  icon: const Icon(Icons.close),
-                ),
-          filled: true,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        isEmpty: selection == null,
-        child: Text(
-          selection?.name ?? '검색하거나 지도에서 선택',
+    final valueColor = enabled
+        ? selection == null
+              ? AppColors.textSubtle
+              : AppColors.ink
+        : AppColors.disabledText;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '장소',
           style: TextStyle(
-            color: selection == null
-                ? Theme.of(context).hintColor
-                : Theme.of(context).colorScheme.onSurface,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textSubtle,
           ),
         ),
-      ),
+        const SizedBox(height: 6),
+        Semantics(
+          button: true,
+          enabled: enabled,
+          label: selection == null
+              ? '장소 선택, 검색하거나 지도에서 선택'
+              : '선택한 장소 ${selection!.name}',
+          child: InkWell(
+            key: const ValueKey('placeInputField'),
+            onTap: enabled ? () => _openPicker(context) : null,
+            borderRadius: AppRadii.controlRadius,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 52),
+              padding: const EdgeInsets.only(left: 14),
+              decoration: BoxDecoration(
+                color: enabled ? AppColors.surface : AppColors.neutralSoft,
+                borderRadius: AppRadii.controlRadius,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.place_outlined,
+                    size: 20,
+                    color: enabled
+                        ? AppColors.textSubtle
+                        : AppColors.disabledText,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      selection?.name ?? '검색하거나 지도에서 선택',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 14, color: valueColor),
+                    ),
+                  ),
+                  if (selection == null)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 14),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textMuted,
+                      ),
+                    )
+                  else
+                    IconButton(
+                      key: const ValueKey('clearPlaceButton'),
+                      tooltip: '장소 지우기',
+                      onPressed: enabled ? () => onChanged(null) : null,
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      color: AppColors.textSubtle,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

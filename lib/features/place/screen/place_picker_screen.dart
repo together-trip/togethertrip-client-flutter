@@ -46,6 +46,7 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
   Timer? _debounce;
   List<PlaceSuggestion> _suggestions = const [];
   PlaceSelection? _selection;
+  PlaceSelection? _selectionBeforeManual;
   bool _isSearching = false;
   bool _isResolving = false;
   bool _manualMode = false;
@@ -189,6 +190,7 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
   }
 
   void _applySelection(PlaceSelection selection) {
+    FocusScope.of(context).unfocus();
     setState(() {
       _selection = selection;
       _manualController.text = selection.name;
@@ -223,11 +225,18 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
   }
 
   void _toggleManualMode() {
+    FocusScope.of(context).unfocus();
+    final enteringManualMode = !_manualMode;
     setState(() {
-      _manualMode = !_manualMode;
+      _manualMode = enteringManualMode;
       _errorMessage = null;
-      if (_manualMode) {
+      _searchController.clear();
+      _suggestions = const [];
+      if (enteringManualMode) {
+        _selectionBeforeManual = _selection;
         _selection = null;
+      } else {
+        _selection = _selectionBeforeManual;
       }
     });
   }
@@ -263,143 +272,325 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final mapTop = _manualMode ? 108.0 : 76.0;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: const Text('장소 선택', style: AppTextStyles.screenTitle),
+        leading: IconButton(
+          tooltip: '뒤로',
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.chevron_left_rounded),
+        ),
+        title: const Text('장소 선택'),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: TextField(
-                key: const ValueKey('placeSearchField'),
-                controller: _searchController,
-                enabled: !_manualMode && !_isResolving,
-                decoration: AppInputDecorations.filled(
-                  hintText: '어디로 가시나요?',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                ),
-              ),
-            ),
-            if (_isSearching) const LinearProgressIndicator(minHeight: 2),
-            if (_suggestions.isNotEmpty)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _suggestions.length,
-                  itemBuilder: (context, index) {
-                    final suggestion = _suggestions[index];
-                    return ListTile(
-                      key: ValueKey('placeSuggestion_${suggestion.placeId}'),
-                      tileColor: Colors.white,
-                      leading: const CircleAvatar(
-                        backgroundColor: AppColors.brandSoft,
-                        child: Icon(
-                          Icons.place_outlined,
-                          color: AppColors.brandStrong,
-                        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final suggestionMaxHeight =
+                (constraints.maxHeight - 72 - (keyboardVisible ? 12 : 174))
+                    .clamp(56.0, 280.0)
+                    .toDouble();
+            return Stack(
+              children: [
+                Positioned(
+                  key: const ValueKey('placeMapArea'),
+                  top: mapTop,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Semantics(
+                    label: '장소 위치 지도',
+                    container: true,
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(20),
                       ),
-                      title: Text(suggestion.name),
-                      subtitle: suggestion.address == null
-                          ? null
-                          : Text(suggestion.address!),
-                      onTap: _isResolving
-                          ? null
-                          : () => _selectSuggestion(suggestion),
-                    );
-                  },
-                ),
-              ),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
-                ),
-                child: _buildMap(),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (_selection != null && !_manualMode)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(
-                        Icons.location_on,
-                        color: AppColors.brandStrong,
-                      ),
-                      title: Text(_selection!.name),
-                      subtitle: Text(_selection!.address),
+                      child: _buildMap(),
                     ),
-                  if (_manualMode)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          key: const ValueKey('manualPlaceField'),
-                          controller: _manualController,
-                          maxLength: 100,
-                          decoration: AppInputDecorations.filled(
-                            labelText: '장소명 직접 입력',
-                          ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 8),
-                          child: Text('지도에서 위치를 누르면 핀도 함께 저장돼요.'),
-                        ),
-                      ],
-                    ),
-                  if (_errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(color: AppColors.danger),
-                      ),
-                    ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          key: const ValueKey('currentLocationButton'),
-                          onPressed: _isResolving ? null : _useCurrentLocation,
-                          icon: const Icon(Icons.my_location),
-                          label: const Text('현재 위치'),
-                          style: AppButtonStyles.outlined(
-                            sideColor: AppColors.lineSoft,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton(
-                          key: const ValueKey('manualPlaceButton'),
-                          onPressed: _isResolving ? null : _toggleManualMode,
-                          style: AppButtonStyles.outlined(
-                            sideColor: AppColors.lineSoft,
-                          ),
-                          child: Text(_manualMode ? '장소 검색' : '직접 입력'),
-                        ),
-                      ),
-                    ],
                   ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    key: const ValueKey('confirmPlaceButton'),
-                    onPressed: _isResolving ? null : _confirm,
-                    style: AppButtonStyles.elevatedPrimary(),
-                    child: Text(_isResolving ? '위치 확인 중...' : '이 장소 선택'),
+                ),
+                Positioned(
+                  top: 12,
+                  left: 16,
+                  right: 16,
+                  child: _buildTopInput(),
+                ),
+                if (_isSearching)
+                  const Positioned(
+                    top: 72,
+                    left: 16,
+                    right: 16,
+                    child: LinearProgressIndicator(minHeight: 2),
                   ),
-                ],
-              ),
+                if (!_manualMode && _suggestions.isNotEmpty)
+                  Positioned(
+                    top: 72,
+                    left: 16,
+                    right: 16,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: suggestionMaxHeight,
+                      ),
+                      child: _buildSuggestions(),
+                    ),
+                  ),
+                if (keyboardVisible &&
+                    _errorMessage != null &&
+                    _suggestions.isEmpty)
+                  Positioned(
+                    top: mapTop + 10,
+                    left: 16,
+                    right: 72,
+                    child: _buildErrorMessage(),
+                  ),
+                Positioned(
+                  right: 16,
+                  bottom: keyboardVisible ? 16 : 178,
+                  child: Semantics(
+                    button: true,
+                    label: '현재 위치 사용',
+                    child: IconButton(
+                      key: const ValueKey('currentLocationButton'),
+                      tooltip: '현재 위치',
+                      onPressed: _isResolving ? null : _useCurrentLocation,
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.surface,
+                        foregroundColor: AppColors.ink,
+                        fixedSize: const Size(48, 48),
+                        elevation: 1,
+                        shadowColor: Colors.black26,
+                      ),
+                      icon: const Icon(Icons.my_location_rounded, size: 20),
+                    ),
+                  ),
+                ),
+                if (!keyboardVisible)
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: _buildBottomPanel(),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopInput() {
+    if (_manualMode) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            key: const ValueKey('manualPlaceField'),
+            controller: _manualController,
+            enabled: !_isResolving,
+            maxLength: 100,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => FocusScope.of(context).unfocus(),
+            decoration: AppInputDecorations.filled(
+              hintText: '장소명을 입력해주세요',
+              prefixIcon: const Icon(Icons.edit_location_alt_outlined),
+              counterText: '',
             ),
-          ],
+          ),
+          const SizedBox(height: 6),
+          const Text('지도에서 위치를 누르면 핀도 함께 저장돼요.', style: AppTextStyles.caption),
+        ],
+      );
+    }
+
+    return TextField(
+      key: const ValueKey('placeSearchField'),
+      controller: _searchController,
+      enabled: !_isResolving,
+      textInputAction: TextInputAction.search,
+      decoration: AppInputDecorations.filled(
+        hintText: '장소명 또는 주소 검색',
+        prefixIcon: const Icon(Icons.search_rounded),
+      ),
+    );
+  }
+
+  Widget _buildSuggestions() {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: AppRadii.controlRadius,
+      clipBehavior: Clip.antiAlias,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.lineSoft),
+          borderRadius: AppRadii.controlRadius,
+        ),
+        child: ListView.separated(
+          shrinkWrap: true,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          itemCount: _suggestions.length,
+          separatorBuilder: (_, _) => const Divider(indent: 50),
+          itemBuilder: (context, index) {
+            final suggestion = _suggestions[index];
+            return ListTile(
+              key: ValueKey('placeSuggestion_${suggestion.placeId}'),
+              minTileHeight: 56,
+              leading: const Icon(
+                Icons.location_on_outlined,
+                color: AppColors.textSubtle,
+              ),
+              title: Text(
+                suggestion.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: suggestion.address == null
+                  ? null
+                  : Text(
+                      suggestion.address!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+              onTap: _isResolving ? null : () => _selectSuggestion(suggestion),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorMessage() {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadii.controlRadius,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: _buildAccessibleError(),
+      ),
+    );
+  }
+
+  Widget _buildAccessibleError() {
+    return Semantics(
+      liveRegion: true,
+      child: Text(_errorMessage!, style: AppTextStyles.error),
+    );
+  }
+
+  Widget _buildBottomPanel() {
+    final selection = _selection;
+    return DecoratedBox(
+      key: const ValueKey('placeBottomPanel'),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.lineSoft)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (selection == null)
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '지도에서 위치를 선택하세요',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      '지도를 누르거나 현재 위치를 사용할 수 있어요.',
+                      style: AppTextStyles.caption,
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on_rounded,
+                      color: AppColors.brandStrong,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            selection.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            selection.address,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.caption,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.check_rounded, color: AppColors.success),
+                  ],
+                ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 6),
+                _buildAccessibleError(),
+              ],
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  key: const ValueKey('confirmPlaceButton'),
+                  onPressed: _isResolving ? null : _confirm,
+                  style: AppButtonStyles.elevatedPrimary(radius: 12),
+                  child: Text(_isResolving ? '위치 확인 중...' : '이 장소 선택'),
+                ),
+              ),
+              SizedBox(
+                height: 44,
+                child: TextButton(
+                  key: const ValueKey('manualPlaceButton'),
+                  onPressed: _isResolving ? null : _toggleManualMode,
+                  style: AppButtonStyles.inkText(),
+                  child: _manualMode
+                      ? const Text('장소 검색으로 돌아가기')
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '찾는 장소가 없나요?',
+                              style: TextStyle(color: AppColors.textSubtle),
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              '직접 입력',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

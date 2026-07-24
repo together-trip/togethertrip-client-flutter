@@ -39,6 +39,75 @@ void main() {
     expect(result?.latitude, 35.681236);
   });
 
+  testWidgets('작은 화면에서 키보드로 검색하는 동안 overflow가 발생하지 않는다', (tester) async {
+    tester.view.physicalSize = const Size(390, 600);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    await _pumpHarness(tester, service: _FakePlaceService(), onResult: (_) {});
+
+    await tester.enterText(
+      find.byKey(const ValueKey('placeSearchField')),
+      '도쿄역',
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byKey(const ValueKey('placeSuggestion_place-1')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('confirmPlaceButton')), findsNothing);
+  });
+
+  testWidgets('검색 화면은 지도 위 결과 목록과 하단 선택 영역을 분리한다', (tester) async {
+    await _pumpHarness(
+      tester,
+      service: _FakePlaceService(),
+      initialSelection: _selection,
+      onResult: (_) {},
+    );
+
+    expect(find.byKey(const ValueKey('placeMapArea')), findsOneWidget);
+    expect(find.byKey(const ValueKey('placeBottomPanel')), findsOneWidget);
+    expect(find.byKey(const ValueKey('currentLocationButton')), findsOneWidget);
+    expect(find.text('찾는 장소가 없나요?'), findsOneWidget);
+    expect(find.text('직접 입력'), findsOneWidget);
+    final currentLocationSize = tester.getSize(
+      find.byKey(const ValueKey('currentLocationButton')),
+    );
+    expect(currentLocationSize.width, greaterThanOrEqualTo(44));
+    expect(currentLocationSize.height, greaterThanOrEqualTo(44));
+  });
+
+  testWidgets('작은 화면에서 직접 입력 중 키보드가 열려도 overflow가 발생하지 않는다', (tester) async {
+    tester.view.physicalSize = const Size(390, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    await _pumpHarness(tester, service: _FakePlaceService(), onResult: (_) {});
+    await tester.tap(find.byKey(const ValueKey('manualPlaceButton')));
+    await tester.pump();
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('manualPlaceField')),
+      '우리 숙소',
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('manualPlaceField')), findsOneWidget);
+    expect(find.byKey(const ValueKey('confirmPlaceButton')), findsNothing);
+  });
+
   testWidgets('직접 입력은 오래된 좌표 없이 장소명만 반환한다', (tester) async {
     PlaceSelection? result;
     await _pumpHarness(
