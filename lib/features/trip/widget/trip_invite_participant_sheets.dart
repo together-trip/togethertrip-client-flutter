@@ -55,7 +55,7 @@ class TripInviteValueSheet extends StatelessWidget {
                     context,
                   ).showSnackBar(SnackBar(content: Text(copiedMessage)));
                 },
-                icon: const Icon(Icons.copy, size: 18),
+                icon: const Icon(Icons.content_copy_rounded, size: 18),
                 label: const Text('복사'),
                 style: AppButtonStyles.elevatedPrimary(),
               ),
@@ -70,11 +70,13 @@ class TripInviteValueSheet extends StatelessWidget {
 class TripParticipantManagerSheet extends StatefulWidget {
   final TripDetail trip;
   final TripService tripService;
+  final bool initiallyShowAddPanel;
 
   const TripParticipantManagerSheet({
     super.key,
     required this.trip,
     required this.tripService,
+    this.initiallyShowAddPanel = false,
   });
 
   @override
@@ -115,7 +117,7 @@ class _TripParticipantManagerSheetState
   int? _selectedGuestParticipantId;
   UserSearchUser? _searchedUser;
   bool _isBusy = false;
-  bool _showAddPanel = false;
+  late bool _showAddPanel;
   String? _message;
   TripParticipant? _recentlyAddedGuest;
 
@@ -123,6 +125,7 @@ class _TripParticipantManagerSheetState
   void initState() {
     super.initState();
     _participants = [...widget.trip.participants];
+    _showAddPanel = widget.initiallyShowAddPanel;
   }
 
   @override
@@ -528,7 +531,7 @@ class _TripParticipantManagerSheetState
                   OutlinedButton.icon(
                     key: const ValueKey('participantManagerSearchUserButton'),
                     onPressed: _isBusy ? null : _searchUser,
-                    icon: const Icon(Icons.search, size: 18),
+                    icon: const Icon(Icons.search_rounded, size: 18),
                     label: const Text('사용자 검색'),
                   ),
                   if (_searchedUser != null) ...[

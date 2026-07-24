@@ -239,7 +239,7 @@ class _SettlementScreenState extends State<SettlementScreen> {
           centerTitle: false,
           leading: IconButton(
             onPressed: _close,
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.chevron_left_rounded),
             tooltip: '뒤로',
           ),
           title: const Text(

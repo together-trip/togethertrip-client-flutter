@@ -36,7 +36,7 @@ class PlaceInputField extends StatelessWidget {
           labelText: '장소',
           prefixIcon: const Icon(Icons.place_outlined),
           suffixIcon: selection == null
-              ? const Icon(Icons.chevron_right)
+              ? const Icon(Icons.chevron_right_rounded)
               : IconButton(
                   key: const ValueKey('clearPlaceButton'),
                   tooltip: '장소 지우기',

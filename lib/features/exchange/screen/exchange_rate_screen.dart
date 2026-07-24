@@ -261,7 +261,7 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
           IconButton(
             key: const ValueKey('exchangeRefreshButton'),
             onPressed: _isLoading ? null : _loadRates,
-            icon: const Icon(Icons.refresh, size: 22),
+            icon: const Icon(Icons.refresh_rounded, size: 22),
             color: AppColors.ink,
             tooltip: '환율 새로고침',
           ),
@@ -347,7 +347,7 @@ class _CountrySelector extends StatelessWidget {
               child: DropdownButton<ExchangeCountryOption>(
                 value: selectedCountry,
                 isExpanded: true,
-                icon: const Icon(Icons.keyboard_arrow_down),
+                icon: const Icon(Icons.keyboard_arrow_down_rounded),
                 items: exchangeCountryOptions
                     .map(
                       (country) => DropdownMenuItem<ExchangeCountryOption>(
@@ -483,7 +483,7 @@ class _RateSummaryCard extends StatelessWidget {
                 IconButton(
                   key: const ValueKey('exchangeSettlementNoticeButton'),
                   onPressed: onShowSettlementNotice,
-                  icon: const Icon(Icons.info_outline),
+                  icon: const Icon(Icons.info_outline_rounded),
                   color: AppColors.brandStrong,
                   tooltip: '정산 환율 안내',
                   visualDensity: VisualDensity.compact,

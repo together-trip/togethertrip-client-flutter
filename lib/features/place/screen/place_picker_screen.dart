@@ -280,7 +280,7 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
                 enabled: !_manualMode && !_isResolving,
                 decoration: AppInputDecorations.filled(
                   hintText: '어디로 가시나요?',
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: const Icon(Icons.search_rounded),
                 ),
               ),
             ),

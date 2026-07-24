@@ -618,7 +618,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 const SizedBox(height: 12),
                 _CreateOptionTile(
                   key: const ValueKey('createRecordOption'),
-                  icon: Icons.edit_note_outlined,
+                  icon: Icons.edit_outlined,
                   title: '기록',
                   selected: defaultPostType == 'RECORD',
                   onTap: () => Navigator.of(context).pop('RECORD'),
@@ -626,7 +626,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 const SizedBox(height: 8),
                 _CreateOptionTile(
                   key: const ValueKey('createExpenseOption'),
-                  icon: Icons.payments_outlined,
+                  icon: Icons.account_balance_wallet_outlined,
                   title: '소비',
                   subtitle: isExpenseLocked ? _expenseLockedMessage : null,
                   selected: !isExpenseLocked && defaultPostType == 'EXPENSE',
@@ -764,7 +764,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 ListTile(
                   key: const ValueKey('postDeleteAction'),
                   leading: Icon(
-                    Icons.delete_outline,
+                    Icons.delete_outline_rounded,
                     color: isLockedExpensePost
                         ? AppColors.textSubtle
                         : AppColors.danger,
@@ -959,7 +959,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               ? null
               : IconButton(
                   onPressed: () => onClose(_changed),
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(Icons.chevron_left_rounded),
                   tooltip: '뒤로',
                 ),
           actions: [
@@ -992,7 +992,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             onPressed: _openCreateChooser,
             backgroundColor: AppColors.brand,
             foregroundColor: Colors.white,
-            child: const Icon(Icons.add),
+            child: const Icon(Icons.add_rounded),
           ),
         ),
         body: _buildBody(),
@@ -1227,7 +1227,7 @@ class _TripFeedHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 2),
                   const Icon(
-                    Icons.chevron_right,
+                    Icons.chevron_right_rounded,
                     size: 19,
                     color: AppColors.textSubtle,
                   ),
@@ -1288,7 +1288,7 @@ class _TripRecapAction extends StatelessWidget {
           title: 'Recap 상태를 확인하지 못했어요',
           subtitle: '다시 시도해 주세요.',
           onTap: onRetry,
-          trailing: const Icon(Icons.refresh, size: 20),
+          trailing: const Icon(Icons.refresh_rounded, size: 20),
         ),
       );
     }
@@ -1395,7 +1395,7 @@ _RecapActionCopy _recapActionCopy(TripRecapStatusValue status) {
   return switch (status) {
     TripRecapStatusValue.none => const _RecapActionCopy(
       icon: Icons.auto_awesome_outlined,
-      trailingIcon: Icons.chevron_right,
+      trailingIcon: Icons.chevron_right_rounded,
       title: '지난 여행 Recap 만들기',
       subtitle: '사진 또는 일러스트 스타일을 선택해요.',
     ),
@@ -1407,12 +1407,12 @@ _RecapActionCopy _recapActionCopy(TripRecapStatusValue status) {
     ),
     TripRecapStatusValue.completed => const _RecapActionCopy(
       icon: Icons.auto_stories_outlined,
-      trailingIcon: Icons.chevron_right,
+      trailingIcon: Icons.chevron_right_rounded,
       title: '지난 여행 Recap 보기',
     ),
     TripRecapStatusValue.failed => const _RecapActionCopy(
-      icon: Icons.refresh,
-      trailingIcon: Icons.chevron_right,
+      icon: Icons.refresh_rounded,
+      trailingIcon: Icons.chevron_right_rounded,
       title: 'Recap 다시 만들기',
       subtitle: '스타일을 다시 선택할 수 있어요.',
     ),
@@ -1630,7 +1630,7 @@ class _PostFeedCardState extends State<_PostFeedCard> {
                   ),
                   if (isExpense && widget.onTransactionTap != null)
                     _FeedAction(
-                      icon: Icons.payments_outlined,
+                      icon: Icons.account_balance_wallet_outlined,
                       label: widget.transaction == null
                           ? '소비 정보'
                           : _moneyLabel(widget.transaction!.summary),
@@ -1930,13 +1930,13 @@ class _TripInfoSheet extends StatelessWidget {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onCreateInviteLink,
-                  icon: const Icon(Icons.link, size: 18),
+                  icon: const Icon(Icons.link_rounded, size: 18),
                   label: const Text('초대 링크 공유'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onCreateInviteCode,
-                  icon: const Icon(Icons.pin_outlined, size: 18),
+                  icon: const Icon(Icons.key_rounded, size: 18),
                   label: const Text('초대 코드 공유'),
                 ),
                 const SizedBox(height: 8),
@@ -1948,7 +1948,7 @@ class _TripInfoSheet extends StatelessWidget {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline, size: 18),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
                   label: const Text('여행 삭제'),
                   style: AppButtonStyles.outlined(sideColor: AppColors.danger)
                       .copyWith(
@@ -2364,7 +2364,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                     IconButton(
                                       onPressed: () => _delete(comment),
                                       icon: const Icon(
-                                        Icons.delete_outline,
+                                        Icons.delete_outline_rounded,
                                         size: 20,
                                       ),
                                       tooltip: '댓글 삭제',

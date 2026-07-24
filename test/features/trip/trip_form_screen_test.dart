@@ -127,6 +127,14 @@ void main() {
     expect(find.text('여행을 만들었어요'), findsOneWidget);
     expect(find.text('초대 링크 보내기'), findsOneWidget);
     expect(find.text('나중에'), findsOneWidget);
+
+    await tester.tap(find.text('비회원 동행 추가'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('guestParticipantNameField')),
+      findsOneWidget,
+    );
   });
 }
 

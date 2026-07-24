@@ -42,7 +42,11 @@ class MyMenuRow extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF9E9E9E)),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 22,
+              color: Color(0xFF9E9E9E),
+            ),
           ],
         ),
       ),

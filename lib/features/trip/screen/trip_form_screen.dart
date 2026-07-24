@@ -667,8 +667,11 @@ class _TripFormScreenState extends State<TripFormScreen> {
     await showAppBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (_) =>
-          TripParticipantManagerSheet(trip: trip, tripService: _tripService),
+      builder: (_) => TripParticipantManagerSheet(
+        trip: trip,
+        tripService: _tripService,
+        initiallyShowAddPanel: true,
+      ),
     );
   }
 
@@ -1148,7 +1151,7 @@ class _CountryStep extends StatelessWidget {
           key: const ValueKey('tripCountrySearchField'),
           controller: searchController,
           hintText: '국가 검색',
-          prefixIcon: Icons.search,
+          prefixIcon: Icons.search_rounded,
           onChanged: (_) => onSearchChanged(),
           readOnly: false,
         ),
@@ -1259,7 +1262,7 @@ class _CompanionStep extends StatelessWidget {
           key: const ValueKey('tripCompanionsField'),
           controller: searchController,
           hintText: '사용자 닉네임 입력',
-          prefixIcon: Icons.search,
+          prefixIcon: Icons.search_rounded,
           onSubmitted: (_) => onSearch(),
           readOnly: isEdit,
         ),
@@ -1272,7 +1275,7 @@ class _CompanionStep extends StatelessWidget {
                   height: 14,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.search, size: 16),
+              : const Icon(Icons.search_rounded, size: 16),
           label: const Text('사용자 검색'),
           style: AppButtonStyles.outlined().copyWith(
             foregroundColor: WidgetStateProperty.resolveWith((states) {
@@ -1395,7 +1398,7 @@ class _UserSearchResultRow extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.add, size: 18, color: AppColors.ink),
+            const Icon(Icons.add_rounded, size: 18, color: AppColors.ink),
           ],
         ),
       ),

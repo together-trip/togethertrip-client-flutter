@@ -223,7 +223,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       return ListView(
         padding: const EdgeInsets.fromLTRB(20, 120, 20, 20),
         children: const [
-          Icon(Icons.notifications_none, size: 36, color: AppColors.textSubtle),
+          Icon(
+            Icons.notifications_none_rounded,
+            size: 36,
+            color: AppColors.textSubtle,
+          ),
           SizedBox(height: 14),
           Text(
             '새 알림이 없습니다.',
@@ -335,7 +339,11 @@ class _DeleteNotificationBackground extends StatelessWidget {
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       color: AppColors.danger,
-      child: const Icon(Icons.delete_outline, color: Colors.white, size: 22),
+      child: const Icon(
+        Icons.delete_outline_rounded,
+        color: Colors.white,
+        size: 22,
+      ),
     );
   }
 }
@@ -360,8 +368,8 @@ class _NotificationTile extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Icon(
                 notification.isRead
-                    ? Icons.notifications_none
-                    : Icons.notifications_active,
+                    ? Icons.notifications_none_rounded
+                    : Icons.notifications_active_rounded,
                 size: 22,
                 color: notification.isRead
                     ? AppColors.textMuted

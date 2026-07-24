@@ -196,7 +196,7 @@ class _TripListScreenState extends State<TripListScreen> {
             child: IconButton(
               key: const ValueKey('createTripButton'),
               onPressed: _openCreate,
-              icon: const Icon(Icons.add, size: 24),
+              icon: const Icon(Icons.add_rounded, size: 24),
               color: AppColors.ink,
               tooltip: '여행 만들기',
             ),

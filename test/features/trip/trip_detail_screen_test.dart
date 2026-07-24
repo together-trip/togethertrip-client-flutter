@@ -197,6 +197,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('postEditAction')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('expenseNextButton')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('saveExpenseButton')));
     await tester.pumpAndSettle();
 

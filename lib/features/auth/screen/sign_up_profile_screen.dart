@@ -1036,7 +1036,7 @@ class _TermsCheckboxRow extends StatelessWidget {
                   key: ValueKey('termsDetailButton_$title'),
                   tooltip: '약관 보기',
                   onPressed: onView,
-                  icon: const Icon(Icons.chevron_right, size: 20),
+                  icon: const Icon(Icons.chevron_right_rounded, size: 20),
                   color: AppColors.textSubtle,
                 ),
               ],
