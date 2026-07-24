@@ -240,9 +240,9 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: false,
         title: const Text(
@@ -273,17 +273,8 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
           children: [
-            _CountrySelector(
-              selectedCountry: _selectedCountry,
-              onChanged: _isLoading ? null : _selectCountry,
-            ),
+            const Text('금액을 바로 환산해보세요', style: AppTextStyles.sectionTitle),
             const SizedBox(height: 12),
-            _PeriodSelector(
-              selectedPeriod: _selectedPeriod,
-              customRange: _customRange,
-              onSelect: _isLoading ? null : _selectPeriod,
-            ),
-            const SizedBox(height: 14),
             _RateSummaryCard(
               country: _selectedCountry,
               latestRate: _latestRate,
@@ -294,6 +285,19 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
               onAmountChanged: () => setState(() {}),
               onSwapDirection: _swapDirection,
               onShowSettlementNotice: _showSettlementNotice,
+            ),
+            const SizedBox(height: 20),
+            const Text('환율 기준', style: AppTextStyles.sectionTitle),
+            const SizedBox(height: 10),
+            _CountrySelector(
+              selectedCountry: _selectedCountry,
+              onChanged: _isLoading ? null : _selectCountry,
+            ),
+            const SizedBox(height: 12),
+            _PeriodSelector(
+              selectedPeriod: _selectedPeriod,
+              customRange: _customRange,
+              onSelect: _isLoading ? null : _selectPeriod,
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
@@ -325,9 +329,9 @@ class _CountrySelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E2E2)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.lineSoft),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -406,7 +410,7 @@ class _PeriodSelector extends StatelessWidget {
             label: Text(option.$2),
             selected: selected,
             onSelected: onSelect == null ? null : (_) => onSelect!(option.$1),
-            selectedColor: AppColors.ink,
+            selectedColor: AppColors.brand,
             backgroundColor: Colors.white,
             labelStyle: TextStyle(
               color: selected ? Colors.white : AppColors.ink,
@@ -414,7 +418,7 @@ class _PeriodSelector extends StatelessWidget {
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(999),
-              side: const BorderSide(color: Color(0xFFE2E2E2)),
+              side: const BorderSide(color: AppColors.lineSoft),
             ),
           );
         },
@@ -461,8 +465,8 @@ class _RateSummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.ink,
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.brandSoft,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,7 +477,7 @@ class _RateSummaryCard extends StatelessWidget {
                 child: Text(
                   '${country.countryName} ${country.currencyCode}',
                   style: const TextStyle(
-                    color: Colors.white70,
+                    color: AppColors.brandStrong,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -484,7 +488,7 @@ class _RateSummaryCard extends StatelessWidget {
                   key: const ValueKey('exchangeSettlementNoticeButton'),
                   onPressed: onShowSettlementNotice,
                   icon: const Icon(Icons.info_outline),
-                  color: Colors.white,
+                  color: AppColors.brandStrong,
                   tooltip: '정산 환율 안내',
                   visualDensity: VisualDensity.compact,
                 ),
@@ -492,7 +496,7 @@ class _RateSummaryCard extends StatelessWidget {
                   key: const ValueKey('exchangeSwapDirectionButton'),
                   onPressed: onSwapDirection,
                   icon: const Icon(Icons.swap_vert),
-                  color: Colors.white,
+                  color: AppColors.brandStrong,
                   tooltip: '계산 방향 바꾸기',
                   visualDensity: VisualDensity.compact,
                 ),
@@ -503,18 +507,18 @@ class _RateSummaryCard extends StatelessWidget {
           if (isLoading)
             const Text(
               '환율을 불러오는 중입니다.',
-              style: TextStyle(color: Colors.white, fontSize: 15),
+              style: TextStyle(color: AppColors.ink, fontSize: 15),
             )
           else if (rate == null)
             const Text(
               '선택한 기간의 환율이 없습니다.',
-              style: TextStyle(color: Colors.white, fontSize: 15),
+              style: TextStyle(color: AppColors.ink, fontSize: 15),
             )
           else ...[
             Text(
               '1 ${rate.targetCurrency} = ${_formatRate(rate.rate)} KRW',
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.ink,
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
               ),
@@ -522,7 +526,7 @@ class _RateSummaryCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '${rate.rateDate} 기준${rate.source == null ? '' : ' · ${rate.source}'}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -558,16 +562,16 @@ class _RateSummaryCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.10),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white24),
+                border: Border.all(color: AppColors.lineSoft),
               ),
               child: Row(
                 children: [
                   const Text(
                     '계산 결과',
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: AppColors.textMuted,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -579,7 +583,7 @@ class _RateSummaryCard extends StatelessWidget {
                       textAlign: TextAlign.end,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.brandStrong,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),

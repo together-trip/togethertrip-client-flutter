@@ -28,13 +28,13 @@ class MyProfileHeader extends StatelessWidget {
       onTap: isLoading || profile == null ? null : onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Row(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+        child: Column(
           children: [
             ClipOval(
               child: SizedBox(
-                width: 60,
-                height: 60,
+                width: 76,
+                height: 76,
                 child: hasProfileImage
                     ? Image.network(
                         resolveApiUrl(profileImageUrl),
@@ -45,28 +45,24 @@ class MyProfileHeader extends StatelessWidget {
                     : _ProfileFallback(nickname: nickname),
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isLoading ? '불러오는 중...' : (nickname ?? '닉네임 없음'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.ink,
-                    ),
+            const SizedBox(height: 12),
+            Column(
+              children: [
+                Text(
+                  isLoading ? '불러오는 중...' : (nickname ?? '닉네임 없음'),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '프로필 보기',
-                    style: TextStyle(fontSize: 11, color: AppColors.textSubtle),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '프로필 보기  ›',
+                  style: TextStyle(fontSize: 12, color: AppColors.brandStrong),
+                ),
+              ],
             ),
-            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF9E9E9E)),
           ],
         ),
       ),
@@ -84,14 +80,18 @@ class _ProfileFallback extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFFF2F2F2),
+        color: AppColors.brandSoft,
       ),
       child: Center(
         child: Text(
           (nickname != null && nickname!.isNotEmpty)
               ? nickname!.substring(0, 1)
               : '나',
-          style: const TextStyle(fontSize: 16, color: AppColors.textSubtle),
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: AppColors.brandStrong,
+          ),
         ),
       ),
     );

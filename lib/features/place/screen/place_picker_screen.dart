@@ -264,18 +264,22 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('장소 선택')),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        title: const Text('장소 선택', style: AppTextStyles.screenTitle),
+      ),
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: TextField(
                 key: const ValueKey('placeSearchField'),
                 controller: _searchController,
                 enabled: !_manualMode && !_isResolving,
                 decoration: AppInputDecorations.filled(
-                  labelText: '장소명 또는 주소 검색',
+                  hintText: '어디로 가시나요?',
                   prefixIcon: const Icon(Icons.search),
                 ),
               ),
@@ -291,7 +295,14 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
                     final suggestion = _suggestions[index];
                     return ListTile(
                       key: ValueKey('placeSuggestion_${suggestion.placeId}'),
-                      leading: const Icon(Icons.place_outlined),
+                      tileColor: Colors.white,
+                      leading: const CircleAvatar(
+                        backgroundColor: AppColors.brandSoft,
+                        child: Icon(
+                          Icons.place_outlined,
+                          color: AppColors.brandStrong,
+                        ),
+                      ),
                       title: Text(suggestion.name),
                       subtitle: suggestion.address == null
                           ? null
@@ -303,7 +314,14 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
                   },
                 ),
               ),
-            Expanded(child: _buildMap()),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                child: _buildMap(),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               child: Column(
@@ -312,7 +330,10 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
                   if (_selection != null && !_manualMode)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.location_on),
+                      leading: const Icon(
+                        Icons.location_on,
+                        color: AppColors.brandStrong,
+                      ),
                       title: Text(_selection!.name),
                       subtitle: Text(_selection!.address),
                     ),
@@ -350,6 +371,9 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
                           onPressed: _isResolving ? null : _useCurrentLocation,
                           icon: const Icon(Icons.my_location),
                           label: const Text('현재 위치'),
+                          style: AppButtonStyles.outlined(
+                            sideColor: AppColors.lineSoft,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -357,15 +381,19 @@ class _PlacePickerScreenState extends State<PlacePickerScreen> {
                         child: OutlinedButton(
                           key: const ValueKey('manualPlaceButton'),
                           onPressed: _isResolving ? null : _toggleManualMode,
+                          style: AppButtonStyles.outlined(
+                            sideColor: AppColors.lineSoft,
+                          ),
                           child: Text(_manualMode ? '장소 검색' : '직접 입력'),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  FilledButton(
+                  ElevatedButton(
                     key: const ValueKey('confirmPlaceButton'),
                     onPressed: _isResolving ? null : _confirm,
+                    style: AppButtonStyles.elevatedPrimary(),
                     child: Text(_isResolving ? '위치 확인 중...' : '이 장소 선택'),
                   ),
                 ],

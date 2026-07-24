@@ -229,9 +229,9 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: false,
         leading: IconButton(
@@ -256,7 +256,8 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: 32),
         children: [
           MyProfileHeader(
             profile: _profile,
@@ -276,11 +277,18 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
                 ],
               ),
             ),
-          // 메뉴 목록
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+            child: Text('계정', style: AppTextStyles.caption),
+          ),
           MyMenuRow(
             icon: Icons.manage_accounts_outlined,
             label: '개인정보 수정',
             onTap: _isLoading || _profile == null ? null : _openProfileEdit,
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 22, 20, 6),
+            child: Text('앱 정보', style: AppTextStyles.caption),
           ),
           MyMenuRow(
             icon: Icons.notifications_none,
