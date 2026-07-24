@@ -283,6 +283,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
   String? _errorMessage;
 
   bool get _isEdit => widget.initialTrip != null;
+  int get _lastStep => _isEdit ? 3 : 2;
 
   @override
   void initState() {
@@ -353,7 +354,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
   }
 
   Future<void> _handlePrimaryAction() async {
-    if (_step < 3) {
+    if (_step < _lastStep) {
       if (!_validateCurrentStep()) return;
       setState(() {
         _step += 1;
@@ -430,7 +431,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
       setState(() {
-        _step = 3;
+        _step = _lastStep;
         _errorMessage = '여행 제목을 입력해 주세요.';
       });
       return null;
@@ -444,7 +445,8 @@ class _TripFormScreenState extends State<TripFormScreen> {
       });
       return null;
     }
-    if (_companions.any((companion) => companion.displayName.trim().isEmpty)) {
+    if (_isEdit &&
+        _companions.any((companion) => companion.displayName.trim().isEmpty)) {
       setState(() {
         _step = 2;
         _errorMessage = '비회원 동행 이름을 입력해 주세요.';
@@ -630,7 +632,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(56),
         child: SafeArea(
@@ -644,7 +646,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _StepIndicator(currentStep: _step),
+              _StepIndicator(currentStep: _step, stepCount: _lastStep + 1),
               const SizedBox(height: 20),
               Expanded(child: _buildStep()),
               if (_errorMessage != null) ...[
@@ -686,7 +688,9 @@ class _TripFormScreenState extends State<TripFormScreen> {
                         onPressed: _isSaving ? null : _handlePrimaryAction,
                         style: AppButtonStyles.elevatedPrimary(),
                         child: Text(
-                          _isSaving ? '저장 중...' : (_step == 3 ? '완료' : '다음'),
+                          _isSaving
+                              ? '저장 중...'
+                              : (_step == _lastStep ? '여행 만들기' : '다음'),
                           style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -715,7 +719,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
         endDateController: _endDateController,
         onDateChanged: () => setState(() {}),
       ),
-      2 => _CompanionStep(
+      2 when _isEdit => _CompanionStep(
         searchController: _companionSearchController,
         companions: _companions,
         searchedUser: _searchedUser,
@@ -735,7 +739,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
     return switch (_step) {
       0 => '국가 선택',
       1 => '일정 선택',
-      2 => '동행 추가',
+      2 when _isEdit => '동행 관리',
       _ => '여행 제목',
     };
   }
@@ -792,22 +796,23 @@ class _TripWizardHeader extends StatelessWidget {
 
 class _StepIndicator extends StatelessWidget {
   final int currentStep;
+  final int stepCount;
 
-  const _StepIndicator({required this.currentStep});
+  const _StepIndicator({required this.currentStep, required this.stepCount});
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: List.generate(4, (index) {
+      children: List.generate(stepCount, (index) {
         final isActive = index == currentStep;
         return Padding(
-          padding: EdgeInsets.only(right: index == 3 ? 0 : 4),
+          padding: EdgeInsets.only(right: index == stepCount - 1 ? 0 : 5),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             width: isActive ? 20 : 6,
             height: 6,
             decoration: BoxDecoration(
-              color: isActive ? AppColors.ink : const Color(0xFFD9D9D9),
+              color: isActive ? AppColors.brand : AppColors.lineSoft,
               borderRadius: BorderRadius.circular(3),
             ),
           ),
