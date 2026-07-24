@@ -56,7 +56,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "${ios_local}" == true ]]; then
-  args=("--flavor" "local" "${args[@]}")
+  if [[ ${#args[@]} -eq 0 ]]; then
+    args=("--flavor" "local")
+  else
+    args=("--flavor" "local" "${args[@]}")
+  fi
 fi
 
 has_device_arg() {
