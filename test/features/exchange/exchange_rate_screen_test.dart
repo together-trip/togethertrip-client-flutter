@@ -29,7 +29,7 @@ void main() {
       find.byKey(const ValueKey('exchangeSettlementNoticeButton')),
       findsOneWidget,
     );
-    expect(find.text('계산 결과'), findsOneWidget);
+    expect(find.text('환산 금액'), findsOneWidget);
     expect(find.text('1,000.00'), findsOneWidget);
     expect(find.text('9,512.30 KRW'), findsOneWidget);
     expect(tester.takeException(), isNull);

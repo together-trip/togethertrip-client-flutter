@@ -273,8 +273,11 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
           children: [
-            const Text('금액을 바로 환산해보세요', style: AppTextStyles.sectionTitle),
-            const SizedBox(height: 12),
+            _CountrySelector(
+              selectedCountry: _selectedCountry,
+              onChanged: _isLoading ? null : _selectCountry,
+            ),
+            const SizedBox(height: 14),
             _RateSummaryCard(
               country: _selectedCountry,
               latestRate: _latestRate,
@@ -286,14 +289,7 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
               onSwapDirection: _swapDirection,
               onShowSettlementNotice: _showSettlementNotice,
             ),
-            const SizedBox(height: 20),
-            const Text('환율 기준', style: AppTextStyles.sectionTitle),
-            const SizedBox(height: 10),
-            _CountrySelector(
-              selectedCountry: _selectedCountry,
-              onChanged: _isLoading ? null : _selectCountry,
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             _PeriodSelector(
               selectedPeriod: _selectedPeriod,
               customRange: _customRange,
@@ -474,9 +470,9 @@ class _RateSummaryCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  '${country.countryName} ${country.currencyCode}',
-                  style: const TextStyle(
+                child: const Text(
+                  '오늘의 환율',
+                  style: TextStyle(
                     color: AppColors.brandStrong,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -490,14 +486,6 @@ class _RateSummaryCard extends StatelessWidget {
                   icon: const Icon(Icons.info_outline),
                   color: AppColors.brandStrong,
                   tooltip: '정산 환율 안내',
-                  visualDensity: VisualDensity.compact,
-                ),
-                IconButton(
-                  key: const ValueKey('exchangeSwapDirectionButton'),
-                  onPressed: onSwapDirection,
-                  icon: const Icon(Icons.swap_vert),
-                  color: AppColors.brandStrong,
-                  tooltip: '계산 방향 바꾸기',
                   visualDensity: VisualDensity.compact,
                 ),
               ],
@@ -529,65 +517,84 @@ class _RateSummaryCard extends StatelessWidget {
               style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 14),
-            TextField(
-              key: const ValueKey('exchangeAmountField'),
-              controller: amountController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: const [_MoneyInputFormatter()],
-              onChanged: (_) => onAmountChanged(),
-              style: const TextStyle(
-                color: AppColors.ink,
-                fontWeight: FontWeight.w700,
-              ),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white,
-                isDense: true,
-                hintText: '금액 입력',
-                suffixText: inputCurrency,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppColors.lineSoft),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  const Text(
-                    '계산 결과',
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _formatMoney(convertedAmount, outputCurrency),
-                      textAlign: TextAlign.end,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.brandStrong,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          key: const ValueKey('exchangeAmountField'),
+                          controller: amountController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: const [_MoneyInputFormatter()],
+                          onChanged: (_) => onAmountChanged(),
+                          style: const TextStyle(
+                            color: AppColors.ink,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isDense: true,
+                            labelText: '변환할 금액',
+                          ),
+                        ),
                       ),
-                    ),
+                      Text(
+                        inputCurrency,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24, color: AppColors.lineSoft),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '환산 금액',
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _formatMoney(convertedAmount, outputCurrency),
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.brandStrong,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        key: const ValueKey('exchangeSwapDirectionButton'),
+                        onPressed: onSwapDirection,
+                        tooltip: '계산 방향 바꾸기',
+                        style: AppIconButtonStyles.neutral(),
+                        icon: const Icon(
+                          Icons.swap_vert_rounded,
+                          color: AppColors.brandStrong,
+                          size: 21,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

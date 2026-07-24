@@ -1096,7 +1096,7 @@ void main() {
     expect(find.text('여행자'), findsOneWidget);
     expect(find.text('010-****-5678'), findsNothing);
 
-    await tester.tap(find.text('개인정보 수정'));
+    await tester.tap(find.text('내 프로필 보기 및 수정'));
     await tester.pumpAndSettle();
 
     expect(find.text('개인정보 수정'), findsOneWidget);
@@ -1112,13 +1112,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('약관'));
+    await tester.tap(find.text('약관 및 동의 관리'));
     await tester.pumpAndSettle();
 
     expect(find.text('서비스 이용약관'), findsOneWidget);
     expect(find.text('개인정보 처리방침'), findsOneWidget);
     expect(find.text('위치기반서비스 이용약관'), findsOneWidget);
     expect(find.text('광고성 정보 수신 동의'), findsOneWidget);
+    expect(find.text('필수 동의'), findsOneWidget);
+    expect(find.text('선택 동의'), findsOneWidget);
 
     await tester.tap(find.text('서비스 이용약관'));
     await tester.pumpAndSettle();
@@ -1137,7 +1139,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('약관'));
+    await tester.tap(find.text('약관 및 동의 관리'));
     await tester.pumpAndSettle();
 
     expect(find.text('약관 목록을 확인할 수 없습니다.'), findsOneWidget);
@@ -1157,7 +1159,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('약관'));
+    await tester.tap(find.text('약관 및 동의 관리'));
     await tester.pumpAndSettle();
 
     final marketingSwitch = find.byKey(

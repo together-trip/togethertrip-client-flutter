@@ -28,13 +28,13 @@ class MyProfileHeader extends StatelessWidget {
       onTap: isLoading || profile == null ? null : onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
-        child: Column(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        child: Row(
           children: [
             ClipOval(
               child: SizedBox(
-                width: 76,
-                height: 76,
+                width: 64,
+                height: 64,
                 child: hasProfileImage
                     ? Image.network(
                         resolveApiUrl(profileImageUrl),
@@ -45,23 +45,31 @@ class MyProfileHeader extends StatelessWidget {
                     : _ProfileFallback(nickname: nickname),
               ),
             ),
-            const SizedBox(height: 12),
-            Column(
-              children: [
-                Text(
-                  isLoading ? '불러오는 중...' : (nickname ?? '닉네임 없음'),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isLoading ? '불러오는 중...' : (nickname ?? '닉네임 없음'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  '프로필 보기  ›',
-                  style: TextStyle(fontSize: 12, color: AppColors.brandStrong),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  const Text(
+                    '내 프로필 보기 및 수정',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 22,
+              color: AppColors.textMuted,
             ),
           ],
         ),
