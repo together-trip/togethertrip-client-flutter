@@ -24,7 +24,7 @@ void main() {
     expect(find.text('정산'), findsOneWidget);
     expect(find.text('정산 미시작'), findsOneWidget);
     expect(find.text('정산 미리보기'), findsOneWidget);
-    expect(find.text('내가 확인할 정산'), findsOneWidget);
+    expect(find.text('내 정산 현황'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('settlementHelpButton')));
     await tester.pumpAndSettle();
@@ -52,6 +52,8 @@ void main() {
     expect(find.text('송금 확인 1/2'), findsOneWidget);
     expect(find.text('수금 확인 0/2'), findsOneWidget);
     expect(find.text('공유'), findsOneWidget);
+    expect(find.text('받을 돈을 확인해주세요'), findsOneWidget);
+    expect(find.text('수금 확인 1건이 남아 있어요.'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('settlementTabreceived')));
     await tester.pumpAndSettle();

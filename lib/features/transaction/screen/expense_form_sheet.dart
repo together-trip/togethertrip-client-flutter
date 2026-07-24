@@ -82,17 +82,23 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
       _shareControllers[participant.id] = TextEditingController(text: '0');
     }
     _applyInitialValues();
-    if (_isEditing) _currentStep = 1;
   }
 
-  void _goToDetailStep() {
-    final amount = _amountCents;
-    if (amount == null || amount <= 0) {
-      setState(() => _errorMessage = '금액을 입력해주세요.');
+  void _goToAmountStep() {
+    final title = _titleController.text.trim();
+    final category = _selectedCategory == '기타'
+        ? _otherCategoryController.text.trim()
+        : _selectedCategory;
+    if (title.isEmpty) {
+      setState(() => _errorMessage = '제목을 입력해주세요.');
       return;
     }
-    if (_paymentTotalCents != amount || _shareTotalCents != amount) {
-      setState(() => _errorMessage = '결제 합계와 부담 합계를 금액에 맞춰주세요.');
+    if (category.isEmpty) {
+      setState(() => _errorMessage = '기타 카테고리를 입력해주세요.');
+      return;
+    }
+    if (!_isDateWithinTripRange(_selectedDate)) {
+      setState(() => _errorMessage = '소비 날짜는 여행 기간 내로 선택해주세요.');
       return;
     }
     setState(() {
@@ -370,7 +376,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
               const SizedBox(height: 18),
               _ExpenseStepHeader(currentStep: _currentStep),
               const SizedBox(height: 22),
-              if (_currentStep == 0) ...[
+              if (_currentStep == 1) ...[
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -591,9 +597,7 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
                         height: 50,
                         child: FilledButton(
                           key: const ValueKey('expenseNextButton'),
-                          onPressed: _isSubmitting || _participants.isEmpty
-                              ? null
-                              : _goToDetailStep,
+                          onPressed: _isSubmitting ? null : _goToAmountStep,
                           style: AppButtonStyles.primary(),
                           child: const Text('다음'),
                         ),
@@ -669,11 +673,11 @@ class _ExpenseStepHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _StepLabel(index: 0, label: '금액과 분담', selected: currentStep == 0),
+        _StepLabel(index: 0, label: '지출 정보', selected: currentStep == 0),
         const SizedBox(width: 8),
         const Expanded(child: Divider()),
         const SizedBox(width: 8),
-        _StepLabel(index: 1, label: '지출 정보', selected: currentStep == 1),
+        _StepLabel(index: 1, label: '금액과 분담', selected: currentStep == 1),
       ],
     );
   }
