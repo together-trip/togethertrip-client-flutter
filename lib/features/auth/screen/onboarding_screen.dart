@@ -63,11 +63,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         return;
       }
 
-      if (result.isPhoneVerificationRequired && result.temporaryToken != null) {
-        _openSignUpProfile(result);
-        return;
-      }
-
       setState(() => _errorMessage = '로그인 응답 상태를 확인할 수 없습니다.');
     } on KakaoAuthException catch (e) {
       if (e.error == AuthErrorCause.accessDenied) {
@@ -119,21 +114,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         widget.termsAgreementService ??
         TermsAgreementService(authService: widget.authService);
     final profile = await widget.authService.getMe();
-    if (!profile.phoneVerified) {
-      if (!mounted) return;
-      setState(() => _errorMessage = '전화번호 인증 상태를 확인할 수 없습니다. 다시 로그인해주세요.');
-      return;
-    }
-
     final terms = await termsAgreementService.getTerms();
     final agreedCodes = await termsAgreementService.getAgreedTermCodes();
     final requiredTerms = terms.where((term) => term.required).toList();
     final hasAgreedAllRequired =
         requiredTerms.isNotEmpty &&
         requiredTerms.every((term) => agreedCodes.contains(term.code));
-    final hasCompletedProfile =
-        profile.gender?.isNotEmpty == true &&
-        profile.birthDate?.isNotEmpty == true;
+    final hasCompletedProfile = profile.nickname.trim().isNotEmpty;
 
     if (!mounted) return;
 
@@ -144,7 +131,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             authService: widget.authService,
             tripService: widget.tripService,
             termsAgreementService: termsAgreementService,
-            temporaryToken: null,
             prefillProfile: profile,
             restoreExistingTerms: true,
           ),
@@ -171,7 +157,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           authService: widget.authService,
           tripService: widget.tripService,
           termsAgreementService: widget.termsAgreementService,
-          temporaryToken: result.temporaryToken,
         ),
       ),
     );

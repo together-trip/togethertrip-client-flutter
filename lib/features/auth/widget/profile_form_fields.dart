@@ -30,28 +30,3 @@ class LabeledField extends StatelessWidget {
     );
   }
 }
-
-class GenderButton extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onPressed;
-
-  const GenderButton({
-    super.key,
-    required this.label,
-    required this.isSelected,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: AppButtonStyles.outlinedSelected(selected: isSelected),
-        child: Text(label),
-      ),
-    );
-  }
-}

@@ -399,16 +399,7 @@ class _FakeTripService extends TripService {
 
   @override
   Future<UserProfile> getCurrentUser() async {
-    return const UserProfile(
-      id: 1,
-      nickname: '재완',
-      gender: null,
-      birthDate: null,
-      profileImageUrl: null,
-      phoneNumberMasked: null,
-      phoneVerifiedAt: null,
-      phoneVerified: true,
-    );
+    return const UserProfile(id: 1, nickname: '재완', profileImageUrl: null);
   }
 
   @override

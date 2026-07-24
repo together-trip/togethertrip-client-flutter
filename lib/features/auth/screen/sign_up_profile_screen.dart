@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,28 +12,16 @@ import '../service/terms_agreement_service.dart';
 import 'terms_list_screen.dart';
 import '../widget/profile_form_fields.dart';
 import '../widget/profile_image_picker.dart';
-import '../widget/profile_input_formatters.dart';
-
-enum _Gender {
-  male('남자', 'MALE'),
-  female('여자', 'FEMALE');
-
-  final String label;
-  final String apiValue;
-
-  const _Gender(this.label, this.apiValue);
-}
 
 class SignUpProfileScreen extends StatefulWidget {
   final AuthService authService;
   final TripService? tripService;
   final TermsAgreementService? termsAgreementService;
-  final String? temporaryToken;
   final bool restoreExistingTerms;
   final UserProfile? prefillProfile;
   final Set<String>? initialAgreedTermCodes;
 
-  /// 값이 있으면 "개인정보 수정" 모드로 동작하며 기존 내용을 프리필한다.
+  /// 값이 있으면 "프로필 수정" 모드로 동작하며 기존 내용을 프리필한다.
   /// null이면 회원가입 프로필 설정 모드.
   final UserProfile? initialProfile;
 
@@ -44,7 +30,6 @@ class SignUpProfileScreen extends StatefulWidget {
     required this.authService,
     this.tripService,
     this.termsAgreementService,
-    required this.temporaryToken,
     this.initialProfile,
     this.prefillProfile,
     this.restoreExistingTerms = false,
@@ -58,32 +43,20 @@ class SignUpProfileScreen extends StatefulWidget {
 class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nicknameController = TextEditingController();
-  final _birthDateController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _codeController = TextEditingController();
   final _imagePicker = ImagePicker();
 
   late final TermsAgreementService _termsAgreementService;
   Future<List<TermsAgreementItem>>? _termsFuture;
   final Set<String> _agreedTermCodes = {};
-  _Gender _gender = _Gender.male;
-  Timer? _timer;
-  int _remainingSeconds = 0;
-  String? _requestedPhoneNumber;
   ProfileImageInput? _selectedProfileImage;
   String? _checkedNickname;
   String _lastNicknameText = '';
   bool? _isNicknameAvailable;
   String? _nicknameMessage;
   bool _isCheckingNickname = false;
-  bool _isRequestingCode = false;
-  bool _isConfirmingCode = false;
   bool _isSubmitting = false;
-  bool _isPhoneVerified = false;
   String? _errorMessage;
 
-  bool get _isCodeRequested => _remainingSeconds > 0;
-  bool get _requiresPhoneVerification => widget.temporaryToken != null;
   bool get _isEditMode => widget.initialProfile != null;
   UserProfile? get _profileForPrefill =>
       widget.initialProfile ?? widget.prefillProfile;
@@ -103,10 +76,8 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
       _agreedTermCodes.addAll(widget.initialAgreedTermCodes ?? const {});
       _termsFuture = _loadTermsForSignup();
     }
-    _isPhoneVerified = !_requiresPhoneVerification;
     _prefillFromInitialProfile();
     _lastNicknameText = _currentNickname();
-    _phoneController.addListener(_resetVerificationIfPhoneChanged);
   }
 
   void _prefillFromInitialProfile() {
@@ -118,128 +89,12 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     // (공개 중복확인 API는 본인 닉네임도 "사용중"으로 보기 때문)
     _checkedNickname = profile.nickname;
     _isNicknameAvailable = true;
-
-    if (profile.gender == _Gender.female.apiValue) {
-      _gender = _Gender.female;
-    } else if (profile.gender == _Gender.male.apiValue) {
-      _gender = _Gender.male;
-    }
-
-    final birthDate = profile.birthDate;
-    if (birthDate != null && birthDate.isNotEmpty) {
-      _birthDateController.text = _toDisplayBirthDate(birthDate);
-    }
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     _nicknameController.dispose();
-    _birthDateController.dispose();
-    _phoneController.dispose();
-    _codeController.dispose();
     super.dispose();
-  }
-
-  Future<void> _requestCode() async {
-    final temporaryToken = widget.temporaryToken;
-    if (temporaryToken == null) return;
-
-    final phoneError = _validatePhoneNumber(_phoneController.text);
-    if (phoneError != null) {
-      setState(() => _errorMessage = phoneError);
-      return;
-    }
-
-    setState(() {
-      _isRequestingCode = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final requestedPhoneNumber = _toApiPhoneNumber(_phoneController.text);
-      final result = await widget.authService.requestPhoneVerification(
-        temporaryToken: temporaryToken,
-        phoneNumber: requestedPhoneNumber,
-      );
-      if (!mounted) return;
-
-      final currentPhoneNumber = _toApiPhoneNumber(_phoneController.text);
-      if (currentPhoneNumber != requestedPhoneNumber) {
-        setState(() {
-          _requestedPhoneNumber = null;
-          _isPhoneVerified = false;
-          _codeController.clear();
-          _errorMessage = '전화번호가 변경되었습니다. 인증번호를 다시 요청해주세요.';
-        });
-        return;
-      }
-
-      setState(() {
-        _requestedPhoneNumber = requestedPhoneNumber;
-        _isPhoneVerified = false;
-        _codeController.clear();
-      });
-      _startTimer(result.expiresInSeconds);
-    } on ApiException catch (e) {
-      setState(() => _errorMessage = e.message);
-    } catch (e) {
-      setState(() => _errorMessage = '인증번호 요청에 실패했습니다: $e');
-    } finally {
-      if (mounted) setState(() => _isRequestingCode = false);
-    }
-  }
-
-  Future<void> _confirmCode() async {
-    final temporaryToken = widget.temporaryToken;
-    if (temporaryToken == null) return;
-
-    final code = _codeController.text.trim();
-    if (!_isCodeRequested || _requestedPhoneNumber == null) {
-      setState(() => _errorMessage = '인증번호를 먼저 요청해주세요.');
-      return;
-    }
-    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
-      setState(() => _errorMessage = '인증번호 6자리를 입력해주세요.');
-      return;
-    }
-
-    setState(() {
-      _isConfirmingCode = true;
-      _errorMessage = null;
-    });
-
-    final confirmingPhoneNumber = _requestedPhoneNumber!;
-    try {
-      await widget.authService.confirmPhoneVerification(
-        temporaryToken: temporaryToken,
-        phoneNumber: confirmingPhoneNumber,
-        code: code,
-      );
-      if (!mounted) return;
-
-      final currentPhoneNumber = _toApiPhoneNumber(_phoneController.text);
-      if (_requestedPhoneNumber != confirmingPhoneNumber ||
-          currentPhoneNumber != confirmingPhoneNumber) {
-        setState(() {
-          _isPhoneVerified = false;
-          _errorMessage = '전화번호가 변경되었습니다. 인증번호를 다시 요청해주세요.';
-        });
-        return;
-      }
-
-      _timer?.cancel();
-      setState(() {
-        _remainingSeconds = 0;
-        _isPhoneVerified = true;
-      });
-    } on ApiException catch (e) {
-      setState(() => _errorMessage = e.message);
-    } catch (e) {
-      setState(() => _errorMessage = '인증번호 확인에 실패했습니다: $e');
-    } finally {
-      if (mounted) setState(() => _isConfirmingCode = false);
-    }
   }
 
   Future<void> _checkNickname() async {
@@ -321,10 +176,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
 
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
-    if (!_isPhoneVerified) {
-      setState(() => _errorMessage = '전화번호 인증을 완료해주세요.');
-      return;
-    }
 
     if (!_isNicknameConfirmed) {
       setState(() => _nicknameMessage = '닉네임 중복 확인을 완료해주세요.');
@@ -359,8 +210,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
       }
       await widget.authService.updateMyProfile(
         nickname: nickname,
-        gender: _gender.apiValue,
-        birthDate: _toApiBirthDate(_birthDateController.text),
         profileImageUrl: _profileForPrefill?.profileImageUrl,
         profileImage: _selectedProfileImage,
       );
@@ -391,26 +240,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     }
   }
 
-  void _startTimer(int seconds) {
-    _timer?.cancel();
-    setState(() => _remainingSeconds = seconds);
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      if (_remainingSeconds <= 1) {
-        timer.cancel();
-        setState(() => _remainingSeconds = 0);
-        return;
-      }
-
-      setState(() => _remainingSeconds -= 1);
-    });
-  }
-
   void _handleNicknameChanged() {
     final currentNickname = _currentNickname();
     if (currentNickname == _lastNicknameText) return;
@@ -427,28 +256,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     return _nicknameController.text.trim();
   }
 
-  void _resetVerificationIfPhoneChanged() {
-    if (!_requiresPhoneVerification) return;
-    if (_requestedPhoneNumber == null && !_isPhoneVerified) return;
-
-    final currentPhone = _phoneController.text.trim();
-    if (_toApiPhoneNumber(currentPhone) == _requestedPhoneNumber) return;
-
-    _timer?.cancel();
-    setState(() {
-      _remainingSeconds = 0;
-      _requestedPhoneNumber = null;
-      _isPhoneVerified = false;
-      _codeController.clear();
-    });
-  }
-
-  String _timerText() {
-    final minutes = (_remainingSeconds ~/ 60).toString().padLeft(2, '0');
-    final seconds = (_remainingSeconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-
   bool _hasAgreedAllRequired(List<TermsAgreementItem> terms) {
     final requiredTerms = terms.where((term) => term.required).toList();
     return requiredTerms.isNotEmpty &&
@@ -457,7 +264,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
 
   Future<List<TermsAgreementItem>> _loadTermsForSignup() async {
     final terms = await _termsAgreementService.getTerms();
-    if (_requiresPhoneVerification || !widget.restoreExistingTerms) {
+    if (!widget.restoreExistingTerms) {
       return terms;
     }
 
@@ -516,66 +323,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     });
   }
 
-  Widget _buildGenderField() {
-    return LabeledField(
-      label: '성별',
-      child: Row(
-        children: [
-          Expanded(
-            child: GenderButton(
-              label: _Gender.male.label,
-              isSelected: _gender == _Gender.male,
-              onPressed: () => setState(() => _gender = _Gender.male),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: GenderButton(
-              label: _Gender.female.label,
-              isSelected: _gender == _Gender.female,
-              onPressed: () => setState(() => _gender = _Gender.female),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBirthDateField() {
-    return LabeledField(
-      label: '생년월일',
-      child: TextFormField(
-        key: const ValueKey('birthDateField'),
-        controller: _birthDateController,
-        decoration: AppInputDecorations.filled(hintText: 'YYYY.MM.DD'),
-        keyboardType: TextInputType.datetime,
-        textInputAction: TextInputAction.next,
-        inputFormatters: const [BirthDateInputFormatter()],
-        validator: _validateBirthDate,
-      ),
-    );
-  }
-
-  Widget _buildIdentityFields() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 330) {
-          return Column(
-            children: [_buildGenderField(), _buildBirthDateField()],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _buildGenderField()),
-            const SizedBox(width: 12),
-            Expanded(child: _buildBirthDateField()),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -591,7 +338,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
           color: AppColors.ink,
         ),
         title: Text(
-          _isEditMode ? '개인정보 수정' : '프로필 설정',
+          _isEditMode ? '프로필 수정' : '프로필 설정',
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -623,7 +370,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                         ),
                         const SizedBox(height: 7),
                         const Text(
-                          '모든 항목을 입력하면 바로 시작할 수 있어요.',
+                          '닉네임을 설정하면 바로 시작할 수 있어요.',
                           style: TextStyle(
                             fontSize: 14,
                             color: AppColors.textSubtle,
@@ -727,133 +474,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                           ],
                         ),
                       ),
-                      _buildIdentityFields(),
-                      if (_isEditMode) ...[
-                        const _ProfileSectionHeading(label: '인증 정보'),
-                        const SizedBox(height: 10),
-                        LabeledField(
-                          label: '전화번호',
-                          child: _ReadOnlyPhoneInfo(
-                            phoneNumberMasked:
-                                widget.initialProfile?.phoneNumberMasked,
-                            phoneVerified:
-                                widget.initialProfile?.phoneVerified ?? false,
-                          ),
-                        ),
-                      ],
-                      if (_requiresPhoneVerification)
-                        LabeledField(
-                          label: '전화번호',
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      key: const ValueKey('phoneField'),
-                                      controller: _phoneController,
-                                      decoration: AppInputDecorations.filled(
-                                        hintText: '010-0000-0000',
-                                      ),
-                                      keyboardType: TextInputType.phone,
-                                      textInputAction: TextInputAction.next,
-                                      inputFormatters: const [
-                                        PhoneNumberInputFormatter(),
-                                      ],
-                                      validator: _validatePhoneNumber,
-                                      enabled: !_isPhoneVerified,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    height: 48,
-                                    child: OutlinedButton(
-                                      key: const ValueKey('requestCodeButton'),
-                                      onPressed:
-                                          _isRequestingCode || _isPhoneVerified
-                                          ? null
-                                          : _requestCode,
-                                      style: AppButtonStyles.outlined()
-                                          .copyWith(
-                                            backgroundColor:
-                                                const WidgetStatePropertyAll(
-                                                  AppColors.neutralSoft,
-                                                ),
-                                            foregroundColor:
-                                                WidgetStateProperty.resolveWith(
-                                                  (states) {
-                                                    if (states.contains(
-                                                      WidgetState.disabled,
-                                                    )) {
-                                                      return AppColors
-                                                          .textMuted;
-                                                    }
-                                                    return AppColors.ink;
-                                                  },
-                                                ),
-                                          ),
-                                      child: Text(
-                                        _isPhoneVerified
-                                            ? '완료'
-                                            : _isRequestingCode
-                                            ? '요청중'
-                                            : _isCodeRequested
-                                            ? '재전송'
-                                            : '인증',
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (_isCodeRequested || _isPhoneVerified) ...[
-                                const SizedBox(height: 8),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        key: const ValueKey('codeField'),
-                                        controller: _codeController,
-                                        decoration: AppInputDecorations.filled(
-                                          hintText: '인증번호 6자리',
-                                          suffixText: _isPhoneVerified
-                                              ? '인증완료'
-                                              : _timerText(),
-                                        ),
-                                        keyboardType: TextInputType.number,
-                                        enabled: !_isPhoneVerified,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    SizedBox(
-                                      height: 48,
-                                      child: OutlinedButton(
-                                        key: const ValueKey(
-                                          'confirmCodeButton',
-                                        ),
-                                        onPressed:
-                                            _isConfirmingCode ||
-                                                _isPhoneVerified
-                                            ? null
-                                            : _confirmCode,
-                                        style: AppButtonStyles.outlined(),
-                                        child: Text(
-                                          _isPhoneVerified
-                                              ? '확인됨'
-                                              : _isConfirmingCode
-                                              ? '확인중'
-                                              : '확인',
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
                       if (_shouldCollectTerms)
                         _TermsAgreementSection(
                           termsFuture: _termsFuture!,
@@ -1188,54 +808,6 @@ class _InlineRequirementBadge extends StatelessWidget {
   }
 }
 
-class _ReadOnlyPhoneInfo extends StatelessWidget {
-  final String? phoneNumberMasked;
-  final bool phoneVerified;
-
-  const _ReadOnlyPhoneInfo({
-    required this.phoneNumberMasked,
-    required this.phoneVerified,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final phoneText = phoneNumberMasked != null && phoneNumberMasked!.isNotEmpty
-        ? phoneNumberMasked!
-        : '인증된 전화번호 없음';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.neutralSoft,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              phoneText,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink,
-              ),
-            ),
-          ),
-          Text(
-            phoneVerified ? '인증 완료' : '미인증',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: phoneVerified ? AppColors.success : AppColors.textMuted,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 String? _validateNickname(String? value) {
   final nickname = value?.trim() ?? '';
   if (nickname.isEmpty) return '닉네임을 입력해주세요.';
@@ -1244,66 +816,6 @@ String? _validateNickname(String? value) {
   }
   if (!RegExp(r'^[가-힣a-zA-Z0-9]+$').hasMatch(nickname)) {
     return '닉네임은 한글, 영문, 숫자만 사용할 수 있습니다.';
-  }
-  return null;
-}
-
-String? _validateBirthDate(String? value) {
-  final birthDate = value?.trim() ?? '';
-  if (birthDate.isEmpty) return '생년월일을 입력해주세요.';
-  if (!RegExp(r'^\d{4}\.\d{2}\.\d{2}$').hasMatch(birthDate)) {
-    return '생년월일은 YYYY.MM.DD 형식으로 입력해주세요.';
-  }
-  final parsed = _parseDisplayBirthDate(birthDate);
-  if (parsed == null) {
-    return '올바른 생년월일을 입력해주세요.';
-  }
-  final today = DateTime.now();
-  final todayOnly = DateTime(today.year, today.month, today.day);
-  if (parsed.isAfter(todayOnly)) {
-    return '생년월일은 오늘 또는 이전 날짜로 입력해주세요.';
-  }
-  return null;
-}
-
-DateTime? _parseDisplayBirthDate(String value) {
-  final parts = value.split('.');
-  if (parts.length != 3) return null;
-
-  final year = int.tryParse(parts[0]);
-  final month = int.tryParse(parts[1]);
-  final day = int.tryParse(parts[2]);
-  if (year == null || month == null || day == null) return null;
-  if (year < 1900 || month < 1 || month > 12 || day < 1) return null;
-
-  final parsed = DateTime(year, month, day);
-  if (parsed.year != year || parsed.month != month || parsed.day != day) {
-    return null;
-  }
-  return parsed;
-}
-
-String _toApiBirthDate(String value) {
-  final digits = digitsOnly(value);
-  if (digits.length != 8) return value.trim().replaceAll('.', '-');
-  return '${digits.substring(0, 4)}-${digits.substring(4, 6)}-${digits.substring(6, 8)}';
-}
-
-String _toDisplayBirthDate(String value) {
-  final digits = digitsOnly(value);
-  if (digits.length != 8) return value.trim().replaceAll('-', '.');
-  return '${digits.substring(0, 4)}.${digits.substring(4, 6)}.${digits.substring(6, 8)}';
-}
-
-String _toApiPhoneNumber(String value) {
-  return digitsOnly(value);
-}
-
-String? _validatePhoneNumber(String? value) {
-  final phoneNumber = value?.trim() ?? '';
-  if (phoneNumber.isEmpty) return '전화번호를 입력해주세요.';
-  if (!RegExp(r'^010-?\d{4}-?\d{4}$').hasMatch(phoneNumber)) {
-    return '전화번호는 010-0000-0000 형식으로 입력해주세요.';
   }
   return null;
 }

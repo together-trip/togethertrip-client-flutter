@@ -79,7 +79,6 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
         builder: (_) => SignUpProfileScreen(
           authService: _authService,
           termsAgreementService: _termsAgreementService,
-          temporaryToken: null,
           initialProfile: profile,
         ),
       ),
