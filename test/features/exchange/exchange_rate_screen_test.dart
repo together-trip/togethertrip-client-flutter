@@ -70,6 +70,28 @@ void main() {
     expect(find.textContaining('카드사 수수료'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('환율 직접 기간 선택은 여행 일정 문구를 사용하지 않는다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ExchangeRateScreen(
+          exchangeRateService: _FakeExchangeRateService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('직접 선택'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('환율 조회 기간'), findsOneWidget);
+    expect(find.text('시작'), findsOneWidget);
+    expect(find.text('종료'), findsOneWidget);
+    expect(find.text('출발'), findsNothing);
+    expect(find.text('도착'), findsNothing);
+    expect(find.text('조회 기간 적용'), findsOneWidget);
+    expect(find.textContaining('일정 적용'), findsNothing);
+  });
 }
 
 class _FakeExchangeRateService extends ExchangeRateService {

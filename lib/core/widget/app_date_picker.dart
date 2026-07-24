@@ -29,6 +29,11 @@ Future<DateTimeRange?> showTogetherTripDateRangePicker({
   required DateTime lastDate,
   String title = '기간 선택',
   String helpText = '기간 선택',
+  String confirmText = '기간 적용',
+  bool showDurationInConfirm = false,
+  String startLabel = '시작',
+  String endLabel = '종료',
+  String pendingEndText = '종료일을 선택해 주세요',
 }) {
   return Navigator.of(context).push<DateTimeRange>(
     MaterialPageRoute<DateTimeRange>(
@@ -39,6 +44,11 @@ Future<DateTimeRange?> showTogetherTripDateRangePicker({
         lastDate: lastDate,
         title: title,
         helpText: helpText,
+        confirmText: confirmText,
+        showDurationInConfirm: showDurationInConfirm,
+        startLabel: startLabel,
+        endLabel: endLabel,
+        pendingEndText: pendingEndText,
       ),
     ),
   );
@@ -154,6 +164,11 @@ class _DateRangePickerScreen extends StatefulWidget {
   final DateTime lastDate;
   final String title;
   final String helpText;
+  final String confirmText;
+  final bool showDurationInConfirm;
+  final String startLabel;
+  final String endLabel;
+  final String pendingEndText;
 
   const _DateRangePickerScreen({
     required this.initialDateRange,
@@ -161,6 +176,11 @@ class _DateRangePickerScreen extends StatefulWidget {
     required this.lastDate,
     required this.title,
     required this.helpText,
+    required this.confirmText,
+    required this.showDurationInConfirm,
+    required this.startLabel,
+    required this.endLabel,
+    required this.pendingEndText,
   });
 
   @override
@@ -243,7 +263,7 @@ class _DateRangePickerScreenState extends State<_DateRangePickerScreen> {
                     children: [
                       Expanded(
                         child: _RangeDateSummary(
-                          label: '출발',
+                          label: widget.startLabel,
                           date: _startDate,
                           active: !_selectingEnd,
                         ),
@@ -258,7 +278,7 @@ class _DateRangePickerScreenState extends State<_DateRangePickerScreen> {
                       ),
                       Expanded(
                         child: _RangeDateSummary(
-                          label: '도착',
+                          label: widget.endLabel,
                           date: endDate,
                           active: _selectingEnd,
                         ),
@@ -300,8 +320,10 @@ class _DateRangePickerScreenState extends State<_DateRangePickerScreen> {
                   style: AppButtonStyles.elevatedPrimary(),
                   child: Text(
                     endDate == null
-                        ? '도착일을 선택해 주세요'
-                        : '${endDate.difference(_startDate).inDays}박 ${endDate.difference(_startDate).inDays + 1}일 일정 적용',
+                        ? widget.pendingEndText
+                        : widget.showDurationInConfirm
+                        ? '${endDate.difference(_startDate).inDays}박 ${endDate.difference(_startDate).inDays + 1}일 ${widget.confirmText}'
+                        : widget.confirmText,
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),

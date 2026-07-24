@@ -61,6 +61,11 @@ void main() {
                   lastDate: DateTime(2026, 7, 31),
                   title: '여행 기간',
                   helpText: '여행 일정을 선택해 주세요',
+                  confirmText: '일정 적용',
+                  showDurationInConfirm: true,
+                  startLabel: '출발',
+                  endLabel: '도착',
+                  pendingEndText: '도착일을 선택해 주세요',
                 );
               },
               child: const Text('기간 열기'),

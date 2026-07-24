@@ -113,6 +113,7 @@ class _ExchangeRateScreenState extends State<ExchangeRateScreen> {
         firstDate: DateTime(2000),
         lastDate: today,
         helpText: '환율 조회 기간',
+        confirmText: '조회 기간 적용',
       );
       if (picked == null) return;
       setState(() {
