@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">TogetherTrip symbol</title>
+  <g fill="#FF6854">
+    <circle cx="195" cy="123" r="28"/>
+    <circle cx="297" cy="123" r="28"/>
+    <rect x="126" y="165" width="253" height="44" rx="22"/>
+  </g>
+  <defs>
+    <path id="t-body" d="M0 0V154Q0 181 27 181H31"/>
+  </defs>
+  <g fill="none" stroke="#FF6854" stroke-width="42" stroke-linecap="round" stroke-linejoin="round">
+    <use href="#t-body" transform="translate(195 191)"/>
+    <use href="#t-body" transform="translate(297 191)"/>
+  </g>
+</svg>

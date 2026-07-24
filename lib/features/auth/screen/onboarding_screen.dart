@@ -274,15 +274,13 @@ class _BrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: const Text(
-        'TogetherTrip',
-        style: TextStyle(
-          fontSize: 20,
-          height: 1,
-          fontWeight: FontWeight.w800,
-          color: AppColors.brandStrong,
-          letterSpacing: -0.4,
-        ),
+      child: Image.asset(
+        'assets/brand/togethertrip-lockup.png',
+        width: 176,
+        height: 42,
+        alignment: Alignment.centerLeft,
+        fit: BoxFit.contain,
+        semanticLabel: 'TogetherTrip',
       ),
     );
   }
