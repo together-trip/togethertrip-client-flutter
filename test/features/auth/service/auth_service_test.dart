@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:togethertrip/core/network/api_client.dart';
@@ -69,6 +70,47 @@ class _FakeSecureStorage extends Fake implements FlutterSecureStorage {
 
 void main() {
   group('AuthService', () {
+    test('Apple 로그인은 nonce 해시로 인증하고 원본 nonce와 credential을 서버에 전달한다', () async {
+      final gateway = _FakeAppleSignInGateway();
+      final tokenStorage = TokenStorage(storage: _FakeSecureStorage());
+      Map<String, dynamic>? requestBody;
+      final service = AuthService(
+        appleSignInGateway: gateway,
+        tokenStorage: tokenStorage,
+        apiClient: ApiClient(
+          client: MockClient((request) async {
+            requestBody = jsonDecode(request.body) as Map<String, dynamic>;
+            return http.Response(
+              jsonEncode(
+                _apiResponse({
+                  'status': 'PROFILE_REQUIRED',
+                  'accessToken': 'apple-access-token',
+                  'refreshToken': 'apple-refresh-token',
+                }),
+              ),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }),
+        ),
+      );
+
+      final result = await service.loginWithApple();
+
+      final rawNonce = requestBody!['rawNonce'] as String;
+      expect(rawNonce, hasLength(32));
+      expect(
+        gateway.hashedNonce,
+        sha256.convert(utf8.encode(rawNonce)).toString(),
+      );
+      expect(requestBody!['authorizationCode'], 'apple-code');
+      expect(requestBody!['identityToken'], 'apple-identity-token');
+      expect(requestBody!['givenName'], '재완');
+      expect(requestBody!['familyName'], '주');
+      expect(result.isProfileRequired, isTrue);
+      expect(await tokenStorage.getAccessToken(), 'apple-access-token');
+    });
+
     test('로그인 응답은 인증 완료와 프로필 입력 필요 상태만 해석한다', () {
       final authenticated = AuthLoginResult.fromJson({
         'status': 'AUTHENTICATED',
@@ -319,4 +361,22 @@ class _RecordingTokenLifecycle implements AuthTokenLifecycle {
   Future<void> willClearTokens(String? accessToken) async {
     clearedAccessTokens.add(accessToken);
   }
+}
+
+class _FakeAppleSignInGateway implements AppleSignInGateway {
+  String? hashedNonce;
+
+  @override
+  Future<AppleSignInCredential> authorize({required String hashedNonce}) async {
+    this.hashedNonce = hashedNonce;
+    return const AppleSignInCredential(
+      authorizationCode: 'apple-code',
+      identityToken: 'apple-identity-token',
+      givenName: '재완',
+      familyName: '주',
+    );
+  }
+
+  @override
+  Future<void> clearLocalState() async {}
 }
