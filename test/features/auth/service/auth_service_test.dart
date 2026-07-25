@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -302,6 +303,82 @@ void main() {
         'Bearer new-access-token',
       ]);
       expect(await tokenStorage.getRefreshToken(), 'new-refresh-token');
+    });
+
+    test('동시 401은 프로세스에서 한 번만 refresh하고 회전된 세션을 유지한다', () async {
+      final tokenStorage = TokenStorage(storage: _FakeSecureStorage());
+      await tokenStorage.save(
+        accessToken: 'old-access-token',
+        refreshToken: 'old-refresh-token',
+      );
+      final bothOldRequestsCompleted = Completer<void>();
+      final releaseRefresh = Completer<void>();
+      var oldRequestCount = 0;
+      var refreshRequestCount = 0;
+
+      final apiClient = ApiClient(
+        client: MockClient((request) async {
+          if (request.url.path == '/api/auth/refresh') {
+            refreshRequestCount += 1;
+            await releaseRefresh.future;
+            return http.Response(
+              jsonEncode(
+                _apiResponse({
+                  'accessToken': 'new-access-token',
+                  'refreshToken': 'rotated-refresh-token',
+                }),
+              ),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          if (request.headers['Authorization'] == 'Bearer old-access-token') {
+            oldRequestCount += 1;
+            if (oldRequestCount == 2 && !bothOldRequestsCompleted.isCompleted) {
+              bothOldRequestsCompleted.complete();
+            }
+            return http.Response(
+              jsonEncode(_apiError('인증 실패')),
+              401,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          return http.Response(
+            jsonEncode(
+              _apiResponse({
+                'id': 1,
+                'nickname': '재완',
+                'profileImageUrl': null,
+              }),
+            ),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+      final firstService = AuthService(
+        tokenStorage: tokenStorage,
+        apiClient: apiClient,
+      );
+      final secondService = AuthService(
+        tokenStorage: tokenStorage,
+        apiClient: apiClient,
+      );
+
+      final profiles = Future.wait([
+        firstService.getMe(),
+        secondService.getMe(),
+      ]);
+      await bothOldRequestsCompleted.future;
+      releaseRefresh.complete();
+
+      expect((await profiles).map((profile) => profile.nickname), ['재완', '재완']);
+      expect(refreshRequestCount, 1);
+      expect(await tokenStorage.getAccessToken(), 'new-access-token');
+      expect(await tokenStorage.getRefreshToken(), 'rotated-refresh-token');
+      expect(await firstService.isLoggedIn(), isTrue);
     });
 
     test('토큰 저장과 삭제 시 lifecycle hook을 호출한다', () async {

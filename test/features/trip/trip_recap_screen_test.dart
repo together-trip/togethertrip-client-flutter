@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:togethertrip/features/trip/screen/trip_recap_screen.dart';
 import 'package:togethertrip/features/trip/service/trip_service.dart';
+import 'package:togethertrip/features/moderation/service/moderation_service.dart';
 
 void main() {
   testWidgets('Recap 상세 화면은 scene imageUrl을 인증 bytes 조회 경로로 사용한다', (
@@ -19,7 +20,29 @@ void main() {
       '/api/trips/10/recap/scenes/200/image',
     ]);
   });
+
+  testWidgets('출시된 AI Recap은 신고 진입점을 제공한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripRecapScreen(
+          tripId: 10,
+          tripRecapId: 100,
+          tripService: _FakeTripService(),
+          moderationService: _FakeModerationService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('reportRecapButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('AI Recap 신고'), findsOneWidget);
+    expect(find.text('가장 가까운 사유를 선택해 주세요.'), findsOneWidget);
+  });
 }
+
+class _FakeModerationService extends ModerationService {}
 
 class _FakeTripService extends TripService {
   final requestedImageUrls = <String>[];

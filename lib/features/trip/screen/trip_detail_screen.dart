@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -6,8 +7,12 @@ import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_design.dart';
 import '../../notification/screen/notification_list_screen.dart';
 import '../../notification/widget/notification_badge_button.dart';
+import '../../moderation/model/moderation_models.dart';
+import '../../moderation/service/moderation_service.dart';
+import '../../moderation/widget/report_sheet.dart';
 import '../../post/screen/post_form_sheet.dart';
 import '../../post/service/post_service.dart';
+import '../../post/widget/authenticated_attachment_image.dart';
 import '../../settlement/screen/settlement_screen.dart';
 import '../../transaction/screen/expense_form_sheet.dart';
 import '../../transaction/service/transaction_service.dart';
@@ -21,6 +26,9 @@ class TripDetailScreen extends StatefulWidget {
   final TripService? tripService;
   final PostService? postService;
   final TransactionService? transactionService;
+  final ModerationService? moderationService;
+  final int moderationVersion;
+  final AuthenticatedAttachmentImageLoader? attachmentImageLoader;
   final ValueChanged<bool>? onClose;
 
   const TripDetailScreen({
@@ -29,6 +37,9 @@ class TripDetailScreen extends StatefulWidget {
     this.tripService,
     this.postService,
     this.transactionService,
+    this.moderationService,
+    this.moderationVersion = 0,
+    this.attachmentImageLoader,
     this.onClose,
   });
 
@@ -40,11 +51,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   late final TripService _tripService;
   late final PostService _postService;
   late final TransactionService _transactionService;
+  late final ModerationService _moderationService;
+  late final AuthenticatedAttachmentImageLoader _attachmentImageLoader;
   late final ScrollController _scrollController;
 
   final List<PostSummary> _posts = [];
   final Map<int, List<PostAttachment>> _attachmentsByPostId = {};
   final Map<int, TransactionDetail> _transactionsById = {};
+  final Set<int> _blockedUserIds = {};
+  final Set<int> _moderatingUserIds = {};
 
   TripDetail? _trip;
   TripRecapStatus? _recapStatus;
@@ -67,6 +82,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     _tripService = widget.tripService ?? TripService();
     _postService = widget.postService ?? PostService();
     _transactionService = widget.transactionService ?? TransactionService();
+    _moderationService = widget.moderationService ?? ModerationService();
+    _attachmentImageLoader =
+        widget.attachmentImageLoader ?? AuthenticatedAttachmentImageLoader();
     _scrollController = ScrollController()..addListener(_onScroll);
     _loadInitial();
   }
@@ -75,6 +93,14 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant TripDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.moderationVersion != widget.moderationVersion) {
+      unawaited(_refreshBlockedUsers());
+    }
   }
 
   void _onScroll() {
@@ -121,6 +147,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         _attachmentsByPostId.clear();
         _transactionsById.clear();
       });
+      unawaited(_refreshBlockedUsers());
       _enhancePosts(page.items);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -135,6 +162,24 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   Future<void> _refreshAll() async {
     await _loadInitial();
+  }
+
+  Future<List<BlockedUser>> _loadBlockedUsersSilently() async {
+    try {
+      return await _moderationService.getBlockedUsers();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> _refreshBlockedUsers() async {
+    final users = await _loadBlockedUsersSilently();
+    if (!mounted) return;
+    setState(() {
+      _blockedUserIds
+        ..clear()
+        ..addAll(users.map((user) => user.blockedUserId));
+    });
   }
 
   Future<TripRecapStatus?> _loadRecapStatusSilently() async {
@@ -353,6 +398,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               tripId: widget.tripId,
               tripRecapId: status.recapId,
               tripService: _tripService,
+              moderationService: _moderationService,
             ),
           ),
         );
@@ -445,6 +491,23 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         return _TripInfoSheet(
           trip: trip,
           canManageTrip: _canManageTrip,
+          currentUserId: _currentUserId,
+          blockedUserIds: _blockedUserIds,
+          onReportParticipant: (participant) async {
+            Navigator.of(context).pop(false);
+            await _reportUser(participant.userId!, participant.displayName);
+          },
+          onBlockParticipant: (participant) async {
+            Navigator.of(context).pop(false);
+            await _confirmBlockUser(
+              participant.userId!,
+              participant.displayName,
+            );
+          },
+          onUnblockParticipant: (participant) async {
+            Navigator.of(context).pop(false);
+            await _unblockUser(participant.userId!, participant.displayName);
+          },
           onManageParticipants: () async {
             Navigator.of(context).pop(false);
             await _openParticipantManager();
@@ -534,6 +597,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         return TripParticipantManagerSheet(
           trip: trip,
           tripService: _tripService,
+          moderationService: _moderationService,
         );
       },
     );
@@ -730,7 +794,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _openPostActions(PostSummary post) async {
+    final isOwnPost = _currentParticipantId == post.authorParticipantId;
     final isLockedExpensePost = _isLockedExpensePost(post);
+    final authorUserId = _postAuthorUserId(post);
+    final isAuthorBlocked =
+        authorUserId != null && _blockedUserIds.contains(authorUserId);
     final action = await showAppBottomSheet<String>(
       context: context,
       builder: (context) {
@@ -740,7 +808,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (isLockedExpensePost)
+                if (isOwnPost && isLockedExpensePost)
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 10, 16, 8),
                     child: Text(
@@ -752,47 +820,204 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                       ),
                     ),
                   ),
-                ListTile(
-                  key: const ValueKey('postEditAction'),
-                  leading: const Icon(Icons.edit_outlined),
-                  title: const Text('수정'),
-                  enabled: !isLockedExpensePost,
-                  onTap: isLockedExpensePost
-                      ? null
-                      : () => Navigator.of(context).pop('edit'),
-                ),
-                ListTile(
-                  key: const ValueKey('postDeleteAction'),
-                  leading: Icon(
-                    Icons.delete_outline_rounded,
-                    color: isLockedExpensePost
-                        ? AppColors.textSubtle
-                        : AppColors.danger,
+                if (isOwnPost) ...[
+                  ListTile(
+                    key: const ValueKey('postEditAction'),
+                    leading: const Icon(Icons.edit_outlined),
+                    title: const Text('수정'),
+                    enabled: !isLockedExpensePost,
+                    onTap: isLockedExpensePost
+                        ? null
+                        : () => Navigator.of(context).pop('edit'),
                   ),
-                  title: Text(
-                    '삭제',
-                    style: TextStyle(
+                  ListTile(
+                    key: const ValueKey('postDeleteAction'),
+                    leading: Icon(
+                      Icons.delete_outline_rounded,
                       color: isLockedExpensePost
                           ? AppColors.textSubtle
                           : AppColors.danger,
                     ),
+                    title: Text(
+                      '삭제',
+                      style: TextStyle(
+                        color: isLockedExpensePost
+                            ? AppColors.textSubtle
+                            : AppColors.danger,
+                      ),
+                    ),
+                    enabled: !isLockedExpensePost,
+                    onTap: isLockedExpensePost
+                        ? null
+                        : () => Navigator.of(context).pop('delete'),
                   ),
-                  enabled: !isLockedExpensePost,
-                  onTap: isLockedExpensePost
-                      ? null
-                      : () => Navigator.of(context).pop('delete'),
-                ),
+                ] else ...[
+                  ListTile(
+                    key: const ValueKey('reportPostAction'),
+                    leading: const Icon(Icons.flag_outlined),
+                    title: const Text('게시글 신고'),
+                    onTap: () => Navigator.of(context).pop('reportPost'),
+                  ),
+                  if (authorUserId != null) ...[
+                    ListTile(
+                      key: const ValueKey('reportPostAuthorAction'),
+                      leading: const Icon(Icons.person_off_outlined),
+                      title: const Text('작성자 신고'),
+                      onTap: () => Navigator.of(context).pop('reportUser'),
+                    ),
+                    ListTile(
+                      key: ValueKey(
+                        isAuthorBlocked
+                            ? 'unblockPostAuthorAction'
+                            : 'blockPostAuthorAction',
+                      ),
+                      leading: Icon(
+                        isAuthorBlocked
+                            ? Icons.person_add_alt_rounded
+                            : Icons.block_rounded,
+                        color: isAuthorBlocked
+                            ? AppColors.ink
+                            : AppColors.danger,
+                      ),
+                      title: Text(
+                        isAuthorBlocked ? '작성자 차단 해제' : '작성자 차단',
+                        style: TextStyle(
+                          color: isAuthorBlocked
+                              ? AppColors.ink
+                              : AppColors.danger,
+                        ),
+                      ),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pop(isAuthorBlocked ? 'unblockUser' : 'blockUser'),
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
         );
       },
     );
+    if (!mounted) return;
 
     if (action == 'edit') {
       await _editPost(post);
     } else if (action == 'delete') {
       await _confirmDeletePost(post);
+    } else if (action == 'reportPost') {
+      await showReportSheet(
+        context: context,
+        tripId: widget.tripId,
+        targetType: ReportTargetType.post,
+        targetId: post.id,
+        targetLabel: '게시글',
+        moderationService: _moderationService,
+      );
+    } else if (action == 'reportUser' && authorUserId != null) {
+      await _reportUser(authorUserId, post.authorDisplayName);
+    } else if (action == 'blockUser' && authorUserId != null) {
+      await _confirmBlockUser(authorUserId, post.authorDisplayName);
+    } else if (action == 'unblockUser' && authorUserId != null) {
+      await _unblockUser(authorUserId, post.authorDisplayName);
+    }
+  }
+
+  int? _postAuthorUserId(PostSummary post) {
+    if (post.authorUserId != null) return post.authorUserId;
+    final participants = _trip?.participants ?? const <TripParticipant>[];
+    for (final participant in participants) {
+      if (participant.id == post.authorParticipantId) return participant.userId;
+    }
+    return null;
+  }
+
+  Future<void> _reportUser(int userId, String displayName) async {
+    await showReportSheet(
+      context: context,
+      tripId: widget.tripId,
+      targetType: ReportTargetType.user,
+      targetId: userId,
+      targetLabel: '$displayName님',
+      moderationService: _moderationService,
+    );
+  }
+
+  Future<void> _confirmBlockUser(int userId, String displayName) async {
+    if (_blockedUserIds.contains(userId) ||
+        _moderatingUserIds.contains(userId)) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('$displayName님 차단'),
+        content: const Text(
+          '이 사용자의 일반 기록과 댓글이 숨겨집니다. 지출·정산에 필요한 정보는 정확한 금액 계산을 위해 계속 표시됩니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            key: const ValueKey('confirmBlockUserButton'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: AppButtonStyles.dangerText(),
+            child: const Text('차단'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _moderatingUserIds.add(userId));
+    try {
+      await _moderationService.blockUser(userId);
+      if (!mounted) return;
+      setState(() => _blockedUserIds.add(userId));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$displayName님을 차단했습니다.')));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('사용자를 차단하지 못했습니다.')));
+    } finally {
+      if (mounted) setState(() => _moderatingUserIds.remove(userId));
+    }
+  }
+
+  Future<void> _unblockUser(int userId, String displayName) async {
+    if (!_blockedUserIds.contains(userId) ||
+        _moderatingUserIds.contains(userId)) {
+      return;
+    }
+    setState(() => _moderatingUserIds.add(userId));
+    try {
+      await _moderationService.unblockUser(userId);
+      if (!mounted) return;
+      setState(() => _blockedUserIds.remove(userId));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$displayName님의 차단을 해제했습니다.')));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('차단을 해제하지 못했습니다.')));
+    } finally {
+      if (mounted) setState(() => _moderatingUserIds.remove(userId));
     }
   }
 
@@ -910,6 +1135,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           postId: post.id,
           currentParticipantId: _currentParticipantId,
           postService: _postService,
+          moderationService: _moderationService,
+          blockedUserIds: _blockedUserIds,
+          onReportUser: _reportUser,
+          onBlockUser: _confirmBlockUser,
+          onUnblockUser: _unblockUser,
         );
       },
     );
@@ -1017,6 +1247,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       return _FullErrorState(message: _errorMessage!, onRetry: _loadInitial);
     }
 
+    final visiblePosts = _posts.where((post) {
+      final authorUserId = _postAuthorUserId(post);
+      if (authorUserId == null || !_blockedUserIds.contains(authorUserId)) {
+        return true;
+      }
+      return post.postType == 'EXPENSE';
+    }).toList();
+    final showBlockedNotice = _blockedUserIds.isNotEmpty;
+
     return RefreshIndicator(
       onRefresh: _refreshAll,
       child: CustomScrollView(
@@ -1038,17 +1277,24 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               hasScrollBody: false,
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             )
-          else if (_posts.isEmpty)
+          else if (visiblePosts.isEmpty && !showBlockedNotice)
             SliverFillRemaining(
               hasScrollBody: false,
               child: _EmptyFeedState(filter: _selectedFilter),
             )
           else
             SliverList.separated(
-              itemCount: _posts.length + (_isLoadingMore ? 1 : 0),
+              itemCount:
+                  visiblePosts.length +
+                  (showBlockedNotice ? 1 : 0) +
+                  (_isLoadingMore ? 1 : 0),
               separatorBuilder: (_, index) => const Divider(indent: 20),
               itemBuilder: (context, index) {
-                if (index >= _posts.length) {
+                if (showBlockedNotice && index == 0) {
+                  return const _BlockedContentNotice();
+                }
+                final postIndex = index - (showBlockedNotice ? 1 : 0);
+                if (postIndex >= visiblePosts.length) {
                   return const Padding(
                     padding: EdgeInsets.all(20),
                     child: Center(
@@ -1056,16 +1302,20 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     ),
                   );
                 }
-                final post = _posts[index];
+                final post = visiblePosts[postIndex];
+                final authorUserId = _postAuthorUserId(post);
                 return _PostFeedCard(
                   post: post,
                   attachments: _attachmentsByPostId[post.id] ?? const [],
                   transaction: post.transactionId == null
                       ? null
                       : _transactionsById[post.transactionId],
-                  showActions:
-                      _currentParticipantId != null &&
-                      _currentParticipantId == post.authorParticipantId,
+                  showActions: true,
+                  isBlockedExpense:
+                      post.postType == 'EXPENSE' &&
+                      authorUserId != null &&
+                      _blockedUserIds.contains(authorUserId),
+                  attachmentImageLoader: _attachmentImageLoader,
                   onActionsTap: () => _openPostActions(post),
                   onCommentsTap: () => _openComments(post),
                   onTransactionTap: post.transactionId == null
@@ -1486,6 +1736,8 @@ class _PostFeedCard extends StatefulWidget {
   final List<PostAttachment> attachments;
   final TransactionDetail? transaction;
   final bool showActions;
+  final bool isBlockedExpense;
+  final AuthenticatedAttachmentImageLoader? attachmentImageLoader;
   final VoidCallback onActionsTap;
   final VoidCallback onCommentsTap;
   final VoidCallback? onTransactionTap;
@@ -1495,6 +1747,8 @@ class _PostFeedCard extends StatefulWidget {
     required this.attachments,
     required this.transaction,
     required this.showActions,
+    this.isBlockedExpense = false,
+    required this.attachmentImageLoader,
     required this.onActionsTap,
     required this.onCommentsTap,
     required this.onTransactionTap,
@@ -1569,10 +1823,29 @@ class _PostFeedCardState extends State<_PostFeedCard> {
                   ],
                 ],
               ),
+              if (widget.isBlockedExpense) ...[
+                const SizedBox(height: 8),
+                Semantics(
+                  label: '차단한 사용자의 지출 정보 보존 안내',
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.neutralSoft,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      '차단한 사용자의 지출·정산 정보는 금액 계산을 위해 표시됩니다.',
+                      style: AppTextStyles.caption,
+                    ),
+                  ),
+                ),
+              ],
               if (widget.attachments.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 _AttachmentCarousel(
                   attachments: widget.attachments,
+                  attachmentImageLoader: widget.attachmentImageLoader,
                   pageController: _pageController,
                   pageIndex: _pageIndex,
                   onPageChanged: (value) => setState(() => _pageIndex = value),
@@ -1707,12 +1980,14 @@ class _AttachmentCarousel extends StatelessWidget {
   final PageController pageController;
   final int pageIndex;
   final ValueChanged<int> onPageChanged;
+  final AuthenticatedAttachmentImageLoader? attachmentImageLoader;
 
   const _AttachmentCarousel({
     required this.attachments,
     required this.pageController,
     required this.pageIndex,
     required this.onPageChanged,
+    required this.attachmentImageLoader,
   });
 
   @override
@@ -1729,29 +2004,33 @@ class _AttachmentCarousel extends StatelessWidget {
               onPageChanged: onPageChanged,
               itemBuilder: (context, index) {
                 final attachment = attachments[index];
-                final rawImageUrl = attachment.thumbnailUrl?.isNotEmpty == true
-                    ? attachment.thumbnailUrl!
-                    : attachment.fileUrl;
-                final imageUrl = resolveApiUrl(rawImageUrl);
                 final isVideo = attachment.attachmentType == 'VIDEO';
+                final thumbnailUrl = attachment.thumbnailUrl?.trim();
+                final hasVideoThumbnail =
+                    isVideo && thumbnailUrl != null && thumbnailUrl.isNotEmpty;
+                final imagePath = isVideo
+                    ? thumbnailUrl
+                    : (thumbnailUrl?.isNotEmpty == true
+                          ? thumbnailUrl
+                          : attachment.fileUrl);
                 return Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const ColoredBox(
-                            color: Color(0xFFF3F3F3),
-                            child: Center(
-                              child: Icon(
-                                Icons.broken_image_outlined,
-                                size: 36,
-                              ),
-                            ),
+                    if (isVideo && !hasVideoThumbnail)
+                      const _VideoAttachmentPlaceholder()
+                    else
+                      AuthenticatedAttachmentImage(
+                        path: imagePath!,
+                        loader: attachmentImageLoader,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_) => const ColoredBox(
+                          color: Color(0xFFF3F3F3),
+                          child: Center(
+                            child: Icon(Icons.broken_image_outlined, size: 36),
                           ),
-                    ),
-                    if (isVideo)
+                        ),
+                      ),
+                    if (hasVideoThumbnail)
                       const Center(
                         child: Icon(
                           Icons.play_circle_outline,
@@ -1808,6 +2087,28 @@ class _AttachmentCarousel extends StatelessWidget {
   }
 }
 
+class _VideoAttachmentPlaceholder extends StatelessWidget {
+  const _VideoAttachmentPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      key: ValueKey('videoAttachmentPlaceholder'),
+      color: Color(0xFFF3F3F3),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.videocam_outlined, size: 44, color: Color(0xFF666666)),
+            SizedBox(height: 6),
+            Text('동영상 첨부', style: TextStyle(color: Color(0xFF666666))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MetaChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1833,6 +2134,11 @@ class _MetaChip extends StatelessWidget {
 class _TripInfoSheet extends StatelessWidget {
   final TripDetail trip;
   final bool canManageTrip;
+  final int? currentUserId;
+  final Set<int> blockedUserIds;
+  final ValueChanged<TripParticipant> onReportParticipant;
+  final ValueChanged<TripParticipant> onBlockParticipant;
+  final ValueChanged<TripParticipant> onUnblockParticipant;
   final VoidCallback onManageParticipants;
   final VoidCallback onCreateInviteLink;
   final VoidCallback onCreateInviteCode;
@@ -1842,6 +2148,11 @@ class _TripInfoSheet extends StatelessWidget {
   const _TripInfoSheet({
     required this.trip,
     required this.canManageTrip,
+    required this.currentUserId,
+    required this.blockedUserIds,
+    required this.onReportParticipant,
+    required this.onBlockParticipant,
+    required this.onUnblockParticipant,
     required this.onManageParticipants,
     required this.onCreateInviteLink,
     required this.onCreateInviteCode,
@@ -1913,9 +2224,17 @@ class _TripInfoSheet extends StatelessWidget {
                     ? const [_EmptyLine(text: '등록된 참여자가 없습니다.')]
                     : trip.participants
                           .map(
-                            (participant) => _InfoRow(
-                              label: _roleLabel(participant.participantRole),
-                              value: participant.displayName,
+                            (participant) => _ParticipantInfoRow(
+                              participant: participant,
+                              isCurrentUser:
+                                  participant.userId == currentUserId,
+                              isBlocked:
+                                  participant.userId != null &&
+                                  blockedUserIds.contains(participant.userId),
+                              onReport: () => onReportParticipant(participant),
+                              onBlock: () => onBlockParticipant(participant),
+                              onUnblock: () =>
+                                  onUnblockParticipant(participant),
                             ),
                           )
                           .toList(),
@@ -1971,12 +2290,22 @@ class _CommentsSheet extends StatefulWidget {
   final int postId;
   final int? currentParticipantId;
   final PostService postService;
+  final ModerationService moderationService;
+  final Set<int> blockedUserIds;
+  final Future<void> Function(int userId, String displayName) onReportUser;
+  final Future<void> Function(int userId, String displayName) onBlockUser;
+  final Future<void> Function(int userId, String displayName) onUnblockUser;
 
   const _CommentsSheet({
     required this.tripId,
     required this.postId,
     required this.currentParticipantId,
     required this.postService,
+    required this.moderationService,
+    required this.blockedUserIds,
+    required this.onReportUser,
+    required this.onBlockUser,
+    required this.onUnblockUser,
   });
 
   @override
@@ -2273,6 +2602,112 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     }
   }
 
+  Future<void> _openCommentActions(PostComment comment) async {
+    final canDelete =
+        widget.currentParticipantId == comment.authorParticipantId;
+    final isAuthorBlocked =
+        comment.authorUserId != null &&
+        widget.blockedUserIds.contains(comment.authorUserId);
+    final action = await showAppBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (canDelete)
+                ListTile(
+                  key: const ValueKey('deleteCommentAction'),
+                  leading: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.danger,
+                  ),
+                  title: const Text(
+                    '댓글 삭제',
+                    style: TextStyle(color: AppColors.danger),
+                  ),
+                  onTap: () => Navigator.pop(sheetContext, 'delete'),
+                )
+              else ...[
+                ListTile(
+                  key: const ValueKey('reportCommentAction'),
+                  leading: const Icon(Icons.flag_outlined),
+                  title: const Text('댓글 신고'),
+                  onTap: () => Navigator.pop(sheetContext, 'reportComment'),
+                ),
+                if (comment.authorUserId != null) ...[
+                  ListTile(
+                    key: const ValueKey('reportCommentAuthorAction'),
+                    leading: const Icon(Icons.person_off_outlined),
+                    title: const Text('작성자 신고'),
+                    onTap: () => Navigator.pop(sheetContext, 'reportUser'),
+                  ),
+                  ListTile(
+                    key: ValueKey(
+                      isAuthorBlocked
+                          ? 'unblockCommentAuthorAction'
+                          : 'blockCommentAuthorAction',
+                    ),
+                    leading: Icon(
+                      isAuthorBlocked
+                          ? Icons.person_add_alt_rounded
+                          : Icons.block_rounded,
+                      color: isAuthorBlocked ? AppColors.ink : AppColors.danger,
+                    ),
+                    title: Text(
+                      isAuthorBlocked ? '작성자 차단 해제' : '작성자 차단',
+                      style: TextStyle(
+                        color: isAuthorBlocked
+                            ? AppColors.ink
+                            : AppColors.danger,
+                      ),
+                    ),
+                    onTap: () => Navigator.pop(
+                      sheetContext,
+                      isAuthorBlocked ? 'unblockUser' : 'blockUser',
+                    ),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (action == 'delete') {
+      await _delete(comment);
+    } else if (action == 'reportComment') {
+      await showReportSheet(
+        context: context,
+        tripId: widget.tripId,
+        targetType: ReportTargetType.comment,
+        targetId: comment.id,
+        targetLabel: '댓글',
+        moderationService: widget.moderationService,
+      );
+    } else if (action == 'reportUser' && comment.authorUserId != null) {
+      await widget.onReportUser(
+        comment.authorUserId!,
+        comment.authorDisplayName,
+      );
+    } else if (action == 'blockUser' && comment.authorUserId != null) {
+      await widget.onBlockUser(
+        comment.authorUserId!,
+        comment.authorDisplayName,
+      );
+      if (mounted) setState(() {});
+    } else if (action == 'unblockUser' && comment.authorUserId != null) {
+      await widget.onUnblockUser(
+        comment.authorUserId!,
+        comment.authorDisplayName,
+      );
+      if (mounted) setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -2326,19 +2761,70 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                       : ListView.builder(
                           controller: scrollController,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: _comments.length + (_hasNext ? 1 : 0),
+                          itemCount:
+                              _comments.length +
+                              (widget.blockedUserIds.isNotEmpty ? 1 : 0) +
+                              (_hasNext ? 1 : 0),
                           itemBuilder: (context, index) {
-                            if (index >= _comments.length) {
+                            final showBlockedNotice =
+                                widget.blockedUserIds.isNotEmpty;
+                            if (showBlockedNotice && index == 0) {
+                              return Semantics(
+                                label: '차단한 사용자의 댓글 숨김',
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  child: Text(
+                                    '차단한 사용자의 일반 댓글은 표시되지 않습니다.',
+                                    style: AppTextStyles.caption,
+                                  ),
+                                ),
+                              );
+                            }
+                            final commentIndex =
+                                index - (showBlockedNotice ? 1 : 0);
+                            if (commentIndex >= _comments.length) {
                               return TextButton(
                                 onPressed: _loadMore,
                                 child: const Text('더 보기'),
                               );
                             }
-                            final comment = _comments[index];
-                            final canDelete =
-                                widget.currentParticipantId != null &&
-                                widget.currentParticipantId ==
-                                    comment.authorParticipantId;
+                            final comment = _comments[commentIndex];
+                            final isBlocked =
+                                comment.authorUserId != null &&
+                                widget.blockedUserIds.contains(
+                                  comment.authorUserId,
+                                );
+                            if (isBlocked) {
+                              return Semantics(
+                                label: '차단한 사용자의 숨겨진 댓글',
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Expanded(
+                                        child: Text(
+                                          '차단한 사용자의 댓글을 숨겼습니다.',
+                                          style: AppTextStyles.caption,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        key: ValueKey(
+                                          'blockedCommentMenu-${comment.id}',
+                                        ),
+                                        onPressed: () =>
+                                            _openCommentActions(comment),
+                                        icon: const Icon(
+                                          Icons.more_horiz_rounded,
+                                        ),
+                                        tooltip: '숨겨진 댓글 작성자 메뉴',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               child: Row(
@@ -2360,15 +2846,17 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                       ],
                                     ),
                                   ),
-                                  if (canDelete)
-                                    IconButton(
-                                      onPressed: () => _delete(comment),
-                                      icon: const Icon(
-                                        Icons.delete_outline_rounded,
-                                        size: 20,
-                                      ),
-                                      tooltip: '댓글 삭제',
+                                  IconButton(
+                                    key: ValueKey('commentMenu-${comment.id}'),
+                                    onPressed: () =>
+                                        _openCommentActions(comment),
+                                    icon: const Icon(
+                                      Icons.more_horiz_rounded,
+                                      size: 20,
                                     ),
+                                    tooltip:
+                                        '${comment.authorDisplayName} 댓글 메뉴',
+                                  ),
                                 ],
                               ),
                             );
@@ -2484,6 +2972,70 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
+class _ParticipantInfoRow extends StatelessWidget {
+  const _ParticipantInfoRow({
+    required this.participant,
+    required this.isCurrentUser,
+    required this.isBlocked,
+    required this.onReport,
+    required this.onBlock,
+    required this.onUnblock,
+  });
+
+  final TripParticipant participant;
+  final bool isCurrentUser;
+  final bool isBlocked;
+  final VoidCallback onReport;
+  final VoidCallback onBlock;
+  final VoidCallback onUnblock;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 78,
+            child: Text(
+              _roleLabel(participant.participantRole),
+              style: AppTextStyles.caption,
+            ),
+          ),
+          Expanded(child: Text(participant.displayName)),
+          if (!isCurrentUser && participant.userId != null)
+            PopupMenuButton<String>(
+              key: ValueKey('participantMenu-${participant.id}'),
+              tooltip: '${participant.displayName} 사용자 메뉴',
+              icon: const Icon(Icons.more_horiz_rounded),
+              onSelected: (value) {
+                if (value == 'report') {
+                  onReport();
+                } else if (value == 'block') {
+                  onBlock();
+                } else if (value == 'unblock') {
+                  onUnblock();
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'report', child: Text('사용자 신고')),
+                PopupMenuItem(
+                  value: isBlocked ? 'unblock' : 'block',
+                  child: Text(
+                    isBlocked ? '차단 해제' : '사용자 차단',
+                    style: TextStyle(
+                      color: isBlocked ? AppColors.ink : AppColors.danger,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyLine extends StatelessWidget {
   final String text;
 
@@ -2525,6 +3077,41 @@ class _EmptyFeedState extends StatelessWidget {
               filter.emptyDescription,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13, color: AppColors.textSubtle),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockedContentNotice extends StatelessWidget {
+  const _BlockedContentNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '차단한 사용자의 일반 기록 숨김',
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.neutralSoft,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          children: [
+            Icon(
+              Icons.visibility_off_outlined,
+              size: 18,
+              color: AppColors.textMuted,
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '차단한 사용자의 일반 기록은 표시되지 않습니다.',
+                style: AppTextStyles.caption,
+              ),
             ),
           ],
         ),

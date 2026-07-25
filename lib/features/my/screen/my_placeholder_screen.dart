@@ -10,6 +10,9 @@ import '../../auth/service/terms_agreement_service.dart';
 import '../../notification/screen/notification_list_screen.dart';
 import '../../notification/service/notification_service.dart';
 import '../../notification/widget/notification_badge_button.dart';
+import '../../moderation/screen/blocked_users_screen.dart';
+import '../../moderation/screen/community_support_screen.dart';
+import '../../moderation/service/moderation_service.dart';
 import '../../trip/service/trip_service.dart';
 import '../widget/my_menu_row.dart';
 import '../widget/my_profile_header.dart';
@@ -18,12 +21,16 @@ class MyPlaceholderScreen extends StatefulWidget {
   final AuthService? authService;
   final TermsAgreementService? termsAgreementService;
   final VoidCallback? onBack;
+  final ModerationService? moderationService;
+  final VoidCallback? onModerationChanged;
 
   const MyPlaceholderScreen({
     super.key,
     this.authService,
     this.termsAgreementService,
     this.onBack,
+    this.moderationService,
+    this.onModerationChanged,
   });
 
   @override
@@ -33,6 +40,7 @@ class MyPlaceholderScreen extends StatefulWidget {
 class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
   late final AuthService _authService;
   late final TermsAgreementService _termsAgreementService;
+  late final ModerationService _moderationService;
 
   UserProfile? _profile;
   bool _isLoading = true;
@@ -46,6 +54,9 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
     _termsAgreementService =
         widget.termsAgreementService ??
         TermsAgreementService(authService: _authService);
+    _moderationService =
+        widget.moderationService ??
+        ModerationService(authService: _authService);
     _loadProfile();
   }
 
@@ -189,6 +200,24 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
     );
   }
 
+  Future<void> _openBlockedUsers() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            BlockedUsersScreen(moderationService: _moderationService),
+      ),
+    );
+    if (changed == true) widget.onModerationChanged?.call();
+  }
+
+  void _openCommunityPage(CommunitySupportPage page) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CommunitySupportScreen(page: page),
+      ),
+    );
+  }
+
   void _showPreparingMessage(String featureName) {
     ScaffoldMessenger.of(
       context,
@@ -289,6 +318,25 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
             icon: Icons.description_outlined,
             label: '약관 및 동의 관리',
             onTap: _openTerms,
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 22, 20, 6),
+            child: Text('안전 및 지원', style: AppTextStyles.caption),
+          ),
+          MyMenuRow(
+            icon: Icons.block_outlined,
+            label: '차단한 사용자',
+            onTap: _openBlockedUsers,
+          ),
+          MyMenuRow(
+            icon: Icons.support_agent_outlined,
+            label: '고객지원',
+            onTap: () => _openCommunityPage(CommunitySupportPage.support),
+          ),
+          MyMenuRow(
+            icon: Icons.shield_outlined,
+            label: '커뮤니티 운영정책',
+            onTap: () => _openCommunityPage(CommunitySupportPage.policy),
           ),
           const Padding(
             padding: EdgeInsets.fromLTRB(20, 22, 20, 6),

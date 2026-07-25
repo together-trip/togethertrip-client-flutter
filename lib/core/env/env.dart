@@ -4,4 +4,6 @@ class Env {
   );
 
   static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+
+  static const supportEmail = String.fromEnvironment('SUPPORT_EMAIL');
 }
