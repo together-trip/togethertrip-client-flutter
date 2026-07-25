@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/token_storage.dart';
@@ -7,14 +12,17 @@ class AuthService {
   final ApiClient _apiClient;
   final TokenStorage _tokenStorage;
   final AuthTokenLifecycle? _tokenLifecycle;
+  final AppleSignInGateway _appleSignInGateway;
 
   AuthService({
     ApiClient? apiClient,
     TokenStorage? tokenStorage,
     AuthTokenLifecycle? tokenLifecycle,
+    AppleSignInGateway? appleSignInGateway,
   }) : _apiClient = apiClient ?? ApiClient(),
        _tokenStorage = tokenStorage ?? TokenStorage(),
-       _tokenLifecycle = tokenLifecycle;
+       _tokenLifecycle = tokenLifecycle,
+       _appleSignInGateway = appleSignInGateway ?? NativeAppleSignInGateway();
 
   Future<AuthLoginResult> loginWithKakao() async {
     final kakaoToken = await _getKakaoToken();
@@ -26,6 +34,36 @@ class AuthService {
       throw const ApiException(statusCode: 500, message: '로그인 응답이 비어 있습니다.');
     }
 
+    return _completeLogin(data);
+  }
+
+  Future<AuthLoginResult> loginWithApple() async {
+    final rawNonce = _generateNonce();
+    final credential = await _appleSignInGateway.authorize(
+      hashedNonce: sha256.convert(utf8.encode(rawNonce)).toString(),
+    );
+    if (credential.identityToken == null || credential.identityToken!.isEmpty) {
+      throw const ApiException(
+        statusCode: 401,
+        message: 'Apple identity token을 받지 못했습니다.',
+      );
+    }
+
+    final data = await _apiClient.post('/api/auth/oauth/apple', {
+      'authorizationCode': credential.authorizationCode,
+      'identityToken': credential.identityToken,
+      'rawNonce': rawNonce,
+      'givenName': credential.givenName,
+      'familyName': credential.familyName,
+    });
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '로그인 응답이 비어 있습니다.');
+    }
+
+    return _completeLogin(data);
+  }
+
+  Future<AuthLoginResult> _completeLogin(Map<String, dynamic> data) async {
     final result = AuthLoginResult.fromJson(data);
     if (result.hasToken) {
       await _saveTokens(
@@ -92,6 +130,7 @@ class AuthService {
     try {
       await UserApi.instance.logout();
     } catch (_) {}
+    await _appleSignInGateway.clearLocalState();
     await _tokenStorage.clear();
   }
 
@@ -142,6 +181,7 @@ class AuthService {
     try {
       await UserApi.instance.logout();
     } catch (_) {}
+    await _appleSignInGateway.clearLocalState();
     await _tokenStorage.clear();
   }
 
@@ -203,6 +243,16 @@ class AuthService {
     return token.accessToken;
   }
 
+  String _generateNonce([int length = 32]) {
+    const characters =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(
+      length,
+      (_) => characters[random.nextInt(characters.length)],
+    ).join();
+  }
+
   Future<void> _notifyDidSaveTokens(String accessToken) async {
     try {
       await _tokenLifecycle?.didSaveTokens(accessToken);
@@ -214,6 +264,57 @@ class AuthService {
       await _tokenLifecycle?.willClearTokens(accessToken);
     } catch (_) {}
   }
+}
+
+abstract class AppleSignInGateway {
+  Future<AppleSignInCredential> authorize({required String hashedNonce});
+
+  Future<void> clearLocalState();
+}
+
+class NativeAppleSignInGateway implements AppleSignInGateway {
+  @override
+  Future<AppleSignInCredential> authorize({required String hashedNonce}) async {
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: [AppleIDAuthorizationScopes.fullName],
+      nonce: hashedNonce,
+    );
+    final userIdentifier = credential.userIdentifier;
+    if (userIdentifier == null || userIdentifier.isEmpty) {
+      throw const AppleCredentialRevokedException();
+    }
+    final state = await SignInWithApple.getCredentialState(userIdentifier);
+    if (state != CredentialState.authorized) {
+      throw const AppleCredentialRevokedException();
+    }
+    return AppleSignInCredential(
+      authorizationCode: credential.authorizationCode,
+      identityToken: credential.identityToken,
+      givenName: credential.givenName,
+      familyName: credential.familyName,
+    );
+  }
+
+  @override
+  Future<void> clearLocalState() async {}
+}
+
+class AppleSignInCredential {
+  final String authorizationCode;
+  final String? identityToken;
+  final String? givenName;
+  final String? familyName;
+
+  const AppleSignInCredential({
+    required this.authorizationCode,
+    required this.identityToken,
+    required this.givenName,
+    required this.familyName,
+  });
+}
+
+class AppleCredentialRevokedException implements Exception {
+  const AppleCredentialRevokedException();
 }
 
 abstract class AuthTokenLifecycle {
