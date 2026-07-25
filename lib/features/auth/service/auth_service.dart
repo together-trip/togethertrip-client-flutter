@@ -9,6 +9,8 @@ import '../../../core/network/api_client.dart';
 import '../../../core/storage/token_storage.dart';
 
 class AuthService {
+  static Future<void>? _refreshInFlight;
+
   final ApiClient _apiClient;
   final TokenStorage _tokenStorage;
   final AuthTokenLifecycle? _tokenLifecycle;
@@ -155,7 +157,20 @@ class AuthService {
     return data['available'] as bool;
   }
 
-  Future<void> refreshToken() async {
+  Future<void> refreshToken() {
+    final inFlight = _refreshInFlight;
+    if (inFlight != null) return inFlight;
+
+    final refresh = _performRefreshToken();
+    _refreshInFlight = refresh;
+    return refresh.whenComplete(() {
+      if (identical(_refreshInFlight, refresh)) {
+        _refreshInFlight = null;
+      }
+    });
+  }
+
+  Future<void> _performRefreshToken() async {
     final refreshToken = await _tokenStorage.getRefreshToken();
     if (refreshToken == null) {
       throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
@@ -199,9 +214,15 @@ class AuthService {
       if (e.statusCode != 401) rethrow;
 
       try {
-        await refreshToken();
+        final currentAccessToken = await _tokenStorage.getAccessToken();
+        if (currentAccessToken == null || currentAccessToken == accessToken) {
+          await refreshToken();
+        }
       } catch (_) {
-        await _tokenStorage.clear();
+        final currentAccessToken = await _tokenStorage.getAccessToken();
+        if (currentAccessToken == null || currentAccessToken == accessToken) {
+          await _tokenStorage.clear();
+        }
         rethrow;
       }
 

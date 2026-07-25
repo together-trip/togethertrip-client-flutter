@@ -33,6 +33,7 @@ jobs:
           flutter build web
           --release
           --dart-define=API_BASE_URL=https://api.togethertrip.co.kr
+          --dart-define=SUPPORT_EMAIL=${{ vars.SUPPORT_EMAIL }}
       - name: Upload Flutter Web artifact
         if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && vars.DEPLOY_ENABLED == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

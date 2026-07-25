@@ -8,6 +8,7 @@ import '../../../core/widget/app_date_picker.dart';
 import '../../place/model/place_models.dart';
 import '../../place/service/place_service.dart';
 import '../../place/widget/place_input_field.dart';
+import '../../moderation/widget/content_warning_dialog.dart';
 import '../../post/service/post_service.dart';
 import '../../post/widget/attachment_input_section.dart';
 import '../../trip/service/trip_service.dart';
@@ -292,6 +293,13 @@ class _ExpenseFormSheetState extends State<ExpenseFormSheet> {
       setState(() => _errorMessage = '부담 금액 합계가 총 금액과 같아야 합니다.');
       return;
     }
+    final shouldSubmit = await confirmPotentiallyOffensiveContent(context, [
+      title,
+      category,
+      _contentController.text,
+      _selectedPlace?.name,
+    ]);
+    if (!shouldSubmit || !mounted) return;
 
     setState(() {
       _isSubmitting = true;

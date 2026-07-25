@@ -30,6 +30,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   int _currentIndex = 0;
   TripSummary? _selectedTrip;
   int _tripListVersion = 0;
+  int _moderationVersion = 0;
 
   void _openTripDetail(TripSummary trip) {
     setState(() {
@@ -68,6 +69,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
             key: ValueKey('tripDetail_${selectedTrip.id}'),
             tripId: selectedTrip.id,
             tripService: tripService,
+            moderationVersion: _moderationVersion,
             onClose: _closeTripDetail,
           );
     final screens = <Widget>[
@@ -77,6 +79,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
         authService: authService,
         termsAgreementService: widget.termsAgreementService,
         onBack: () => _selectTab(0),
+        onModerationChanged: () => setState(() => _moderationVersion++),
       ),
     ];
     final reduceMotion = MediaQuery.disableAnimationsOf(context);

@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_design.dart';
+import '../../moderation/model/moderation_models.dart';
+import '../../moderation/service/moderation_service.dart';
+import '../../moderation/widget/report_sheet.dart';
 import '../service/trip_service.dart';
 
 class TripInviteValueSheet extends StatelessWidget {
@@ -71,12 +74,14 @@ class TripParticipantManagerSheet extends StatefulWidget {
   final TripDetail trip;
   final TripService tripService;
   final bool initiallyShowAddPanel;
+  final ModerationService? moderationService;
 
   const TripParticipantManagerSheet({
     super.key,
     required this.trip,
     required this.tripService,
     this.initiallyShowAddPanel = false,
+    this.moderationService,
   });
 
   @override
@@ -120,12 +125,30 @@ class _TripParticipantManagerSheetState
   late bool _showAddPanel;
   String? _message;
   TripParticipant? _recentlyAddedGuest;
+  late final ModerationService _moderationService;
+  final Set<int> _blockedUserIds = {};
 
   @override
   void initState() {
     super.initState();
     _participants = [...widget.trip.participants];
     _showAddPanel = widget.initiallyShowAddPanel;
+    _moderationService = widget.moderationService ?? ModerationService();
+    _loadBlockedUsers();
+  }
+
+  Future<void> _loadBlockedUsers() async {
+    try {
+      final users = await _moderationService.getBlockedUsers();
+      if (!mounted) return;
+      setState(() {
+        _blockedUserIds
+          ..clear()
+          ..addAll(users.map((user) => user.blockedUserId));
+      });
+    } catch (_) {
+      // 차단 상태 확인 실패는 참여자 관리의 다른 기능을 막지 않는다.
+    }
   }
 
   @override
@@ -253,6 +276,64 @@ class _TripParticipantManagerSheetState
           _recentlyAddedGuest = null;
         }
         _message = '참여자를 제거했습니다.';
+      });
+    });
+  }
+
+  Future<void> _reportParticipant(TripParticipant participant) async {
+    final userId = participant.userId;
+    if (userId == null) return;
+    await showReportSheet(
+      context: context,
+      tripId: widget.trip.id,
+      targetType: ReportTargetType.user,
+      targetId: userId,
+      targetLabel: '${participant.displayName}님',
+      moderationService: _moderationService,
+    );
+  }
+
+  Future<void> _blockParticipant(TripParticipant participant) async {
+    final userId = participant.userId;
+    if (userId == null || _blockedUserIds.contains(userId)) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('${participant.displayName}님 차단'),
+        content: const Text(
+          '이 사용자의 일반 기록과 댓글이 숨겨집니다. 지출·정산 정보는 정확한 금액 계산을 위해 계속 표시됩니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: AppButtonStyles.dangerText(),
+            child: const Text('차단'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _run(() async {
+      await _moderationService.blockUser(userId);
+      setState(() {
+        _blockedUserIds.add(userId);
+        _message = '${participant.displayName}님을 차단했습니다.';
+      });
+    });
+  }
+
+  Future<void> _unblockParticipant(TripParticipant participant) async {
+    final userId = participant.userId;
+    if (userId == null || !_blockedUserIds.contains(userId)) return;
+    await _run(() async {
+      await _moderationService.unblockUser(userId);
+      setState(() {
+        _blockedUserIds.remove(userId);
+        _message = '${participant.displayName}님의 차단을 해제했습니다.';
       });
     });
   }
@@ -411,10 +492,46 @@ class _TripParticipantManagerSheetState
                                 onSelected: (value) {
                                   if (value == 'remove') {
                                     _removeParticipant(participant);
+                                  } else if (value == 'report') {
+                                    _reportParticipant(participant);
+                                  } else if (value == 'block') {
+                                    _blockParticipant(participant);
+                                  } else if (value == 'unblock') {
+                                    _unblockParticipant(participant);
                                   }
                                 },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
+                                itemBuilder: (_) => [
+                                  if (!isGuest) ...[
+                                    const PopupMenuItem(
+                                      value: 'report',
+                                      child: Text('사용자 신고'),
+                                    ),
+                                    PopupMenuItem(
+                                      value:
+                                          _blockedUserIds.contains(
+                                            participant.userId,
+                                          )
+                                          ? 'unblock'
+                                          : 'block',
+                                      child: Text(
+                                        _blockedUserIds.contains(
+                                              participant.userId,
+                                            )
+                                            ? '차단 해제'
+                                            : '사용자 차단',
+                                        style: TextStyle(
+                                          color:
+                                              _blockedUserIds.contains(
+                                                participant.userId,
+                                              )
+                                              ? AppColors.ink
+                                              : AppColors.danger,
+                                        ),
+                                      ),
+                                    ),
+                                    const PopupMenuDivider(),
+                                  ],
+                                  const PopupMenuItem(
                                     value: 'remove',
                                     child: Text(
                                       '동행자 제거',

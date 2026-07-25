@@ -4,18 +4,23 @@ import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_design.dart';
+import '../../moderation/model/moderation_models.dart';
+import '../../moderation/service/moderation_service.dart';
+import '../../moderation/widget/report_sheet.dart';
 import '../service/trip_service.dart';
 
 class TripRecapScreen extends StatefulWidget {
   final int tripId;
   final int? tripRecapId;
   final TripService? tripService;
+  final ModerationService? moderationService;
 
   const TripRecapScreen({
     super.key,
     required this.tripId,
     this.tripRecapId,
     this.tripService,
+    this.moderationService,
   });
 
   @override
@@ -24,6 +29,7 @@ class TripRecapScreen extends StatefulWidget {
 
 class _TripRecapScreenState extends State<TripRecapScreen> {
   late final TripService _tripService;
+  late final ModerationService _moderationService;
   final PageController _pageController = PageController();
 
   TripRecap? _recap;
@@ -35,6 +41,7 @@ class _TripRecapScreenState extends State<TripRecapScreen> {
   void initState() {
     super.initState();
     _tripService = widget.tripService ?? TripService();
+    _moderationService = widget.moderationService ?? ModerationService();
     _loadRecap();
   }
 
@@ -65,6 +72,19 @@ class _TripRecapScreenState extends State<TripRecapScreen> {
     }
   }
 
+  Future<void> _reportRecap() async {
+    final recapId = widget.tripRecapId ?? _recap?.recapId;
+    if (recapId == null) return;
+    await showReportSheet(
+      context: context,
+      tripId: widget.tripId,
+      targetType: ReportTargetType.tripRecap,
+      targetId: recapId,
+      targetLabel: 'AI Recap',
+      moderationService: _moderationService,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final recap = _recap;
@@ -80,6 +100,16 @@ class _TripRecapScreenState extends State<TripRecapScreen> {
           '여행 기록',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
         ),
+        actions: [
+          if (recap != null)
+            IconButton(
+              key: const ValueKey('reportRecapButton'),
+              onPressed: _reportRecap,
+              icon: const Icon(Icons.more_horiz_rounded),
+              tooltip: 'AI Recap 신고 메뉴',
+            ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _isLoading
           ? const Center(

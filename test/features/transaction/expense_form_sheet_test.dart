@@ -130,6 +130,61 @@ void main() {
     expect(submitted?.latitude, 35.681236);
     expect(submitted?.longitude, 139.767125);
   });
+
+  testWidgets('욕설이 감지된 소비는 경고 후 사용자 확인을 받아 등록한다', (tester) async {
+    PostFormInput? submitted;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ExpenseFormSheet(
+            trip: _trip(),
+            currentParticipantId: 100,
+            initialPost: _post(occurredAt: '2026-07-02T03:00:00Z'),
+            initialTransaction: _transaction(
+              occurredAt: '2026-07-02T03:00:00Z',
+            ),
+            onSubmit: ({required transactionInput, required postInput}) async {
+              submitted = postInput;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(_textFieldWithLabel('제목'), '개 새 끼야');
+
+    final nextButton = find.byKey(const ValueKey('expenseNextButton'));
+    await tester.scrollUntilVisible(
+      nextButton,
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(nextButton);
+    await tester.pumpAndSettle();
+    final saveButton = find.byKey(const ValueKey('saveExpenseButton'));
+    await tester.scrollUntilVisible(
+      saveButton,
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(submitted, isNull);
+    expect(find.text('표현을 한 번 확인해주세요'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('submitPotentiallyOffensiveContentButton')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(submitted?.title, '개 새 끼야');
+  });
+}
+
+Finder _textFieldWithLabel(String label) {
+  return find.byWidgetPredicate(
+    (widget) => widget is TextField && widget.decoration?.labelText == label,
+  );
 }
 
 TripDetail _trip() {

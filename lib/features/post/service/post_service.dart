@@ -249,6 +249,7 @@ class PostSummary {
   final int tripId;
   final int? transactionId;
   final int authorParticipantId;
+  final int? authorUserId;
   final String authorDisplayName;
   final String postType;
   final String title;
@@ -268,6 +269,7 @@ class PostSummary {
     required this.tripId,
     required this.transactionId,
     required this.authorParticipantId,
+    this.authorUserId,
     required this.authorDisplayName,
     required this.postType,
     required this.title,
@@ -289,6 +291,7 @@ class PostSummary {
       tripId: (json['tripId'] as num).toInt(),
       transactionId: (json['transactionId'] as num?)?.toInt(),
       authorParticipantId: (json['authorParticipantId'] as num).toInt(),
+      authorUserId: (json['authorUserId'] as num?)?.toInt(),
       authorDisplayName: json['authorDisplayName'] as String? ?? '',
       postType: json['postType'] as String,
       title: json['title'] as String,
@@ -317,6 +320,7 @@ class PostSummary {
       tripId: tripId,
       transactionId: transactionId,
       authorParticipantId: authorParticipantId,
+      authorUserId: authorUserId,
       authorDisplayName: authorDisplayName,
       postType: postType,
       title: title,
@@ -339,6 +343,7 @@ class PostDetail {
   final int tripId;
   final int? transactionId;
   final int authorParticipantId;
+  final int? authorUserId;
   final String authorDisplayName;
   final String postType;
   final String title;
@@ -358,6 +363,7 @@ class PostDetail {
     required this.tripId,
     required this.transactionId,
     required this.authorParticipantId,
+    this.authorUserId,
     required this.authorDisplayName,
     required this.postType,
     required this.title,
@@ -379,6 +385,7 @@ class PostDetail {
       tripId: (json['tripId'] as num).toInt(),
       transactionId: (json['transactionId'] as num?)?.toInt(),
       authorParticipantId: (json['authorParticipantId'] as num).toInt(),
+      authorUserId: (json['authorUserId'] as num?)?.toInt(),
       authorDisplayName: json['authorDisplayName'] as String? ?? '',
       postType: json['postType'] as String,
       title: json['title'] as String,
@@ -403,6 +410,7 @@ class PostDetail {
       tripId: tripId,
       transactionId: transactionId,
       authorParticipantId: authorParticipantId,
+      authorUserId: authorUserId,
       authorDisplayName: authorDisplayName,
       postType: postType,
       title: title,
@@ -609,6 +617,7 @@ class PostComment {
   final int id;
   final int postId;
   final int authorParticipantId;
+  final int? authorUserId;
   final String authorDisplayName;
   final String content;
   final int commentDepth;
@@ -619,6 +628,7 @@ class PostComment {
     required this.id,
     required this.postId,
     required this.authorParticipantId,
+    this.authorUserId,
     required this.authorDisplayName,
     required this.content,
     required this.commentDepth,
@@ -631,6 +641,7 @@ class PostComment {
       id: (json['id'] as num).toInt(),
       postId: (json['postId'] as num).toInt(),
       authorParticipantId: (json['authorParticipantId'] as num).toInt(),
+      authorUserId: (json['authorUserId'] as num?)?.toInt(),
       authorDisplayName: json['authorDisplayName'] as String? ?? '',
       content: json['content'] as String? ?? '',
       commentDepth: (json['commentDepth'] as num?)?.toInt() ?? 0,
