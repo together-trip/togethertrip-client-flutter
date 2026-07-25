@@ -33,6 +33,48 @@ void main() {
     expect(submitted?.latitude, 35.681236);
     expect(submitted?.longitude, 139.767125);
   });
+
+  testWidgets('욕설이 감지된 기록은 경고 후 사용자 확인을 받아 등록한다', (tester) async {
+    PostFormInput? submitted;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PostFormSheet(
+            tripId: 10,
+            postType: 'RECORD',
+            initialPost: _post,
+            onSubmit: (input) async => submitted = input,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(_textFieldWithLabel('제목'), '씨1 발 여행');
+
+    final saveButton = find.byKey(const ValueKey('savePostButton'));
+    await tester.scrollUntilVisible(
+      saveButton,
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(submitted, isNull);
+    expect(find.text('표현을 한 번 확인해주세요'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('submitPotentiallyOffensiveContentButton')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(submitted?.title, '씨1 발 여행');
+  });
+}
+
+Finder _textFieldWithLabel(String label) {
+  return find.byWidgetPredicate(
+    (widget) => widget is TextField && widget.decoration?.labelText == label,
+  );
 }
 
 const _post = PostDetail(

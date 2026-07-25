@@ -541,6 +541,42 @@ void main() {
     expect(service.reports.single.targetId, 31);
   });
 
+  testWidgets('욕설이 감지된 댓글은 경고 후 사용자 확인을 받아 등록한다', (tester) async {
+    _setLargeSurface(tester);
+    final postService = _FakePostService(
+      posts: [
+        _post(id: 1, transactionId: null, postType: 'RECORD', title: '기록'),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripDetailScreen(
+          tripId: 10,
+          tripService: _FakeTripService(settlementStatus: 'NOT_STARTED'),
+          postService: postService,
+          transactionService: _FakeTransactionService(),
+          moderationService: _EmptyModerationService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('댓글 0'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'ㅅ-ㅂ');
+    await tester.tap(find.byTooltip('댓글 작성'));
+    await tester.pumpAndSettle();
+
+    expect(postService.createdCommentContents, isEmpty);
+    expect(find.text('표현을 한 번 확인해주세요'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('submitPotentiallyOffensiveContentButton')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(postService.createdCommentContents, ['ㅅ-ㅂ']);
+  });
+
   testWidgets('차단 댓글은 내용을 숨기되 작성자 차단 해제 메뉴로 즉시 복구한다', (tester) async {
     final service = _TransitionModerationService(
       blockedUsers: const [
@@ -1073,6 +1109,7 @@ class _FakeTripService extends TripService {
 class _FakePostService extends PostService {
   final List<PostSummary> posts;
   final List<PostComment> comments;
+  final List<String> createdCommentContents = [];
   int updatePostCallCount = 0;
   int updateExpensePostCallCount = 0;
 
@@ -1090,6 +1127,26 @@ class _FakePostService extends PostService {
       size: comments.length,
       nextCursor: null,
       hasNext: false,
+    );
+  }
+
+  @override
+  Future<PostComment> createComment(
+    int tripId,
+    int postId,
+    String content,
+  ) async {
+    createdCommentContents.add(content);
+    return PostComment(
+      id: 99,
+      postId: postId,
+      authorParticipantId: 100,
+      authorUserId: 1,
+      authorDisplayName: '재완',
+      content: content,
+      commentDepth: 0,
+      createdAt: null,
+      updatedAt: null,
     );
   }
 

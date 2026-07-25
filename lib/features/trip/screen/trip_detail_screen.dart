@@ -9,6 +9,7 @@ import '../../notification/screen/notification_list_screen.dart';
 import '../../notification/widget/notification_badge_button.dart';
 import '../../moderation/model/moderation_models.dart';
 import '../../moderation/service/moderation_service.dart';
+import '../../moderation/widget/content_warning_dialog.dart';
 import '../../moderation/widget/report_sheet.dart';
 import '../../post/screen/post_form_sheet.dart';
 import '../../post/service/post_service.dart';
@@ -2565,6 +2566,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   Future<void> _submit() async {
     final content = _controller.text.trim();
     if (content.isEmpty || _isSubmitting) return;
+    final shouldSubmit = await confirmPotentiallyOffensiveContent(context, [
+      content,
+    ]);
+    if (!shouldSubmit || !mounted || _isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
       await widget.postService.createComment(
