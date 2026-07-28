@@ -422,6 +422,33 @@ void main() {
       expect(lifecycle.savedAccessTokens, ['new-access-token']);
       expect(lifecycle.clearedAccessTokens, ['new-access-token']);
     });
+
+    test('계정 삭제 성공 뒤 provider 정리 실패와 무관하게 secure token을 비운다', () async {
+      final tokenStorage = TokenStorage(storage: _FakeSecureStorage());
+      final service = AuthService(
+        tokenStorage: tokenStorage,
+        tokenLifecycle: _ThrowingTokenLifecycle(),
+        appleSignInGateway: _ThrowingAppleSignInGateway(),
+        apiClient: ApiClient(
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode(_apiResponse(null)),
+              200,
+              headers: {'content-type': 'application/json'},
+            ),
+          ),
+        ),
+      );
+      await tokenStorage.save(
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+      );
+
+      await service.deleteAccount();
+
+      expect(await tokenStorage.getAccessToken(), isNull);
+      expect(await tokenStorage.getRefreshToken(), isNull);
+    });
   });
 }
 
@@ -437,6 +464,28 @@ class _RecordingTokenLifecycle implements AuthTokenLifecycle {
   @override
   Future<void> willClearTokens(String? accessToken) async {
     clearedAccessTokens.add(accessToken);
+  }
+}
+
+class _ThrowingTokenLifecycle implements AuthTokenLifecycle {
+  @override
+  Future<void> didSaveTokens(String accessToken) async {}
+
+  @override
+  Future<void> willClearTokens(String? accessToken) async {
+    throw StateError('push cleanup failed');
+  }
+}
+
+class _ThrowingAppleSignInGateway implements AppleSignInGateway {
+  @override
+  Future<AppleSignInCredential> authorize({required String hashedNonce}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> clearLocalState() async {
+    throw StateError('apple cleanup failed');
   }
 }
 

@@ -18,6 +18,15 @@ Run the app with local `dart-define` values:
 
 `SUPPORT_EMAIL`에는 실제 수신 가능한 운영 고객지원 주소를 설정합니다. 값이 비어 있으면 앱은 연락처 준비 안내를 표시합니다.
 
+계정 삭제와 스토어 정책 링크는 아래 dart-define으로 재정의할 수 있습니다. 생략하면
+`https://togethertrip.co.kr`의 기본 공개 경로를 사용합니다.
+
+- `PRIVACY_POLICY_URL`
+- `TERMS_OF_SERVICE_URL`
+- `COMMUNITY_POLICY_URL`
+- `CUSTOMER_SUPPORT_URL`
+- `ACCOUNT_DELETION_URL`
+
 The script automatically selects the first iPhone listed by `flutter devices`
 when no device option is provided.
 

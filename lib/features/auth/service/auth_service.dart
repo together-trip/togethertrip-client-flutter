@@ -122,18 +122,28 @@ class AuthService {
   }
 
   Future<void> deleteAccount() async {
-    final accessToken = await _tokenStorage.getAccessToken();
     await runWithAccessToken(
       (accessToken) =>
           _apiClient.delete('/api/users/me', accessToken: accessToken),
     );
 
+    final accessToken = await _tokenStorage.getAccessToken();
+    await _clearLocalSession(accessToken);
+  }
+
+  Future<void> _clearLocalSession(String? accessToken) async {
     await _notifyWillClearTokens(accessToken);
     try {
       await UserApi.instance.logout();
     } catch (_) {}
-    await _appleSignInGateway.clearLocalState();
-    await _tokenStorage.clear();
+    try {
+      await _appleSignInGateway.clearLocalState();
+    } catch (_) {}
+    try {
+      await _tokenStorage.clear();
+    } catch (_) {
+      rethrow;
+    }
   }
 
   Future<bool> checkNicknameAvailability(String nickname) async {
@@ -192,12 +202,7 @@ class AuthService {
         await _apiClient.post('/api/auth/logout', {}, accessToken: accessToken);
       }
     } catch (_) {}
-    await _notifyWillClearTokens(accessToken);
-    try {
-      await UserApi.instance.logout();
-    } catch (_) {}
-    await _appleSignInGateway.clearLocalState();
-    await _tokenStorage.clear();
+    await _clearLocalSession(accessToken);
   }
 
   Future<bool> isLoggedIn() => _tokenStorage.hasToken();

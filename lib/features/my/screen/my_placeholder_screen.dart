@@ -11,11 +11,11 @@ import '../../notification/screen/notification_list_screen.dart';
 import '../../notification/service/notification_service.dart';
 import '../../notification/widget/notification_badge_button.dart';
 import '../../moderation/screen/blocked_users_screen.dart';
-import '../../moderation/screen/community_support_screen.dart';
 import '../../moderation/service/moderation_service.dart';
 import '../../trip/service/trip_service.dart';
 import '../widget/my_menu_row.dart';
 import '../widget/my_profile_header.dart';
+import '../service/public_site_link_service.dart';
 
 class MyPlaceholderScreen extends StatefulWidget {
   final AuthService? authService;
@@ -23,6 +23,8 @@ class MyPlaceholderScreen extends StatefulWidget {
   final VoidCallback? onBack;
   final ModerationService? moderationService;
   final VoidCallback? onModerationChanged;
+  final PublicSiteLinks? publicSiteLinks;
+  final ExternalLinkLauncher? externalLinkLauncher;
 
   const MyPlaceholderScreen({
     super.key,
@@ -31,6 +33,8 @@ class MyPlaceholderScreen extends StatefulWidget {
     this.onBack,
     this.moderationService,
     this.onModerationChanged,
+    this.publicSiteLinks,
+    this.externalLinkLauncher,
   });
 
   @override
@@ -41,6 +45,8 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
   late final AuthService _authService;
   late final TermsAgreementService _termsAgreementService;
   late final ModerationService _moderationService;
+  late final PublicSiteLinks _publicSiteLinks;
+  late final ExternalLinkLauncher _externalLinkLauncher;
 
   UserProfile? _profile;
   bool _isLoading = true;
@@ -57,6 +63,9 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
     _moderationService =
         widget.moderationService ??
         ModerationService(authService: _authService);
+    _publicSiteLinks = widget.publicSiteLinks ?? PublicSiteLinks();
+    _externalLinkLauncher =
+        widget.externalLinkLauncher ?? UrlLauncherExternalLinkLauncher();
     _loadProfile();
   }
 
@@ -108,13 +117,37 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('회원 탈퇴'),
-          content: const Text('정말 탈퇴하시겠어요?'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('탈퇴하면 프로필, OAuth 연결, 약관 동의, 알림과 푸시 토큰이 삭제됩니다.'),
+                const SizedBox(height: 10),
+                const Text(
+                  '정산과 지출 원장은 참여자 간 금액 기록을 보호하기 위해 개인정보를 익명화한 상태로 보관됩니다.',
+                ),
+                const SizedBox(height: 10),
+                const Text('같은 소셜 계정으로 다시 가입해도 새로운 계정으로 처리됩니다.'),
+                const SizedBox(height: 12),
+                TextButton(
+                  key: const ValueKey('accountDeletionPolicyLink'),
+                  onPressed: () => _openPublicSite(
+                    PublicSitePage.accountDeletion,
+                    '계정 삭제 안내',
+                  ),
+                  child: const Text('계정 삭제 및 데이터 처리 안내 보기'),
+                ),
+              ],
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text('취소'),
             ),
             TextButton(
+              key: const ValueKey('confirmWithdrawButton'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
               style: AppButtonStyles.dangerText(),
               child: const Text('탈퇴'),
@@ -210,12 +243,20 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
     if (changed == true) widget.onModerationChanged?.call();
   }
 
-  void _openCommunityPage(CommunitySupportPage page) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CommunitySupportScreen(page: page),
-      ),
-    );
+  Future<void> _openPublicSite(PublicSitePage page, String label) async {
+    try {
+      final opened = await _externalLinkLauncher.open(
+        _publicSiteLinks.get(page),
+      );
+      if (!opened) throw StateError('url launch failed');
+    } catch (_) {
+      if (!mounted) return;
+      final message = '$label 링크를 열지 못했습니다.';
+      setState(() => _errorMessage = message);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   void _showPreparingMessage(String featureName) {
@@ -319,6 +360,19 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
             label: '약관 및 동의 관리',
             onTap: _openTerms,
           ),
+          MyMenuRow(
+            key: const ValueKey('termsOfServiceLink'),
+            icon: Icons.open_in_new,
+            label: '이용약관',
+            onTap: () => _openPublicSite(PublicSitePage.termsOfService, '이용약관'),
+          ),
+          MyMenuRow(
+            key: const ValueKey('privacyPolicyLink'),
+            icon: Icons.privacy_tip_outlined,
+            label: '개인정보처리방침',
+            onTap: () =>
+                _openPublicSite(PublicSitePage.privacyPolicy, '개인정보처리방침'),
+          ),
           const Padding(
             padding: EdgeInsets.fromLTRB(20, 22, 20, 6),
             child: Text('안전 및 지원', style: AppTextStyles.caption),
@@ -329,14 +383,18 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
             onTap: _openBlockedUsers,
           ),
           MyMenuRow(
+            key: const ValueKey('customerSupportLink'),
             icon: Icons.support_agent_outlined,
             label: '고객지원',
-            onTap: () => _openCommunityPage(CommunitySupportPage.support),
+            onTap: () =>
+                _openPublicSite(PublicSitePage.customerSupport, '고객지원'),
           ),
           MyMenuRow(
+            key: const ValueKey('communityPolicyLink'),
             icon: Icons.shield_outlined,
             label: '커뮤니티 운영정책',
-            onTap: () => _openCommunityPage(CommunitySupportPage.policy),
+            onTap: () =>
+                _openPublicSite(PublicSitePage.communityPolicy, '커뮤니티 운영정책'),
           ),
           const Padding(
             padding: EdgeInsets.fromLTRB(20, 22, 20, 6),
@@ -348,6 +406,7 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
+                key: const ValueKey('withdrawButton'),
                 onPressed: _isWithdrawing ? null : _confirmWithdraw,
                 style: AppButtonStyles.dangerText(),
                 child: Text(_isWithdrawing ? '탈퇴 처리 중…' : '회원 탈퇴'),
