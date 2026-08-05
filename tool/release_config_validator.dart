@@ -140,6 +140,10 @@ List<String> validatePlatformReleaseFiles(Map<String, String> files) {
     '<key>NSPrivacyTracking</key>',
     '앱 PrivacyInfo.xcprivacy가 올바르지 않습니다.',
   );
+  final privacyManifest = files['ios/Runner/PrivacyInfo.xcprivacy'] ?? '';
+  if (privacyManifest.contains('NSPrivacyCollectedDataTypeEmailAddress')) {
+    issues.add('앱이 수집하지 않는 EmailAddress가 Privacy Manifest에 선언되어 있습니다.');
+  }
   requireContains(
     'ios/Runner.xcodeproj/project.pbxproj',
     'PrivacyInfo.xcprivacy in Resources',

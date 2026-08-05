@@ -64,4 +64,16 @@ keyPassword=secret
     expect(issues, contains('Android release 앱에 INTERNET 권한이 없습니다.'));
     expect(issues, contains('iOS release APNs entitlement가 production이 아닙니다.'));
   });
+
+  test('수집하지 않는 이메일 개인정보 선언을 거부한다', () {
+    final issues = validatePlatformReleaseFiles({
+      'ios/Runner/PrivacyInfo.xcprivacy':
+          '<string>NSPrivacyCollectedDataTypeEmailAddress</string>',
+    });
+
+    expect(
+      issues,
+      contains('앱이 수집하지 않는 EmailAddress가 Privacy Manifest에 선언되어 있습니다.'),
+    );
+  });
 }

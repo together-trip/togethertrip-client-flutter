@@ -45,6 +45,8 @@ git check-ignore config/release.json android/key.properties \
 - Android debug manifest 병합: 성공, cleartext 허용 유지
 - Android release task: 실제 signing 값 부재를 명확한 오류로 거부
 - iOS plist/entitlement lint: 모두 성공
+- Privacy Manifest: 앱/서버 계약에 없는 `EmailAddress` 제거 및 검증기 회귀 테스트 추가
+- 유지한 수집 유형 근거: nickname(`Name`), 인증 사용자 식별자(`UserID`), 장소 좌표(`PreciseLocation`), 프로필·기록 첨부(`PhotosorVideos`), 기록·댓글·신고 설명(`OtherUserContent`)
 - Xcode Release build settings: `Runner/RunnerRelease.entitlements`, `com.togethertrip.togethertrip` 확인
 - 비밀 파일 네 종류: 모두 gitignore 대상 확인
 - diff whitespace 검사: 통과

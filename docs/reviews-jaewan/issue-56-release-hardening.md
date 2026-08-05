@@ -6,6 +6,7 @@
 - Flutter UI Reviewer 기준으로 기존 `MyMenuRow`, `PublicSiteLinks`, `ExternalLinkLauncher` 구조를 재사용했으며 화면에서 API를 직접 호출하지 않는다.
 - API endpoint, DTO, 인증 헤더 계약은 변경하지 않아 API Contract Reviewer의 교차 저장소 수정 대상은 없다.
 - release 비밀값은 저장소에 추가하지 않았고 예시 파일은 placeholder 상태로 검증을 통과하지 못하게 했다.
+- 앱/서버 계약에 없는 이메일 수집 선언을 제거했다. `Name`은 nickname, `UserID`는 인증 사용자 ID, `PreciseLocation`은 장소 좌표, `PhotosorVideos`는 프로필·기록 첨부, `OtherUserContent`는 기록·댓글·신고 설명 전송 근거가 있어 유지했다.
 
 ## 발견 사항
 
