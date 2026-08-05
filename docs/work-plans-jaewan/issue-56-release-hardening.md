@@ -51,8 +51,9 @@
 2. release 설정 검증 스크립트가 정상 fixture와 필수 값 누락 fixture를 구분하도록 단위 테스트한다.
 3. 구현 후 다음 명령을 실행한다.
    - `flutter test test/features/my/account_deletion_screen_test.dart`
-   - `dart test test/tool/verify_release_config_test.dart`
-   - `dart run tool/verify_release_config.dart --dart-define-file=config/release.example.json --android-key-properties=android/key.properties.example`
+   - `flutter test test/tool/release_config_validator_test.dart`
+   - `dart run tool/verify_release_config.dart --platform-only`
+   - 실제 비밀값 준비 후 `dart run tool/verify_release_config.dart --dart-define-file=config/release.json --android-key-properties=android/key.properties`
    - `flutter analyze`
    - `flutter test`
 
