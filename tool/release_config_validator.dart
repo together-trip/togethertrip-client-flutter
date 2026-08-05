@@ -106,6 +106,11 @@ List<String> validatePlatformReleaseFiles(Map<String, String> files) {
     'android:usesCleartextTraffic="false"',
     'Android main manifest가 cleartext를 차단하지 않습니다.',
   );
+  requireContains(
+    'android/app/src/main/AndroidManifest.xml',
+    'android.permission.INTERNET',
+    'Android release 앱에 INTERNET 권한이 없습니다.',
+  );
   for (final variant in ['debug', 'profile']) {
     requireContains(
       'android/app/src/$variant/AndroidManifest.xml',

@@ -61,6 +61,7 @@ keyPassword=secret
 
     expect(issues, contains('Android release 설정에 debug signing이 남아 있습니다.'));
     expect(issues, contains('Android main manifest가 cleartext를 차단하지 않습니다.'));
+    expect(issues, contains('Android release 앱에 INTERNET 권한이 없습니다.'));
     expect(issues, contains('iOS release APNs entitlement가 production이 아닙니다.'));
   });
 }
