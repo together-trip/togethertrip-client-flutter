@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:togethertrip/features/auth/screen/sign_up_profile_screen.dart';
 import 'package:togethertrip/features/auth/screen/onboarding_screen.dart';
 import 'package:togethertrip/features/auth/service/auth_service.dart';
@@ -275,6 +276,53 @@ void main() {
 
     expect(find.text('프로필 설정'), findsOneWidget);
   });
+
+  testWidgets('Apple 로그인 취소는 오류 없이 버튼을 다시 활성화해 재시도할 수 있다', (tester) async {
+    final authService = _CancelAppleLoginAuthService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OnboardingScreen(authService: authService, showAppleLogin: true),
+      ),
+    );
+
+    await tester.tap(find.text('Apple로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Apple 로그인에 실패했습니다'), findsNothing);
+    expect(find.textContaining('Apple 로그인 권한이 해제되었습니다'), findsNothing);
+    expect(
+      tester
+          .widget<SignInWithAppleButton>(find.byType(SignInWithAppleButton))
+          .onPressed,
+      isNotNull,
+    );
+
+    await tester.tap(find.text('Apple로 시작하기'));
+    await tester.pumpAndSettle();
+    expect(authService.loginCalls, 2);
+  });
+
+  testWidgets('Apple credential revoked는 정확히 안내하고 버튼을 다시 활성화한다', (
+    tester,
+  ) async {
+    final authService = _RevokedAppleLoginAuthService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OnboardingScreen(authService: authService, showAppleLogin: true),
+      ),
+    );
+
+    await tester.tap(find.text('Apple로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Apple 로그인 권한이 해제되었습니다. 다시 승인해주세요.'), findsOneWidget);
+    expect(
+      tester
+          .widget<SignInWithAppleButton>(find.byType(SignInWithAppleButton))
+          .onPressed,
+      isNotNull,
+    );
+  });
 }
 
 class _FakeAuthService extends AuthService {
@@ -350,6 +398,26 @@ class _CancelLoginAuthService extends AuthService {
   @override
   Future<AuthLoginResult> loginWithKakao() async {
     throw PlatformException(code: 'CANCELED', message: 'User canceled login');
+  }
+}
+
+class _CancelAppleLoginAuthService extends AuthService {
+  int loginCalls = 0;
+
+  @override
+  Future<AuthLoginResult> loginWithApple() async {
+    loginCalls += 1;
+    throw const SignInWithAppleAuthorizationException(
+      code: AuthorizationErrorCode.canceled,
+      message: 'User canceled login',
+    );
+  }
+}
+
+class _RevokedAppleLoginAuthService extends AuthService {
+  @override
+  Future<AuthLoginResult> loginWithApple() async {
+    throw const AppleCredentialRevokedException();
   }
 }
 
