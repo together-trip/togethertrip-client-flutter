@@ -7,7 +7,7 @@
         android:label="togethertrip"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="false">
         <meta-data
             android:name="com.kakao.sdk.AppKey"
             android:value="${kakaoNativeAppKey}" />

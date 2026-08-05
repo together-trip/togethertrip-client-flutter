@@ -1,0 +1,6 @@
+# android/key.properties로 복사한 뒤 실제 upload key 정보를 입력하세요.
+# key.properties와 keystore 파일은 커밋하지 않습니다.
+storeFile=/absolute/path/to/togethertrip-upload.jks
+storePassword=replace-with-secret
+keyAlias=upload
+keyPassword=replace-with-secret
