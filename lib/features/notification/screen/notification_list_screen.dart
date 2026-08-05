@@ -154,9 +154,9 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     final unreadCount = _notifications.where((item) => !item.isRead).length;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
@@ -167,19 +167,17 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         ),
         title: const Text('알림', style: AppTextStyles.screenTitle),
         actions: [
-          IconButton(
+          TextButton(
             onPressed: _isMarkingAll || unreadCount == 0
                 ? null
                 : _markAllAsRead,
-            icon: _isMarkingAll
+            child: _isMarkingAll
                 ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.done_all, size: 22),
-            color: AppColors.ink,
-            tooltip: '모두 읽음',
+                : const Text('모두 읽음'),
           ),
           const SizedBox(width: 8),
         ],
@@ -225,7 +223,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
       return ListView(
         padding: const EdgeInsets.fromLTRB(20, 120, 20, 20),
         children: const [
-          Icon(Icons.notifications_none, size: 36, color: AppColors.textSubtle),
+          Icon(
+            Icons.notifications_none_rounded,
+            size: 36,
+            color: AppColors.textSubtle,
+          ),
           SizedBox(height: 14),
           Text(
             '새 알림이 없습니다.',
@@ -249,8 +251,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: _notifications.length + 1,
-      separatorBuilder: (_, index) =>
-          index == 0 ? const SizedBox(height: 4) : const Divider(height: 1),
+      separatorBuilder: (_, _) => const SizedBox.shrink(),
       itemBuilder: (context, index) {
         if (index == 0) {
           return Padding(
@@ -262,26 +263,70 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
           );
         }
 
-        final notification = _notifications[index - 1];
-        return Dismissible(
-          key: ValueKey('notification-${notification.id}'),
-          direction: DismissDirection.endToStart,
-          background: const _DeleteNotificationBackground(),
-          confirmDismiss: (_) => _deleteNotification(notification),
-          onDismissed: (_) {
-            setState(() {
-              _notifications = _notifications
-                  .where((item) => item.id != notification.id)
-                  .toList();
-            });
-          },
-          child: _NotificationTile(
-            notification: notification,
-            onTap: () => _openNotification(notification),
-          ),
+        final notificationIndex = index - 1;
+        final notification = _notifications[notificationIndex];
+        final dateLabel = _dateGroupLabel(
+          notification.occurredAt ?? notification.createdAt,
+        );
+        final previousLabel = notificationIndex == 0
+            ? null
+            : _dateGroupLabel(
+                _notifications[notificationIndex - 1].occurredAt ??
+                    _notifications[notificationIndex - 1].createdAt,
+              );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (dateLabel != previousLabel)
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  4,
+                  notificationIndex == 0 ? 8 : 24,
+                  4,
+                  4,
+                ),
+                child: Text(
+                  dateLabel,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            Dismissible(
+              key: ValueKey('notification-${notification.id}'),
+              direction: DismissDirection.endToStart,
+              background: const _DeleteNotificationBackground(),
+              confirmDismiss: (_) => _deleteNotification(notification),
+              onDismissed: (_) {
+                setState(() {
+                  _notifications = _notifications
+                      .where((item) => item.id != notification.id)
+                      .toList();
+                });
+              },
+              child: _NotificationTile(
+                notification: notification,
+                onTap: () => _openNotification(notification),
+              ),
+            ),
+          ],
         );
       },
     );
+  }
+
+  String _dateGroupLabel(String value) {
+    final parsed = DateTime.tryParse(value)?.toLocal();
+    if (parsed == null) return '이전 알림';
+    final now = DateTime.now();
+    final date = DateTime(parsed.year, parsed.month, parsed.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final difference = today.difference(date).inDays;
+    if (difference == 0) return '오늘';
+    if (difference == 1) return '어제';
+    return '${parsed.month}월 ${parsed.day}일';
   }
 }
 
@@ -294,7 +339,11 @@ class _DeleteNotificationBackground extends StatelessWidget {
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       color: AppColors.danger,
-      child: const Icon(Icons.delete_outline, color: Colors.white, size: 22),
+      child: const Icon(
+        Icons.delete_outline_rounded,
+        color: Colors.white,
+        size: 22,
+      ),
     );
   }
 }
@@ -319,12 +368,12 @@ class _NotificationTile extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Icon(
                 notification.isRead
-                    ? Icons.notifications_none
-                    : Icons.notifications_active,
+                    ? Icons.notifications_none_rounded
+                    : Icons.notifications_active_rounded,
                 size: 22,
                 color: notification.isRead
                     ? AppColors.textMuted
-                    : AppColors.ink,
+                    : AppColors.brandStrong,
               ),
             ),
             const SizedBox(width: 12),
@@ -371,7 +420,7 @@ class _NotificationTile extends StatelessWidget {
                 padding: EdgeInsets.only(top: 8),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: AppColors.ink,
+                    color: AppColors.brand,
                     shape: BoxShape.circle,
                   ),
                   child: SizedBox(width: 8, height: 8),

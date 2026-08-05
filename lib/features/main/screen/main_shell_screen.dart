@@ -30,6 +30,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   int _currentIndex = 0;
   TripSummary? _selectedTrip;
   int _tripListVersion = 0;
+  int _moderationVersion = 0;
 
   void _openTripDetail(TripSummary trip) {
     setState(() {
@@ -58,43 +59,60 @@ class _MainShellScreenState extends State<MainShellScreen> {
         widget.tripService ?? TripService(authService: authService);
     final exchangeRateService = ExchangeRateService(authService: authService);
     final selectedTrip = _selectedTrip;
+    final tripScreen = selectedTrip == null
+        ? TripListScreen(
+            key: ValueKey('tripList_$_tripListVersion'),
+            tripService: tripService,
+            onOpenTripDetail: _openTripDetail,
+          )
+        : TripDetailScreen(
+            key: ValueKey('tripDetail_${selectedTrip.id}'),
+            tripId: selectedTrip.id,
+            tripService: tripService,
+            moderationVersion: _moderationVersion,
+            onClose: _closeTripDetail,
+          );
     final screens = <Widget>[
-      selectedTrip == null
-          ? TripListScreen(
-              key: ValueKey(_tripListVersion),
-              tripService: tripService,
-              onOpenTripDetail: _openTripDetail,
-            )
-          : TripDetailScreen(
-              tripId: selectedTrip.id,
-              tripService: tripService,
-              onClose: _closeTripDetail,
-            ),
+      AppMotionSwitcher(child: tripScreen),
       ExchangeRateScreen(exchangeRateService: exchangeRateService),
       MyPlaceholderScreen(
         authService: authService,
         termsAgreementService: widget.termsAgreementService,
         onBack: () => _selectTab(0),
+        onModerationChanged: () => setState(() => _moderationVersion++),
       ),
     ];
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: screens),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          for (var index = 0; index < screens.length; index++)
+            _AnimatedTabSurface(
+              key: ValueKey('mainTabSurface_$index'),
+              active: _currentIndex == index,
+              horizontalOffset: index < _currentIndex ? -0.018 : 0.018,
+              reduceMotion: reduceMotion,
+              child: screens[index],
+            ),
+        ],
+      ),
       extendBody: true,
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(58, 0, 58, 14),
+          padding: const EdgeInsets.fromLTRB(44, 0, 44, 14),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: const Color(0xFFE2E2E2)),
+              border: Border.all(color: AppColors.line),
               borderRadius: BorderRadius.circular(999),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
+                  color: AppColors.ink.withValues(alpha: 0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
@@ -154,24 +172,74 @@ class _TabItem extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isActive ? activeIcon : icon,
-              size: 22,
-              color: isActive ? AppColors.ink : const Color(0xFF8A8A8A),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
-                color: isActive ? AppColors.ink : AppColors.textSubtle,
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.curve,
+          margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.brandSoft : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedSwitcher(
+                duration: AppMotion.fast,
+                child: Icon(
+                  isActive ? activeIcon : icon,
+                  key: ValueKey(isActive),
+                  size: 21,
+                  color: isActive ? AppColors.brand : AppColors.textMuted,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
+                  color: isActive ? AppColors.brandStrong : AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedTabSurface extends StatelessWidget {
+  final bool active;
+  final double horizontalOffset;
+  final bool reduceMotion;
+  final Widget child;
+
+  const _AnimatedTabSurface({
+    super.key,
+    required this.active,
+    required this.horizontalOffset,
+    required this.reduceMotion,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = reduceMotion ? Duration.zero : AppMotion.standard;
+    return ExcludeSemantics(
+      excluding: !active,
+      child: IgnorePointer(
+        ignoring: !active,
+        child: AnimatedOpacity(
+          opacity: active ? 1 : 0,
+          duration: duration,
+          curve: AppMotion.curve,
+          child: AnimatedSlide(
+            offset: active ? Offset.zero : Offset(horizontalOffset, 0),
+            duration: duration,
+            curve: AppMotion.curve,
+            child: TickerMode(enabled: active, child: child),
+          ),
         ),
       ),
     );

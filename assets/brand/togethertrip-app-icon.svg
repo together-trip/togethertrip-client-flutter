@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">TogetherTrip app icon</title>
+  <rect width="1024" height="1024" fill="#FF6854"/>
+  <g fill="#FFFDF9">
+    <circle cx="390" cy="246" r="56"/>
+    <circle cx="594" cy="246" r="56"/>
+    <rect x="252" y="330" width="506" height="88" rx="44"/>
+  </g>
+  <defs>
+    <path id="t-body" d="M0 0V308Q0 362 54 362H62"/>
+  </defs>
+  <g fill="none" stroke="#FFFDF9" stroke-width="84" stroke-linecap="round" stroke-linejoin="round">
+    <use href="#t-body" transform="translate(390 382)"/>
+    <use href="#t-body" transform="translate(594 382)"/>
+  </g>
+</svg>

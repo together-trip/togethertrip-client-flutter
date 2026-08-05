@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -6,8 +7,13 @@ import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_design.dart';
 import '../../notification/screen/notification_list_screen.dart';
 import '../../notification/widget/notification_badge_button.dart';
+import '../../moderation/model/moderation_models.dart';
+import '../../moderation/service/moderation_service.dart';
+import '../../moderation/widget/content_warning_dialog.dart';
+import '../../moderation/widget/report_sheet.dart';
 import '../../post/screen/post_form_sheet.dart';
 import '../../post/service/post_service.dart';
+import '../../post/widget/authenticated_attachment_image.dart';
 import '../../settlement/screen/settlement_screen.dart';
 import '../../transaction/screen/expense_form_sheet.dart';
 import '../../transaction/service/transaction_service.dart';
@@ -21,6 +27,9 @@ class TripDetailScreen extends StatefulWidget {
   final TripService? tripService;
   final PostService? postService;
   final TransactionService? transactionService;
+  final ModerationService? moderationService;
+  final int moderationVersion;
+  final AuthenticatedAttachmentImageLoader? attachmentImageLoader;
   final ValueChanged<bool>? onClose;
 
   const TripDetailScreen({
@@ -29,6 +38,9 @@ class TripDetailScreen extends StatefulWidget {
     this.tripService,
     this.postService,
     this.transactionService,
+    this.moderationService,
+    this.moderationVersion = 0,
+    this.attachmentImageLoader,
     this.onClose,
   });
 
@@ -40,11 +52,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   late final TripService _tripService;
   late final PostService _postService;
   late final TransactionService _transactionService;
+  late final ModerationService _moderationService;
+  late final AuthenticatedAttachmentImageLoader _attachmentImageLoader;
   late final ScrollController _scrollController;
 
   final List<PostSummary> _posts = [];
   final Map<int, List<PostAttachment>> _attachmentsByPostId = {};
   final Map<int, TransactionDetail> _transactionsById = {};
+  final Set<int> _blockedUserIds = {};
+  final Set<int> _moderatingUserIds = {};
 
   TripDetail? _trip;
   TripRecapStatus? _recapStatus;
@@ -67,6 +83,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     _tripService = widget.tripService ?? TripService();
     _postService = widget.postService ?? PostService();
     _transactionService = widget.transactionService ?? TransactionService();
+    _moderationService = widget.moderationService ?? ModerationService();
+    _attachmentImageLoader =
+        widget.attachmentImageLoader ?? AuthenticatedAttachmentImageLoader();
     _scrollController = ScrollController()..addListener(_onScroll);
     _loadInitial();
   }
@@ -75,6 +94,14 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant TripDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.moderationVersion != widget.moderationVersion) {
+      unawaited(_refreshBlockedUsers());
+    }
   }
 
   void _onScroll() {
@@ -121,6 +148,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         _attachmentsByPostId.clear();
         _transactionsById.clear();
       });
+      unawaited(_refreshBlockedUsers());
       _enhancePosts(page.items);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -135,6 +163,24 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   Future<void> _refreshAll() async {
     await _loadInitial();
+  }
+
+  Future<List<BlockedUser>> _loadBlockedUsersSilently() async {
+    try {
+      return await _moderationService.getBlockedUsers();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> _refreshBlockedUsers() async {
+    final users = await _loadBlockedUsersSilently();
+    if (!mounted) return;
+    setState(() {
+      _blockedUserIds
+        ..clear()
+        ..addAll(users.map((user) => user.blockedUserId));
+    });
   }
 
   Future<TripRecapStatus?> _loadRecapStatusSilently() async {
@@ -353,6 +399,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               tripId: widget.tripId,
               tripRecapId: status.recapId,
               tripService: _tripService,
+              moderationService: _moderationService,
             ),
           ),
         );
@@ -445,6 +492,23 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         return _TripInfoSheet(
           trip: trip,
           canManageTrip: _canManageTrip,
+          currentUserId: _currentUserId,
+          blockedUserIds: _blockedUserIds,
+          onReportParticipant: (participant) async {
+            Navigator.of(context).pop(false);
+            await _reportUser(participant.userId!, participant.displayName);
+          },
+          onBlockParticipant: (participant) async {
+            Navigator.of(context).pop(false);
+            await _confirmBlockUser(
+              participant.userId!,
+              participant.displayName,
+            );
+          },
+          onUnblockParticipant: (participant) async {
+            Navigator.of(context).pop(false);
+            await _unblockUser(participant.userId!, participant.displayName);
+          },
           onManageParticipants: () async {
             Navigator.of(context).pop(false);
             await _openParticipantManager();
@@ -534,6 +598,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         return TripParticipantManagerSheet(
           trip: trip,
           tripService: _tripService,
+          moderationService: _moderationService,
         );
       },
     );
@@ -618,7 +683,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 const SizedBox(height: 12),
                 _CreateOptionTile(
                   key: const ValueKey('createRecordOption'),
-                  icon: Icons.edit_note_outlined,
+                  icon: Icons.edit_outlined,
                   title: '기록',
                   selected: defaultPostType == 'RECORD',
                   onTap: () => Navigator.of(context).pop('RECORD'),
@@ -626,7 +691,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 const SizedBox(height: 8),
                 _CreateOptionTile(
                   key: const ValueKey('createExpenseOption'),
-                  icon: Icons.payments_outlined,
+                  icon: Icons.account_balance_wallet_outlined,
                   title: '소비',
                   subtitle: isExpenseLocked ? _expenseLockedMessage : null,
                   selected: !isExpenseLocked && defaultPostType == 'EXPENSE',
@@ -730,7 +795,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _openPostActions(PostSummary post) async {
+    final isOwnPost = _currentParticipantId == post.authorParticipantId;
     final isLockedExpensePost = _isLockedExpensePost(post);
+    final authorUserId = _postAuthorUserId(post);
+    final isAuthorBlocked =
+        authorUserId != null && _blockedUserIds.contains(authorUserId);
     final action = await showAppBottomSheet<String>(
       context: context,
       builder: (context) {
@@ -740,7 +809,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (isLockedExpensePost)
+                if (isOwnPost && isLockedExpensePost)
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 10, 16, 8),
                     child: Text(
@@ -752,47 +821,204 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                       ),
                     ),
                   ),
-                ListTile(
-                  key: const ValueKey('postEditAction'),
-                  leading: const Icon(Icons.edit_outlined),
-                  title: const Text('수정'),
-                  enabled: !isLockedExpensePost,
-                  onTap: isLockedExpensePost
-                      ? null
-                      : () => Navigator.of(context).pop('edit'),
-                ),
-                ListTile(
-                  key: const ValueKey('postDeleteAction'),
-                  leading: Icon(
-                    Icons.delete_outline,
-                    color: isLockedExpensePost
-                        ? AppColors.textSubtle
-                        : AppColors.danger,
+                if (isOwnPost) ...[
+                  ListTile(
+                    key: const ValueKey('postEditAction'),
+                    leading: const Icon(Icons.edit_outlined),
+                    title: const Text('수정'),
+                    enabled: !isLockedExpensePost,
+                    onTap: isLockedExpensePost
+                        ? null
+                        : () => Navigator.of(context).pop('edit'),
                   ),
-                  title: Text(
-                    '삭제',
-                    style: TextStyle(
+                  ListTile(
+                    key: const ValueKey('postDeleteAction'),
+                    leading: Icon(
+                      Icons.delete_outline_rounded,
                       color: isLockedExpensePost
                           ? AppColors.textSubtle
                           : AppColors.danger,
                     ),
+                    title: Text(
+                      '삭제',
+                      style: TextStyle(
+                        color: isLockedExpensePost
+                            ? AppColors.textSubtle
+                            : AppColors.danger,
+                      ),
+                    ),
+                    enabled: !isLockedExpensePost,
+                    onTap: isLockedExpensePost
+                        ? null
+                        : () => Navigator.of(context).pop('delete'),
                   ),
-                  enabled: !isLockedExpensePost,
-                  onTap: isLockedExpensePost
-                      ? null
-                      : () => Navigator.of(context).pop('delete'),
-                ),
+                ] else ...[
+                  ListTile(
+                    key: const ValueKey('reportPostAction'),
+                    leading: const Icon(Icons.flag_outlined),
+                    title: const Text('게시글 신고'),
+                    onTap: () => Navigator.of(context).pop('reportPost'),
+                  ),
+                  if (authorUserId != null) ...[
+                    ListTile(
+                      key: const ValueKey('reportPostAuthorAction'),
+                      leading: const Icon(Icons.person_off_outlined),
+                      title: const Text('작성자 신고'),
+                      onTap: () => Navigator.of(context).pop('reportUser'),
+                    ),
+                    ListTile(
+                      key: ValueKey(
+                        isAuthorBlocked
+                            ? 'unblockPostAuthorAction'
+                            : 'blockPostAuthorAction',
+                      ),
+                      leading: Icon(
+                        isAuthorBlocked
+                            ? Icons.person_add_alt_rounded
+                            : Icons.block_rounded,
+                        color: isAuthorBlocked
+                            ? AppColors.ink
+                            : AppColors.danger,
+                      ),
+                      title: Text(
+                        isAuthorBlocked ? '작성자 차단 해제' : '작성자 차단',
+                        style: TextStyle(
+                          color: isAuthorBlocked
+                              ? AppColors.ink
+                              : AppColors.danger,
+                        ),
+                      ),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pop(isAuthorBlocked ? 'unblockUser' : 'blockUser'),
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
         );
       },
     );
+    if (!mounted) return;
 
     if (action == 'edit') {
       await _editPost(post);
     } else if (action == 'delete') {
       await _confirmDeletePost(post);
+    } else if (action == 'reportPost') {
+      await showReportSheet(
+        context: context,
+        tripId: widget.tripId,
+        targetType: ReportTargetType.post,
+        targetId: post.id,
+        targetLabel: '게시글',
+        moderationService: _moderationService,
+      );
+    } else if (action == 'reportUser' && authorUserId != null) {
+      await _reportUser(authorUserId, post.authorDisplayName);
+    } else if (action == 'blockUser' && authorUserId != null) {
+      await _confirmBlockUser(authorUserId, post.authorDisplayName);
+    } else if (action == 'unblockUser' && authorUserId != null) {
+      await _unblockUser(authorUserId, post.authorDisplayName);
+    }
+  }
+
+  int? _postAuthorUserId(PostSummary post) {
+    if (post.authorUserId != null) return post.authorUserId;
+    final participants = _trip?.participants ?? const <TripParticipant>[];
+    for (final participant in participants) {
+      if (participant.id == post.authorParticipantId) return participant.userId;
+    }
+    return null;
+  }
+
+  Future<void> _reportUser(int userId, String displayName) async {
+    await showReportSheet(
+      context: context,
+      tripId: widget.tripId,
+      targetType: ReportTargetType.user,
+      targetId: userId,
+      targetLabel: '$displayName님',
+      moderationService: _moderationService,
+    );
+  }
+
+  Future<void> _confirmBlockUser(int userId, String displayName) async {
+    if (_blockedUserIds.contains(userId) ||
+        _moderatingUserIds.contains(userId)) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('$displayName님 차단'),
+        content: const Text(
+          '이 사용자의 일반 기록과 댓글이 숨겨집니다. 지출·정산에 필요한 정보는 정확한 금액 계산을 위해 계속 표시됩니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            key: const ValueKey('confirmBlockUserButton'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: AppButtonStyles.dangerText(),
+            child: const Text('차단'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _moderatingUserIds.add(userId));
+    try {
+      await _moderationService.blockUser(userId);
+      if (!mounted) return;
+      setState(() => _blockedUserIds.add(userId));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$displayName님을 차단했습니다.')));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('사용자를 차단하지 못했습니다.')));
+    } finally {
+      if (mounted) setState(() => _moderatingUserIds.remove(userId));
+    }
+  }
+
+  Future<void> _unblockUser(int userId, String displayName) async {
+    if (!_blockedUserIds.contains(userId) ||
+        _moderatingUserIds.contains(userId)) {
+      return;
+    }
+    setState(() => _moderatingUserIds.add(userId));
+    try {
+      await _moderationService.unblockUser(userId);
+      if (!mounted) return;
+      setState(() => _blockedUserIds.remove(userId));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$displayName님의 차단을 해제했습니다.')));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('차단을 해제하지 못했습니다.')));
+    } finally {
+      if (mounted) setState(() => _moderatingUserIds.remove(userId));
     }
   }
 
@@ -910,6 +1136,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           postId: post.id,
           currentParticipantId: _currentParticipantId,
           postService: _postService,
+          moderationService: _moderationService,
+          blockedUserIds: _blockedUserIds,
+          onReportUser: _reportUser,
+          onBlockUser: _confirmBlockUser,
+          onUnblockUser: _unblockUser,
         );
       },
     );
@@ -940,20 +1171,26 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         Navigator.of(context).pop(_changed);
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.background,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           centerTitle: false,
           title: Text(
             _trip?.title ?? '여행',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+            ),
           ),
           leading: onClose == null
               ? null
               : IconButton(
                   onPressed: () => onClose(_changed),
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(Icons.chevron_left_rounded),
                   tooltip: '뒤로',
                 ),
           actions: [
@@ -973,7 +1210,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             const SizedBox(width: 8),
           ],
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(56),
+            preferredSize: const Size.fromHeight(52),
             child: _PostFeedTabs(
               selectedFilter: _selectedFilter,
               onSelect: _selectFilter,
@@ -984,9 +1221,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           padding: const EdgeInsets.only(bottom: 112),
           child: FloatingActionButton(
             onPressed: _openCreateChooser,
-            backgroundColor: AppColors.ink,
+            backgroundColor: AppColors.brand,
             foregroundColor: Colors.white,
-            child: const Icon(Icons.add),
+            child: const Icon(Icons.add_rounded),
           ),
         ),
         body: _buildBody(),
@@ -1011,6 +1248,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       return _FullErrorState(message: _errorMessage!, onRetry: _loadInitial);
     }
 
+    final visiblePosts = _posts.where((post) {
+      final authorUserId = _postAuthorUserId(post);
+      if (authorUserId == null || !_blockedUserIds.contains(authorUserId)) {
+        return true;
+      }
+      return post.postType == 'EXPENSE';
+    }).toList();
+    final showBlockedNotice = _blockedUserIds.isNotEmpty;
+
     return RefreshIndicator(
       onRefresh: _refreshAll,
       child: CustomScrollView(
@@ -1032,17 +1278,24 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               hasScrollBody: false,
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             )
-          else if (_posts.isEmpty)
+          else if (visiblePosts.isEmpty && !showBlockedNotice)
             SliverFillRemaining(
               hasScrollBody: false,
               child: _EmptyFeedState(filter: _selectedFilter),
             )
           else
             SliverList.separated(
-              itemCount: _posts.length + (_isLoadingMore ? 1 : 0),
-              separatorBuilder: (_, index) => const SizedBox(height: 10),
+              itemCount:
+                  visiblePosts.length +
+                  (showBlockedNotice ? 1 : 0) +
+                  (_isLoadingMore ? 1 : 0),
+              separatorBuilder: (_, index) => const Divider(indent: 20),
               itemBuilder: (context, index) {
-                if (index >= _posts.length) {
+                if (showBlockedNotice && index == 0) {
+                  return const _BlockedContentNotice();
+                }
+                final postIndex = index - (showBlockedNotice ? 1 : 0);
+                if (postIndex >= visiblePosts.length) {
                   return const Padding(
                     padding: EdgeInsets.all(20),
                     child: Center(
@@ -1050,16 +1303,20 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     ),
                   );
                 }
-                final post = _posts[index];
+                final post = visiblePosts[postIndex];
+                final authorUserId = _postAuthorUserId(post);
                 return _PostFeedCard(
                   post: post,
                   attachments: _attachmentsByPostId[post.id] ?? const [],
                   transaction: post.transactionId == null
                       ? null
                       : _transactionsById[post.transactionId],
-                  showActions:
-                      _currentParticipantId != null &&
-                      _currentParticipantId == post.authorParticipantId,
+                  showActions: true,
+                  isBlockedExpense:
+                      post.postType == 'EXPENSE' &&
+                      authorUserId != null &&
+                      _blockedUserIds.contains(authorUserId),
+                  attachmentImageLoader: _attachmentImageLoader,
                   onActionsTap: () => _openPostActions(post),
                   onCommentsTap: () => _openComments(post),
                   onTransactionTap: post.transactionId == null
@@ -1170,36 +1427,61 @@ class _TripFeedHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${_dateRangeLabel(trip.startDate, trip.endDate)} · ${_countrySummary(trip)}',
-            style: const TextStyle(fontSize: 13, color: AppColors.textSubtle),
+            '${_dateRangeLabel(trip.startDate, trip.endDate)} · ${_countrySummary(trip)} · ${trip.participants.length}명',
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSubtle,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           InkWell(
             onTap: onSettlementTap,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE5E5E5)),
-                borderRadius: BorderRadius.circular(8),
+                color: AppColors.brandSoft,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.receipt_long_outlined, size: 18),
-                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.receipt_long_outlined,
+                    size: 18,
+                    color: AppColors.brandStrong,
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '정산 ${_settlementDisplayStatusLabel(trip.effectiveSettlementDisplayStatus)}',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
                     ),
                   ),
-                  const Icon(Icons.chevron_right, size: 20),
+                  const Text(
+                    '정산 보기',
+                    style: TextStyle(
+                      color: AppColors.textSubtle,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 19,
+                    color: AppColors.textSubtle,
+                  ),
                 ],
               ),
             ),
@@ -1257,7 +1539,7 @@ class _TripRecapAction extends StatelessWidget {
           title: 'Recap 상태를 확인하지 못했어요',
           subtitle: '다시 시도해 주세요.',
           onTap: onRetry,
-          trailing: const Icon(Icons.refresh, size: 20),
+          trailing: const Icon(Icons.refresh_rounded, size: 20),
         ),
       );
     }
@@ -1304,13 +1586,13 @@ class _RecapActionShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE5E5E5)),
-          borderRadius: BorderRadius.circular(8),
+          color: AppColors.neutralSoft,
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
@@ -1364,7 +1646,7 @@ _RecapActionCopy _recapActionCopy(TripRecapStatusValue status) {
   return switch (status) {
     TripRecapStatusValue.none => const _RecapActionCopy(
       icon: Icons.auto_awesome_outlined,
-      trailingIcon: Icons.chevron_right,
+      trailingIcon: Icons.chevron_right_rounded,
       title: '지난 여행 Recap 만들기',
       subtitle: '사진 또는 일러스트 스타일을 선택해요.',
     ),
@@ -1376,12 +1658,12 @@ _RecapActionCopy _recapActionCopy(TripRecapStatusValue status) {
     ),
     TripRecapStatusValue.completed => const _RecapActionCopy(
       icon: Icons.auto_stories_outlined,
-      trailingIcon: Icons.chevron_right,
+      trailingIcon: Icons.chevron_right_rounded,
       title: '지난 여행 Recap 보기',
     ),
     TripRecapStatusValue.failed => const _RecapActionCopy(
-      icon: Icons.refresh,
-      trailingIcon: Icons.chevron_right,
+      icon: Icons.refresh_rounded,
+      trailingIcon: Icons.chevron_right_rounded,
       title: 'Recap 다시 만들기',
       subtitle: '스타일을 다시 선택할 수 있어요.',
     ),
@@ -1397,34 +1679,50 @@ class _PostFeedTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        border: Border(bottom: BorderSide(color: AppColors.lineSoft)),
+      ),
       child: Row(
-        spacing: 8,
+        spacing: 20,
         children: _PostFeedFilter.values.map((filter) {
           final selected = selectedFilter == filter;
-          return Expanded(
-            child: InkWell(
-              onTap: () => onSelect(filter),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.ink : Colors.white,
-                  border: Border.all(
-                    color: selected ? AppColors.ink : const Color(0xFFE2E2E2),
+          return InkWell(
+            onTap: () => onSelect(filter),
+            child: SizedBox(
+              height: 52,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        filter.label,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: selected
+                              ? FontWeight.w800
+                              : FontWeight.w500,
+                          color: selected
+                              ? AppColors.brandStrong
+                              : AppColors.textMuted,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  filter.label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                    color: selected ? Colors.white : const Color(0xFF4A4A4A),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: selected ? 24 : 0,
+                    height: 2,
+                    decoration: BoxDecoration(
+                      color: AppColors.brand,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           );
@@ -1439,6 +1737,8 @@ class _PostFeedCard extends StatefulWidget {
   final List<PostAttachment> attachments;
   final TransactionDetail? transaction;
   final bool showActions;
+  final bool isBlockedExpense;
+  final AuthenticatedAttachmentImageLoader? attachmentImageLoader;
   final VoidCallback onActionsTap;
   final VoidCallback onCommentsTap;
   final VoidCallback? onTransactionTap;
@@ -1448,6 +1748,8 @@ class _PostFeedCard extends StatefulWidget {
     required this.attachments,
     required this.transaction,
     required this.showActions,
+    this.isBlockedExpense = false,
+    required this.attachmentImageLoader,
     required this.onActionsTap,
     required this.onCommentsTap,
     required this.onTransactionTap,
@@ -1478,107 +1780,141 @@ class _PostFeedCardState extends State<_PostFeedCard> {
     final isExpense = widget.post.postType == 'EXPENSE';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppColors.lineSoft),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PostTypeBadge(postType: widget.post.postType),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  widget.post.authorDisplayName,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
+              Row(
+                children: [
+                  _PostTypeBadge(postType: widget.post.postType),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.post.authorDisplayName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    widget.post.category,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSubtle,
+                    ),
+                  ),
+                  if (widget.showActions) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      onPressed: widget.onActionsTap,
+                      icon: const Icon(Icons.more_horiz, size: 22),
+                      tooltip: '게시글 메뉴',
+                    ),
+                  ],
+                ],
+              ),
+              if (widget.isBlockedExpense) ...[
+                const SizedBox(height: 8),
+                Semantics(
+                  label: '차단한 사용자의 지출 정보 보존 안내',
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.neutralSoft,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      '차단한 사용자의 지출·정산 정보는 금액 계산을 위해 표시됩니다.',
+                      style: AppTextStyles.caption,
+                    ),
                   ),
                 ),
-              ),
-              Text(
-                widget.post.category,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSubtle,
-                ),
-              ),
-              if (widget.showActions) ...[
-                const SizedBox(width: 4),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  onPressed: widget.onActionsTap,
-                  icon: const Icon(Icons.more_horiz, size: 22),
-                  tooltip: '게시글 메뉴',
+              ],
+              if (widget.attachments.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _AttachmentCarousel(
+                  attachments: widget.attachments,
+                  attachmentImageLoader: widget.attachmentImageLoader,
+                  pageController: _pageController,
+                  pageIndex: _pageIndex,
+                  onPageChanged: (value) => setState(() => _pageIndex = value),
                 ),
               ],
-            ],
-          ),
-          if (widget.attachments.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _AttachmentCarousel(
-              attachments: widget.attachments,
-              pageController: _pageController,
-              pageIndex: _pageIndex,
-              onPageChanged: (value) => setState(() => _pageIndex = value),
-            ),
-          ],
-          const SizedBox(height: 12),
-          Text(
-            widget.post.title,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-          ),
-          if (content.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              visibleContent,
-              style: const TextStyle(fontSize: 14, height: 1.45),
-            ),
-            if (shouldClamp)
-              TextButton(
-                onPressed: () => setState(() => _isExpanded = !_isExpanded),
-                style: AppButtonStyles.inlineText(),
-                child: Text(_isExpanded ? '접기' : '더 보기'),
+              const SizedBox(height: 12),
+              Text(
+                widget.post.title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
               ),
-          ],
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (widget.post.occurredAt != null)
-                _MetaChip(
-                  icon: Icons.calendar_today_outlined,
-                  label: _dateOnlyLabel(widget.post.occurredAt!),
+              if (content.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  visibleContent,
+                  style: const TextStyle(fontSize: 14, height: 1.45),
                 ),
-              if ((widget.post.placeName ?? '').isNotEmpty)
-                _MetaChip(
-                  icon: Icons.place_outlined,
-                  label: widget.post.placeName!,
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 14,
-            runSpacing: 6,
-            children: [
-              _FeedAction(
-                icon: Icons.chat_bubble_outline,
-                label: '댓글 ${widget.post.commentCount}',
-                onTap: widget.onCommentsTap,
+                if (shouldClamp)
+                  TextButton(
+                    onPressed: () => setState(() => _isExpanded = !_isExpanded),
+                    style: AppButtonStyles.inlineText(),
+                    child: Text(_isExpanded ? '접기' : '더 보기'),
+                  ),
+              ],
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 12,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (widget.post.occurredAt != null)
+                    _MetaChip(
+                      icon: Icons.calendar_today_outlined,
+                      label: _dateOnlyLabel(widget.post.occurredAt!),
+                    ),
+                  if ((widget.post.placeName ?? '').isNotEmpty)
+                    _MetaChip(
+                      icon: Icons.place_outlined,
+                      label: widget.post.placeName!,
+                    ),
+                ],
               ),
-              if (isExpense && widget.onTransactionTap != null)
-                _FeedAction(
-                  icon: Icons.payments_outlined,
-                  label: widget.transaction == null
-                      ? '소비 정보'
-                      : _moneyLabel(widget.transaction!.summary),
-                  onTap: widget.onTransactionTap,
-                ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 14,
+                runSpacing: 6,
+                children: [
+                  _FeedAction(
+                    icon: Icons.chat_bubble_outline,
+                    label: '댓글 ${widget.post.commentCount}',
+                    onTap: widget.onCommentsTap,
+                  ),
+                  if (isExpense && widget.onTransactionTap != null)
+                    _FeedAction(
+                      icon: Icons.account_balance_wallet_outlined,
+                      label: widget.transaction == null
+                          ? '소비 정보'
+                          : _moneyLabel(widget.transaction!.summary),
+                      onTap: widget.onTransactionTap,
+                    ),
+                ],
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1596,12 +1932,11 @@ class _PostTypeBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: const Color(0xFFF4F4F4),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
         isExpense ? '소비' : '기록',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -1632,7 +1967,7 @@ class _FeedAction extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -1646,12 +1981,14 @@ class _AttachmentCarousel extends StatelessWidget {
   final PageController pageController;
   final int pageIndex;
   final ValueChanged<int> onPageChanged;
+  final AuthenticatedAttachmentImageLoader? attachmentImageLoader;
 
   const _AttachmentCarousel({
     required this.attachments,
     required this.pageController,
     required this.pageIndex,
     required this.onPageChanged,
+    required this.attachmentImageLoader,
   });
 
   @override
@@ -1668,29 +2005,33 @@ class _AttachmentCarousel extends StatelessWidget {
               onPageChanged: onPageChanged,
               itemBuilder: (context, index) {
                 final attachment = attachments[index];
-                final rawImageUrl = attachment.thumbnailUrl?.isNotEmpty == true
-                    ? attachment.thumbnailUrl!
-                    : attachment.fileUrl;
-                final imageUrl = resolveApiUrl(rawImageUrl);
                 final isVideo = attachment.attachmentType == 'VIDEO';
+                final thumbnailUrl = attachment.thumbnailUrl?.trim();
+                final hasVideoThumbnail =
+                    isVideo && thumbnailUrl != null && thumbnailUrl.isNotEmpty;
+                final imagePath = isVideo
+                    ? thumbnailUrl
+                    : (thumbnailUrl?.isNotEmpty == true
+                          ? thumbnailUrl
+                          : attachment.fileUrl);
                 return Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const ColoredBox(
-                            color: Color(0xFFF3F3F3),
-                            child: Center(
-                              child: Icon(
-                                Icons.broken_image_outlined,
-                                size: 36,
-                              ),
-                            ),
+                    if (isVideo && !hasVideoThumbnail)
+                      const _VideoAttachmentPlaceholder()
+                    else
+                      AuthenticatedAttachmentImage(
+                        path: imagePath!,
+                        loader: attachmentImageLoader,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_) => const ColoredBox(
+                          color: Color(0xFFF3F3F3),
+                          child: Center(
+                            child: Icon(Icons.broken_image_outlined, size: 36),
                           ),
-                    ),
-                    if (isVideo)
+                        ),
+                      ),
+                    if (hasVideoThumbnail)
                       const Center(
                         child: Icon(
                           Icons.play_circle_outline,
@@ -1747,6 +2088,28 @@ class _AttachmentCarousel extends StatelessWidget {
   }
 }
 
+class _VideoAttachmentPlaceholder extends StatelessWidget {
+  const _VideoAttachmentPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      key: ValueKey('videoAttachmentPlaceholder'),
+      color: Color(0xFFF3F3F3),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.videocam_outlined, size: 44, color: Color(0xFF666666)),
+            SizedBox(height: 6),
+            Text('동영상 첨부', style: TextStyle(color: Color(0xFF666666))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MetaChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1772,6 +2135,11 @@ class _MetaChip extends StatelessWidget {
 class _TripInfoSheet extends StatelessWidget {
   final TripDetail trip;
   final bool canManageTrip;
+  final int? currentUserId;
+  final Set<int> blockedUserIds;
+  final ValueChanged<TripParticipant> onReportParticipant;
+  final ValueChanged<TripParticipant> onBlockParticipant;
+  final ValueChanged<TripParticipant> onUnblockParticipant;
   final VoidCallback onManageParticipants;
   final VoidCallback onCreateInviteLink;
   final VoidCallback onCreateInviteCode;
@@ -1781,6 +2149,11 @@ class _TripInfoSheet extends StatelessWidget {
   const _TripInfoSheet({
     required this.trip,
     required this.canManageTrip,
+    required this.currentUserId,
+    required this.blockedUserIds,
+    required this.onReportParticipant,
+    required this.onBlockParticipant,
+    required this.onUnblockParticipant,
     required this.onManageParticipants,
     required this.onCreateInviteLink,
     required this.onCreateInviteCode,
@@ -1852,9 +2225,17 @@ class _TripInfoSheet extends StatelessWidget {
                     ? const [_EmptyLine(text: '등록된 참여자가 없습니다.')]
                     : trip.participants
                           .map(
-                            (participant) => _InfoRow(
-                              label: _roleLabel(participant.participantRole),
-                              value: participant.displayName,
+                            (participant) => _ParticipantInfoRow(
+                              participant: participant,
+                              isCurrentUser:
+                                  participant.userId == currentUserId,
+                              isBlocked:
+                                  participant.userId != null &&
+                                  blockedUserIds.contains(participant.userId),
+                              onReport: () => onReportParticipant(participant),
+                              onBlock: () => onBlockParticipant(participant),
+                              onUnblock: () =>
+                                  onUnblockParticipant(participant),
                             ),
                           )
                           .toList(),
@@ -1869,13 +2250,13 @@ class _TripInfoSheet extends StatelessWidget {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onCreateInviteLink,
-                  icon: const Icon(Icons.link, size: 18),
+                  icon: const Icon(Icons.link_rounded, size: 18),
                   label: const Text('초대 링크 공유'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onCreateInviteCode,
-                  icon: const Icon(Icons.pin_outlined, size: 18),
+                  icon: const Icon(Icons.key_rounded, size: 18),
                   label: const Text('초대 코드 공유'),
                 ),
                 const SizedBox(height: 8),
@@ -1887,7 +2268,7 @@ class _TripInfoSheet extends StatelessWidget {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline, size: 18),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
                   label: const Text('여행 삭제'),
                   style: AppButtonStyles.outlined(sideColor: AppColors.danger)
                       .copyWith(
@@ -1910,12 +2291,22 @@ class _CommentsSheet extends StatefulWidget {
   final int postId;
   final int? currentParticipantId;
   final PostService postService;
+  final ModerationService moderationService;
+  final Set<int> blockedUserIds;
+  final Future<void> Function(int userId, String displayName) onReportUser;
+  final Future<void> Function(int userId, String displayName) onBlockUser;
+  final Future<void> Function(int userId, String displayName) onUnblockUser;
 
   const _CommentsSheet({
     required this.tripId,
     required this.postId,
     required this.currentParticipantId,
     required this.postService,
+    required this.moderationService,
+    required this.blockedUserIds,
+    required this.onReportUser,
+    required this.onBlockUser,
+    required this.onUnblockUser,
   });
 
   @override
@@ -2175,6 +2566,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   Future<void> _submit() async {
     final content = _controller.text.trim();
     if (content.isEmpty || _isSubmitting) return;
+    final shouldSubmit = await confirmPotentiallyOffensiveContent(context, [
+      content,
+    ]);
+    if (!shouldSubmit || !mounted || _isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
       await widget.postService.createComment(
@@ -2209,6 +2604,112 @@ class _CommentsSheetState extends State<_CommentsSheet> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('댓글 삭제에 실패했습니다: $e')));
+    }
+  }
+
+  Future<void> _openCommentActions(PostComment comment) async {
+    final canDelete =
+        widget.currentParticipantId == comment.authorParticipantId;
+    final isAuthorBlocked =
+        comment.authorUserId != null &&
+        widget.blockedUserIds.contains(comment.authorUserId);
+    final action = await showAppBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (canDelete)
+                ListTile(
+                  key: const ValueKey('deleteCommentAction'),
+                  leading: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.danger,
+                  ),
+                  title: const Text(
+                    '댓글 삭제',
+                    style: TextStyle(color: AppColors.danger),
+                  ),
+                  onTap: () => Navigator.pop(sheetContext, 'delete'),
+                )
+              else ...[
+                ListTile(
+                  key: const ValueKey('reportCommentAction'),
+                  leading: const Icon(Icons.flag_outlined),
+                  title: const Text('댓글 신고'),
+                  onTap: () => Navigator.pop(sheetContext, 'reportComment'),
+                ),
+                if (comment.authorUserId != null) ...[
+                  ListTile(
+                    key: const ValueKey('reportCommentAuthorAction'),
+                    leading: const Icon(Icons.person_off_outlined),
+                    title: const Text('작성자 신고'),
+                    onTap: () => Navigator.pop(sheetContext, 'reportUser'),
+                  ),
+                  ListTile(
+                    key: ValueKey(
+                      isAuthorBlocked
+                          ? 'unblockCommentAuthorAction'
+                          : 'blockCommentAuthorAction',
+                    ),
+                    leading: Icon(
+                      isAuthorBlocked
+                          ? Icons.person_add_alt_rounded
+                          : Icons.block_rounded,
+                      color: isAuthorBlocked ? AppColors.ink : AppColors.danger,
+                    ),
+                    title: Text(
+                      isAuthorBlocked ? '작성자 차단 해제' : '작성자 차단',
+                      style: TextStyle(
+                        color: isAuthorBlocked
+                            ? AppColors.ink
+                            : AppColors.danger,
+                      ),
+                    ),
+                    onTap: () => Navigator.pop(
+                      sheetContext,
+                      isAuthorBlocked ? 'unblockUser' : 'blockUser',
+                    ),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (action == 'delete') {
+      await _delete(comment);
+    } else if (action == 'reportComment') {
+      await showReportSheet(
+        context: context,
+        tripId: widget.tripId,
+        targetType: ReportTargetType.comment,
+        targetId: comment.id,
+        targetLabel: '댓글',
+        moderationService: widget.moderationService,
+      );
+    } else if (action == 'reportUser' && comment.authorUserId != null) {
+      await widget.onReportUser(
+        comment.authorUserId!,
+        comment.authorDisplayName,
+      );
+    } else if (action == 'blockUser' && comment.authorUserId != null) {
+      await widget.onBlockUser(
+        comment.authorUserId!,
+        comment.authorDisplayName,
+      );
+      if (mounted) setState(() {});
+    } else if (action == 'unblockUser' && comment.authorUserId != null) {
+      await widget.onUnblockUser(
+        comment.authorUserId!,
+        comment.authorDisplayName,
+      );
+      if (mounted) setState(() {});
     }
   }
 
@@ -2265,19 +2766,70 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                       : ListView.builder(
                           controller: scrollController,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: _comments.length + (_hasNext ? 1 : 0),
+                          itemCount:
+                              _comments.length +
+                              (widget.blockedUserIds.isNotEmpty ? 1 : 0) +
+                              (_hasNext ? 1 : 0),
                           itemBuilder: (context, index) {
-                            if (index >= _comments.length) {
+                            final showBlockedNotice =
+                                widget.blockedUserIds.isNotEmpty;
+                            if (showBlockedNotice && index == 0) {
+                              return Semantics(
+                                label: '차단한 사용자의 댓글 숨김',
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  child: Text(
+                                    '차단한 사용자의 일반 댓글은 표시되지 않습니다.',
+                                    style: AppTextStyles.caption,
+                                  ),
+                                ),
+                              );
+                            }
+                            final commentIndex =
+                                index - (showBlockedNotice ? 1 : 0);
+                            if (commentIndex >= _comments.length) {
                               return TextButton(
                                 onPressed: _loadMore,
                                 child: const Text('더 보기'),
                               );
                             }
-                            final comment = _comments[index];
-                            final canDelete =
-                                widget.currentParticipantId != null &&
-                                widget.currentParticipantId ==
-                                    comment.authorParticipantId;
+                            final comment = _comments[commentIndex];
+                            final isBlocked =
+                                comment.authorUserId != null &&
+                                widget.blockedUserIds.contains(
+                                  comment.authorUserId,
+                                );
+                            if (isBlocked) {
+                              return Semantics(
+                                label: '차단한 사용자의 숨겨진 댓글',
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Expanded(
+                                        child: Text(
+                                          '차단한 사용자의 댓글을 숨겼습니다.',
+                                          style: AppTextStyles.caption,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        key: ValueKey(
+                                          'blockedCommentMenu-${comment.id}',
+                                        ),
+                                        onPressed: () =>
+                                            _openCommentActions(comment),
+                                        icon: const Icon(
+                                          Icons.more_horiz_rounded,
+                                        ),
+                                        tooltip: '숨겨진 댓글 작성자 메뉴',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               child: Row(
@@ -2299,15 +2851,17 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                                       ],
                                     ),
                                   ),
-                                  if (canDelete)
-                                    IconButton(
-                                      onPressed: () => _delete(comment),
-                                      icon: const Icon(
-                                        Icons.delete_outline,
-                                        size: 20,
-                                      ),
-                                      tooltip: '댓글 삭제',
+                                  IconButton(
+                                    key: ValueKey('commentMenu-${comment.id}'),
+                                    onPressed: () =>
+                                        _openCommentActions(comment),
+                                    icon: const Icon(
+                                      Icons.more_horiz_rounded,
+                                      size: 20,
                                     ),
+                                    tooltip:
+                                        '${comment.authorDisplayName} 댓글 메뉴',
+                                  ),
                                 ],
                               ),
                             );
@@ -2423,6 +2977,70 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
+class _ParticipantInfoRow extends StatelessWidget {
+  const _ParticipantInfoRow({
+    required this.participant,
+    required this.isCurrentUser,
+    required this.isBlocked,
+    required this.onReport,
+    required this.onBlock,
+    required this.onUnblock,
+  });
+
+  final TripParticipant participant;
+  final bool isCurrentUser;
+  final bool isBlocked;
+  final VoidCallback onReport;
+  final VoidCallback onBlock;
+  final VoidCallback onUnblock;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 78,
+            child: Text(
+              _roleLabel(participant.participantRole),
+              style: AppTextStyles.caption,
+            ),
+          ),
+          Expanded(child: Text(participant.displayName)),
+          if (!isCurrentUser && participant.userId != null)
+            PopupMenuButton<String>(
+              key: ValueKey('participantMenu-${participant.id}'),
+              tooltip: '${participant.displayName} 사용자 메뉴',
+              icon: const Icon(Icons.more_horiz_rounded),
+              onSelected: (value) {
+                if (value == 'report') {
+                  onReport();
+                } else if (value == 'block') {
+                  onBlock();
+                } else if (value == 'unblock') {
+                  onUnblock();
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'report', child: Text('사용자 신고')),
+                PopupMenuItem(
+                  value: isBlocked ? 'unblock' : 'block',
+                  child: Text(
+                    isBlocked ? '차단 해제' : '사용자 차단',
+                    style: TextStyle(
+                      color: isBlocked ? AppColors.ink : AppColors.danger,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyLine extends StatelessWidget {
   final String text;
 
@@ -2464,6 +3082,41 @@ class _EmptyFeedState extends StatelessWidget {
               filter.emptyDescription,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13, color: AppColors.textSubtle),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockedContentNotice extends StatelessWidget {
+  const _BlockedContentNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '차단한 사용자의 일반 기록 숨김',
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.neutralSoft,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          children: [
+            Icon(
+              Icons.visibility_off_outlined,
+              size: 18,
+              color: AppColors.textMuted,
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '차단한 사용자의 일반 기록은 표시되지 않습니다.',
+                style: AppTextStyles.caption,
+              ),
             ),
           ],
         ),

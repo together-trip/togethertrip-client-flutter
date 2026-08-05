@@ -1,11 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:togethertrip/core/widget/app_design.dart';
 import 'package:togethertrip/features/post/service/post_service.dart';
 import 'package:togethertrip/features/transaction/screen/expense_form_sheet.dart';
 import 'package:togethertrip/features/transaction/service/transaction_service.dart';
 import 'package:togethertrip/features/trip/service/trip_service.dart';
 
 void main() {
+  testWidgets('소비 등록 단계는 이전 화면을 즉시 끊지 않고 전환한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ExpenseFormSheet(
+            trip: _trip(),
+            currentParticipantId: 100,
+            initialPost: _post(occurredAt: '2026-07-02T03:00:00Z'),
+            initialTransaction: _transaction(
+              occurredAt: '2026-07-02T03:00:00Z',
+            ),
+            onSubmit:
+                ({required transactionInput, required postInput}) async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final nextButton = find.byKey(const ValueKey('expenseNextButton'));
+    await tester.scrollUntilVisible(
+      nextButton,
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(nextButton);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('expenseFormStep_0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('expenseFormStep_1')), findsOneWidget);
+
+    await tester.pump(AppMotion.standard);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('expenseFormStep_0')), findsNothing);
+    expect(find.byKey(const ValueKey('expenseFormStep_1')), findsOneWidget);
+  });
+
   testWidgets('소비 날짜가 여행 기간 밖이면 저장하지 않는다', (tester) async {
     var submitCallCount = 0;
 
@@ -26,13 +65,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final saveButton = find.byKey(const ValueKey('saveExpenseButton'));
+    expect(find.text('지출 정보'), findsOneWidget);
+    expect(find.byKey(const ValueKey('saveExpenseButton')), findsNothing);
+    final nextButton = find.byKey(const ValueKey('expenseNextButton'));
     await tester.scrollUntilVisible(
-      saveButton,
+      nextButton,
       400,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(saveButton);
+    await tester.tap(nextButton);
     await tester.pumpAndSettle();
 
     expect(find.text('소비 날짜는 여행 기간 내로 선택해주세요.'), findsOneWidget);
@@ -66,6 +107,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final nextButton = find.byKey(const ValueKey('expenseNextButton'));
+    await tester.scrollUntilVisible(
+      nextButton,
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(nextButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('금액과 분담'), findsOneWidget);
     final saveButton = find.byKey(const ValueKey('saveExpenseButton'));
     await tester.scrollUntilVisible(
       saveButton,
@@ -79,6 +130,61 @@ void main() {
     expect(submitted?.latitude, 35.681236);
     expect(submitted?.longitude, 139.767125);
   });
+
+  testWidgets('욕설이 감지된 소비는 경고 후 사용자 확인을 받아 등록한다', (tester) async {
+    PostFormInput? submitted;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ExpenseFormSheet(
+            trip: _trip(),
+            currentParticipantId: 100,
+            initialPost: _post(occurredAt: '2026-07-02T03:00:00Z'),
+            initialTransaction: _transaction(
+              occurredAt: '2026-07-02T03:00:00Z',
+            ),
+            onSubmit: ({required transactionInput, required postInput}) async {
+              submitted = postInput;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(_textFieldWithLabel('제목'), '개 새 끼야');
+
+    final nextButton = find.byKey(const ValueKey('expenseNextButton'));
+    await tester.scrollUntilVisible(
+      nextButton,
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(nextButton);
+    await tester.pumpAndSettle();
+    final saveButton = find.byKey(const ValueKey('saveExpenseButton'));
+    await tester.scrollUntilVisible(
+      saveButton,
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(submitted, isNull);
+    expect(find.text('표현을 한 번 확인해주세요'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('submitPotentiallyOffensiveContentButton')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(submitted?.title, '개 새 끼야');
+  });
+}
+
+Finder _textFieldWithLabel(String label) {
+  return find.byWidgetPredicate(
+    (widget) => widget is TextField && widget.decoration?.labelText == label,
+  );
 }
 
 TripDetail _trip() {

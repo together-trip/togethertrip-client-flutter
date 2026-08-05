@@ -4,18 +4,23 @@ import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_design.dart';
+import '../../moderation/model/moderation_models.dart';
+import '../../moderation/service/moderation_service.dart';
+import '../../moderation/widget/report_sheet.dart';
 import '../service/trip_service.dart';
 
 class TripRecapScreen extends StatefulWidget {
   final int tripId;
   final int? tripRecapId;
   final TripService? tripService;
+  final ModerationService? moderationService;
 
   const TripRecapScreen({
     super.key,
     required this.tripId,
     this.tripRecapId,
     this.tripService,
+    this.moderationService,
   });
 
   @override
@@ -24,6 +29,7 @@ class TripRecapScreen extends StatefulWidget {
 
 class _TripRecapScreenState extends State<TripRecapScreen> {
   late final TripService _tripService;
+  late final ModerationService _moderationService;
   final PageController _pageController = PageController();
 
   TripRecap? _recap;
@@ -35,6 +41,7 @@ class _TripRecapScreenState extends State<TripRecapScreen> {
   void initState() {
     super.initState();
     _tripService = widget.tripService ?? TripService();
+    _moderationService = widget.moderationService ?? ModerationService();
     _loadRecap();
   }
 
@@ -65,35 +72,74 @@ class _TripRecapScreenState extends State<TripRecapScreen> {
     }
   }
 
+  Future<void> _reportRecap() async {
+    final recapId = widget.tripRecapId ?? _recap?.recapId;
+    if (recapId == null) return;
+    await showReportSheet(
+      context: context,
+      tripId: widget.tripId,
+      targetType: ReportTargetType.tripRecap,
+      targetId: recapId,
+      targetLabel: 'AI Recap',
+      moderationService: _moderationService,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final recap = _recap;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.ink,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
         elevation: 0,
-        centerTitle: true,
-        title: const Text('여행 Recap', style: AppTextStyles.screenTitle),
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          '여행 기록',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+        ),
+        actions: [
+          if (recap != null)
+            IconButton(
+              key: const ValueKey('reportRecapButton'),
+              onPressed: _reportRecap,
+              icon: const Icon(Icons.more_horiz_rounded),
+              tooltip: 'AI Recap 신고 메뉴',
+            ),
+          const SizedBox(width: 8),
+        ],
       ),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-            : _errorMessage != null
-            ? _RecapErrorState(message: _errorMessage!, onRetry: _loadRecap)
-            : recap == null || recap.scenes.isEmpty
-            ? _RecapErrorState(
-                message: '표시할 Recap 장면이 없습니다.',
-                onRetry: _loadRecap,
-              )
-            : _RecapScenePager(
-                recap: recap,
-                pageController: _pageController,
-                pageIndex: _pageIndex,
-                tripService: _tripService,
-                onPageChanged: (value) => setState(() => _pageIndex = value),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.brand,
               ),
-      ),
+            )
+          : SafeArea(
+              child: _isLoading
+                  ? const SizedBox.shrink()
+                  : _errorMessage != null
+                  ? _RecapErrorState(
+                      message: _errorMessage!,
+                      onRetry: _loadRecap,
+                    )
+                  : recap == null || recap.scenes.isEmpty
+                  ? _RecapErrorState(
+                      message: '표시할 Recap 장면이 없습니다.',
+                      onRetry: _loadRecap,
+                    )
+                  : _RecapScenePager(
+                      recap: recap,
+                      pageController: _pageController,
+                      pageIndex: _pageIndex,
+                      tripService: _tripService,
+                      onPageChanged: (value) =>
+                          setState(() => _pageIndex = value),
+                    ),
+            ),
     );
   }
 }
@@ -117,9 +163,9 @@ class _RecapScenePager extends StatelessWidget {
   Widget build(BuildContext context) {
     final scenes = [...recap.scenes]
       ..sort((a, b) => a.order.compareTo(b.order));
-    return Column(
+    return Stack(
       children: [
-        Expanded(
+        Positioned.fill(
           child: PageView.builder(
             controller: pageController,
             itemCount: scenes.length,
@@ -132,20 +178,26 @@ class _RecapScenePager extends StatelessWidget {
             },
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
+        Positioned(
+          left: 20,
+          right: 20,
+          top: 12,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(scenes.length, (index) {
               final selected = index == pageIndex;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: selected ? 18 : 6,
-                height: 6,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.ink : const Color(0xFFD8D8D8),
-                  borderRadius: BorderRadius.circular(99),
+              return Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  height: 3,
+                  margin: EdgeInsets.only(
+                    right: index == scenes.length - 1 ? 0 : 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected || index < pageIndex
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.32),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
                 ),
               );
             }),
@@ -164,40 +216,44 @@ class _RecapSceneImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+    return ColoredBox(
+      color: AppColors.ink,
+      child: Center(
         child: AspectRatio(
           aspectRatio: scene.numericAspectRatio,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: FutureBuilder<List<int>>(
-              future: tripService.getRecapSceneImageBytes(scene.imageUrl),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const ColoredBox(
-                    color: Color(0xFFF4F4F4),
-                    child: Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
+          child: FutureBuilder<List<int>>(
+            future: tripService.getRecapSceneImageBytes(scene.imageUrl),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const ColoredBox(
+                  color: AppColors.ink,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.brand,
                     ),
-                  );
-                }
-                if (snapshot.hasError || snapshot.data == null) {
-                  return const ColoredBox(
-                    color: Color(0xFFF4F4F4),
-                    child: Center(
-                      child: Icon(Icons.broken_image_outlined, size: 36),
-                    ),
-                  );
-                }
-
-                return Image.memory(
-                  Uint8List.fromList(snapshot.data!),
-                  fit: BoxFit.cover,
-                  gaplessPlayback: true,
+                  ),
                 );
-              },
-            ),
+              }
+              if (snapshot.hasError || snapshot.data == null) {
+                return const ColoredBox(
+                  color: AppColors.ink,
+                  child: Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      size: 36,
+                      color: Colors.white70,
+                    ),
+                  ),
+                );
+              }
+
+              return Image.memory(
+                Uint8List.fromList(snapshot.data!),
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+              );
+            },
           ),
         ),
       ),
@@ -218,12 +274,18 @@ class _RecapErrorState extends StatelessWidget {
       children: [
         const Icon(Icons.error_outline, size: 36, color: AppColors.danger),
         const SizedBox(height: 14),
-        Text(message, textAlign: TextAlign.center, style: AppTextStyles.body),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.body.copyWith(color: Colors.white),
+        ),
         const SizedBox(height: 14),
         Center(
           child: TextButton(
             onPressed: onRetry,
-            style: AppButtonStyles.inkText(),
+            style: AppButtonStyles.inkText().copyWith(
+              foregroundColor: const WidgetStatePropertyAll(AppColors.brand),
+            ),
             child: const Text('다시 시도'),
           ),
         ),

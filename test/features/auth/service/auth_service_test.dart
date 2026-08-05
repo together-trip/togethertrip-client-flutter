@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:togethertrip/core/network/api_client.dart';
@@ -69,14 +71,24 @@ class _FakeSecureStorage extends Fake implements FlutterSecureStorage {
 
 void main() {
   group('AuthService', () {
-    test('인증번호 요청 응답은 phoneNumber 없이 만료 시간만 파싱한다', () async {
+    test('Apple 로그인은 nonce 해시로 인증하고 원본 nonce와 credential을 서버에 전달한다', () async {
+      final gateway = _FakeAppleSignInGateway();
       final tokenStorage = TokenStorage(storage: _FakeSecureStorage());
+      Map<String, dynamic>? requestBody;
       final service = AuthService(
+        appleSignInGateway: gateway,
         tokenStorage: tokenStorage,
         apiClient: ApiClient(
           client: MockClient((request) async {
+            requestBody = jsonDecode(request.body) as Map<String, dynamic>;
             return http.Response(
-              jsonEncode(_apiResponse({'expiresInSeconds': 180})),
+              jsonEncode(
+                _apiResponse({
+                  'status': 'PROFILE_REQUIRED',
+                  'accessToken': 'apple-access-token',
+                  'refreshToken': 'apple-refresh-token',
+                }),
+              ),
               200,
               headers: {'content-type': 'application/json'},
             );
@@ -84,15 +96,41 @@ void main() {
         ),
       );
 
-      final result = await service.requestPhoneVerification(
-        temporaryToken: 'temporary-token',
-        phoneNumber: '01012345678',
-      );
+      final result = await service.loginWithApple();
 
-      expect(result.expiresInSeconds, 180);
+      final rawNonce = requestBody!['rawNonce'] as String;
+      expect(rawNonce, hasLength(32));
+      expect(
+        gateway.hashedNonce,
+        sha256.convert(utf8.encode(rawNonce)).toString(),
+      );
+      expect(requestBody!['authorizationCode'], 'apple-code');
+      expect(requestBody!['identityToken'], 'apple-identity-token');
+      expect(requestBody!['givenName'], '재완');
+      expect(requestBody!['familyName'], '주');
+      expect(result.isProfileRequired, isTrue);
+      expect(await tokenStorage.getAccessToken(), 'apple-access-token');
     });
 
-    test('내 정보 응답의 마스킹 전화번호와 인증 상태를 파싱한다', () async {
+    test('로그인 응답은 인증 완료와 프로필 입력 필요 상태만 해석한다', () {
+      final authenticated = AuthLoginResult.fromJson({
+        'status': 'AUTHENTICATED',
+        'accessToken': 'access-token',
+        'refreshToken': 'refresh-token',
+      });
+      final profileRequired = AuthLoginResult.fromJson({
+        'status': 'PROFILE_REQUIRED',
+        'accessToken': 'access-token',
+        'refreshToken': 'refresh-token',
+      });
+
+      expect(authenticated.isAuthenticated, isTrue);
+      expect(authenticated.hasToken, isTrue);
+      expect(profileRequired.isProfileRequired, isTrue);
+      expect(profileRequired.hasToken, isTrue);
+    });
+
+    test('내 정보 응답의 기본 프로필을 파싱한다', () async {
       final tokenStorage = TokenStorage(storage: _FakeSecureStorage());
       await tokenStorage.save(accessToken: 'access-token', refreshToken: 'rt');
       final service = AuthService(
@@ -104,12 +142,7 @@ void main() {
                 _apiResponse({
                   'id': 1,
                   'nickname': '재완',
-                  'gender': 'MALE',
-                  'birthDate': '1990-01-01',
                   'profileImageUrl': '/uploads/user-profile-images/a.jpg',
-                  'phoneNumberMasked': '010-****-5678',
-                  'phoneVerifiedAt': '2026-06-12T00:00:00Z',
-                  'phoneVerified': true,
                 }),
               ),
               200,
@@ -121,9 +154,8 @@ void main() {
 
       final profile = await service.getMe();
 
-      expect(profile.phoneNumberMasked, '010-****-5678');
-      expect(profile.phoneVerifiedAt, '2026-06-12T00:00:00Z');
-      expect(profile.phoneVerified, isTrue);
+      expect(profile.nickname, '재완');
+      expect(profile.profileImageUrl, '/uploads/user-profile-images/a.jpg');
     });
 
     test('프로필 이미지가 있으면 multipart PATCH로 profileImage를 전송한다', () async {
@@ -160,8 +192,6 @@ void main() {
 
       await service.updateMyProfile(
         nickname: '새닉네임',
-        gender: 'FEMALE',
-        birthDate: '1995-05-01',
         profileImage: ProfileImageInput(
           path: file.path,
           filename: 'profile.jpg',
@@ -204,8 +234,6 @@ void main() {
 
       await service.updateMyProfile(
         nickname: '새닉네임',
-        gender: 'FEMALE',
-        birthDate: '1995-05-01',
         profileImageUrl: '/uploads/user-profile-images/current.jpg',
       );
 
@@ -214,8 +242,6 @@ void main() {
       expect(capturedAuth, 'Bearer access-token');
       expect(capturedBody, {
         'nickname': '새닉네임',
-        'gender': 'FEMALE',
-        'birthDate': '1995-05-01',
         'profileImageUrl': '/uploads/user-profile-images/current.jpg',
       });
     });
@@ -259,12 +285,7 @@ void main() {
                 _apiResponse({
                   'id': 1,
                   'nickname': '재완',
-                  'gender': null,
-                  'birthDate': null,
                   'profileImageUrl': null,
-                  'phoneNumberMasked': null,
-                  'phoneVerifiedAt': null,
-                  'phoneVerified': false,
                 }),
               ),
               200,
@@ -282,6 +303,82 @@ void main() {
         'Bearer new-access-token',
       ]);
       expect(await tokenStorage.getRefreshToken(), 'new-refresh-token');
+    });
+
+    test('동시 401은 프로세스에서 한 번만 refresh하고 회전된 세션을 유지한다', () async {
+      final tokenStorage = TokenStorage(storage: _FakeSecureStorage());
+      await tokenStorage.save(
+        accessToken: 'old-access-token',
+        refreshToken: 'old-refresh-token',
+      );
+      final bothOldRequestsCompleted = Completer<void>();
+      final releaseRefresh = Completer<void>();
+      var oldRequestCount = 0;
+      var refreshRequestCount = 0;
+
+      final apiClient = ApiClient(
+        client: MockClient((request) async {
+          if (request.url.path == '/api/auth/refresh') {
+            refreshRequestCount += 1;
+            await releaseRefresh.future;
+            return http.Response(
+              jsonEncode(
+                _apiResponse({
+                  'accessToken': 'new-access-token',
+                  'refreshToken': 'rotated-refresh-token',
+                }),
+              ),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          if (request.headers['Authorization'] == 'Bearer old-access-token') {
+            oldRequestCount += 1;
+            if (oldRequestCount == 2 && !bothOldRequestsCompleted.isCompleted) {
+              bothOldRequestsCompleted.complete();
+            }
+            return http.Response(
+              jsonEncode(_apiError('인증 실패')),
+              401,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+
+          return http.Response(
+            jsonEncode(
+              _apiResponse({
+                'id': 1,
+                'nickname': '재완',
+                'profileImageUrl': null,
+              }),
+            ),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+      final firstService = AuthService(
+        tokenStorage: tokenStorage,
+        apiClient: apiClient,
+      );
+      final secondService = AuthService(
+        tokenStorage: tokenStorage,
+        apiClient: apiClient,
+      );
+
+      final profiles = Future.wait([
+        firstService.getMe(),
+        secondService.getMe(),
+      ]);
+      await bothOldRequestsCompleted.future;
+      releaseRefresh.complete();
+
+      expect((await profiles).map((profile) => profile.nickname), ['재완', '재완']);
+      expect(refreshRequestCount, 1);
+      expect(await tokenStorage.getAccessToken(), 'new-access-token');
+      expect(await tokenStorage.getRefreshToken(), 'rotated-refresh-token');
+      expect(await firstService.isLoggedIn(), isTrue);
     });
 
     test('토큰 저장과 삭제 시 lifecycle hook을 호출한다', () async {
@@ -325,6 +422,33 @@ void main() {
       expect(lifecycle.savedAccessTokens, ['new-access-token']);
       expect(lifecycle.clearedAccessTokens, ['new-access-token']);
     });
+
+    test('계정 삭제 성공 뒤 provider 정리 실패와 무관하게 secure token을 비운다', () async {
+      final tokenStorage = TokenStorage(storage: _FakeSecureStorage());
+      final service = AuthService(
+        tokenStorage: tokenStorage,
+        tokenLifecycle: _ThrowingTokenLifecycle(),
+        appleSignInGateway: _ThrowingAppleSignInGateway(),
+        apiClient: ApiClient(
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode(_apiResponse(null)),
+              200,
+              headers: {'content-type': 'application/json'},
+            ),
+          ),
+        ),
+      );
+      await tokenStorage.save(
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+      );
+
+      await service.deleteAccount();
+
+      expect(await tokenStorage.getAccessToken(), isNull);
+      expect(await tokenStorage.getRefreshToken(), isNull);
+    });
   });
 }
 
@@ -341,4 +465,44 @@ class _RecordingTokenLifecycle implements AuthTokenLifecycle {
   Future<void> willClearTokens(String? accessToken) async {
     clearedAccessTokens.add(accessToken);
   }
+}
+
+class _ThrowingTokenLifecycle implements AuthTokenLifecycle {
+  @override
+  Future<void> didSaveTokens(String accessToken) async {}
+
+  @override
+  Future<void> willClearTokens(String? accessToken) async {
+    throw StateError('push cleanup failed');
+  }
+}
+
+class _ThrowingAppleSignInGateway implements AppleSignInGateway {
+  @override
+  Future<AppleSignInCredential> authorize({required String hashedNonce}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> clearLocalState() async {
+    throw StateError('apple cleanup failed');
+  }
+}
+
+class _FakeAppleSignInGateway implements AppleSignInGateway {
+  String? hashedNonce;
+
+  @override
+  Future<AppleSignInCredential> authorize({required String hashedNonce}) async {
+    this.hashedNonce = hashedNonce;
+    return const AppleSignInCredential(
+      authorizationCode: 'apple-code',
+      identityToken: 'apple-identity-token',
+      givenName: '재완',
+      familyName: '주',
+    );
+  }
+
+  @override
+  Future<void> clearLocalState() async {}
 }

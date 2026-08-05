@@ -33,12 +33,13 @@ class ProfileImagePicker extends StatelessWidget {
         ? '이미지 변경'
         : '이미지 선택';
 
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         ClipOval(
           child: SizedBox(
-            width: 68,
-            height: 68,
+            width: 72,
+            height: 72,
             child: selectedImage != null
                 ? Image.file(File(selectedImage.path), fit: BoxFit.cover)
                 : hasCurrentImage
@@ -51,13 +52,13 @@ class ProfileImagePicker extends StatelessWidget {
                 : ProfileImageFallback(nickname: nickname),
           ),
         ),
-        const SizedBox(width: 12),
-        OutlinedButton.icon(
+        const SizedBox(height: 8),
+        TextButton.icon(
           key: const ValueKey('pickProfileImageButton'),
           onPressed: onPick,
-          icon: const Icon(Icons.photo_camera_outlined, size: 18),
+          icon: const Icon(Icons.photo_camera_outlined, size: 17),
           label: Text(buttonLabel),
-          style: AppButtonStyles.outlined(),
+          style: AppButtonStyles.inkText(),
         ),
       ],
     );
@@ -75,14 +76,17 @@ class ProfileImageFallback extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F2F2),
-        border: Border.all(color: const Color(0xFFC7C7C7)),
+        color: AppColors.brandSoft,
         shape: BoxShape.circle,
       ),
       child: Center(
         child: Text(
           initial,
-          style: const TextStyle(fontSize: 18, color: AppColors.textSubtle),
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: AppColors.brandStrong,
+          ),
         ),
       ),
     );

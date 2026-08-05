@@ -80,7 +80,7 @@ class _NotificationBellIcon extends StatelessWidget {
         children: [
           const Align(
             alignment: Alignment.center,
-            child: Icon(Icons.notifications_none, size: 22),
+            child: Icon(Icons.notifications_none_rounded, size: 22),
           ),
           if (hasUnread)
             Positioned(

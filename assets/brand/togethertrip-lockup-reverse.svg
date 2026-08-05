@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 240" role="img" aria-labelledby="title">
+  <title id="title">togethertrip</title>
+  <rect width="1100" height="240" rx="32" fill="#FF6854"/>
+  <g transform="translate(24 25)" fill="none" stroke="#FFFDF9" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="28" cy="10" r="12" fill="#FFFDF9" stroke="none"/>
+    <path d="M28 49v76q0 27 27 27"/><path d="M7 49h51"/>
+    <path transform="translate(27)" d="M102 48c-28 0-44 20-44 52s16 52 44 52 44-20 44-52-16-52-44-52z"/>
+    <path transform="translate(52)" d="M218 55c-9-5-18-7-28-7-28 0-44 20-44 52s16 52 44 52c11 0 20-3 28-8V55zm0 0v101c0 23-14 35-38 35-13 0-24-3-33-8"/>
+    <path transform="translate(52)" d="M253 105h78c1-35-13-57-39-57-27 0-44 21-44 52 0 34 18 52 47 52 13 0 25-4 34-11"/>
+    <g transform="translate(73)"><path d="M366 4v121q0 27 27 27"/><path d="M345 49h51"/></g>
+    <path transform="translate(76)" d="M423 4v148M423 75c10-18 23-27 40-27 21 0 32 14 32 40v64"/>
+    <path transform="translate(76)" d="M530 105h78c1-35-13-57-39-57-27 0-44 21-44 52 0 34 18 52 47 52 13 0 25-4 34-11"/>
+    <path transform="translate(75)" d="M639 51v101M639 82c9-22 22-33 40-33"/>
+    <g transform="translate(83)"><circle cx="717" cy="10" r="12" fill="#FFFDF9" stroke="none"/><path d="M717 49v76q0 27 27 27"/><path d="M696 49h51"/></g>
+    <path transform="translate(85)" d="M775 51v101M775 82c9-22 22-33 40-33"/>
+    <g transform="translate(84)"><path d="M846 51v101"/><circle cx="846" cy="13" r="10" fill="#FFFDF9" stroke="none"/></g>
+    <path transform="translate(75)" d="M885 51v140M885 58c10-7 21-10 33-10 28 0 44 20 44 52s-16 52-44 52c-13 0-24-4-33-12"/>
+  </g>
+</svg>

@@ -18,6 +18,11 @@ void main() {
       ),
     );
 
+    await tester.tap(
+      find.byKey(const ValueKey('toggleParticipantAddPanelButton')),
+    );
+    await tester.pumpAndSettle();
+
     await tester.enterText(
       find.byKey(const ValueKey('guestParticipantNameField')),
       '민수',
@@ -49,6 +54,11 @@ void main() {
         ),
       ),
     );
+
+    await tester.tap(
+      find.byKey(const ValueKey('toggleParticipantAddPanelButton')),
+    );
+    await tester.pumpAndSettle();
 
     await tester.enterText(
       find.byKey(const ValueKey('participantManagerNicknameField')),

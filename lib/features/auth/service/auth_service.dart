@@ -1,20 +1,30 @@
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/token_storage.dart';
 
 class AuthService {
+  static Future<void>? _refreshInFlight;
+
   final ApiClient _apiClient;
   final TokenStorage _tokenStorage;
   final AuthTokenLifecycle? _tokenLifecycle;
+  final AppleSignInGateway _appleSignInGateway;
 
   AuthService({
     ApiClient? apiClient,
     TokenStorage? tokenStorage,
     AuthTokenLifecycle? tokenLifecycle,
+    AppleSignInGateway? appleSignInGateway,
   }) : _apiClient = apiClient ?? ApiClient(),
        _tokenStorage = tokenStorage ?? TokenStorage(),
-       _tokenLifecycle = tokenLifecycle;
+       _tokenLifecycle = tokenLifecycle,
+       _appleSignInGateway = appleSignInGateway ?? NativeAppleSignInGateway();
 
   Future<AuthLoginResult> loginWithKakao() async {
     final kakaoToken = await _getKakaoToken();
@@ -26,6 +36,36 @@ class AuthService {
       throw const ApiException(statusCode: 500, message: '로그인 응답이 비어 있습니다.');
     }
 
+    return _completeLogin(data);
+  }
+
+  Future<AuthLoginResult> loginWithApple() async {
+    final rawNonce = _generateNonce();
+    final credential = await _appleSignInGateway.authorize(
+      hashedNonce: sha256.convert(utf8.encode(rawNonce)).toString(),
+    );
+    if (credential.identityToken == null || credential.identityToken!.isEmpty) {
+      throw const ApiException(
+        statusCode: 401,
+        message: 'Apple identity token을 받지 못했습니다.',
+      );
+    }
+
+    final data = await _apiClient.post('/api/auth/oauth/apple', {
+      'authorizationCode': credential.authorizationCode,
+      'identityToken': credential.identityToken,
+      'rawNonce': rawNonce,
+      'givenName': credential.givenName,
+      'familyName': credential.familyName,
+    });
+    if (data == null) {
+      throw const ApiException(statusCode: 500, message: '로그인 응답이 비어 있습니다.');
+    }
+
+    return _completeLogin(data);
+  }
+
+  Future<AuthLoginResult> _completeLogin(Map<String, dynamic> data) async {
     final result = AuthLoginResult.fromJson(data);
     if (result.hasToken) {
       await _saveTokens(
@@ -39,56 +79,8 @@ class AuthService {
     return result;
   }
 
-  Future<PhoneVerificationCodeSent> requestPhoneVerification({
-    required String temporaryToken,
-    required String phoneNumber,
-  }) async {
-    final data = await _apiClient.post('/api/auth/phone/request', {
-      'temporaryToken': temporaryToken,
-      'phoneNumber': phoneNumber,
-    });
-
-    if (data == null) {
-      throw const ApiException(
-        statusCode: 500,
-        message: '인증번호 요청 응답이 비어 있습니다.',
-      );
-    }
-
-    return PhoneVerificationCodeSent.fromJson(data);
-  }
-
-  Future<AuthLoginResult> confirmPhoneVerification({
-    required String temporaryToken,
-    required String phoneNumber,
-    required String code,
-  }) async {
-    final data = await _apiClient.post('/api/auth/phone/confirm', {
-      'temporaryToken': temporaryToken,
-      'phoneNumber': phoneNumber,
-      'code': code,
-    });
-
-    if (data == null) {
-      throw const ApiException(
-        statusCode: 500,
-        message: '전화번호 인증 응답이 비어 있습니다.',
-      );
-    }
-
-    final result = AuthLoginResult.fromJson(data);
-    await _saveTokens(
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-    );
-
-    return result;
-  }
-
   Future<void> updateMyProfile({
     required String nickname,
-    required String gender,
-    required String birthDate,
     String? profileImageUrl,
     ProfileImageInput? profileImage,
   }) async {
@@ -97,11 +89,7 @@ class AuthService {
         return _apiClient.multipart(
           'PATCH',
           '/api/users/me',
-          fields: {
-            'nickname': nickname,
-            'gender': gender,
-            'birthDate': birthDate,
-          },
+          fields: {'nickname': nickname},
           files: [
             MultipartFileInput(
               fieldName: 'profileImage',
@@ -116,8 +104,6 @@ class AuthService {
 
       return _apiClient.patch('/api/users/me', {
         'nickname': nickname,
-        'gender': gender,
-        'birthDate': birthDate,
         'profileImageUrl': profileImageUrl,
       }, accessToken: accessToken);
     });
@@ -136,17 +122,28 @@ class AuthService {
   }
 
   Future<void> deleteAccount() async {
-    final accessToken = await _tokenStorage.getAccessToken();
     await runWithAccessToken(
       (accessToken) =>
           _apiClient.delete('/api/users/me', accessToken: accessToken),
     );
 
+    final accessToken = await _tokenStorage.getAccessToken();
+    await _clearLocalSession(accessToken);
+  }
+
+  Future<void> _clearLocalSession(String? accessToken) async {
     await _notifyWillClearTokens(accessToken);
     try {
       await UserApi.instance.logout();
     } catch (_) {}
-    await _tokenStorage.clear();
+    try {
+      await _appleSignInGateway.clearLocalState();
+    } catch (_) {}
+    try {
+      await _tokenStorage.clear();
+    } catch (_) {
+      rethrow;
+    }
   }
 
   Future<bool> checkNicknameAvailability(String nickname) async {
@@ -170,7 +167,20 @@ class AuthService {
     return data['available'] as bool;
   }
 
-  Future<void> refreshToken() async {
+  Future<void> refreshToken() {
+    final inFlight = _refreshInFlight;
+    if (inFlight != null) return inFlight;
+
+    final refresh = _performRefreshToken();
+    _refreshInFlight = refresh;
+    return refresh.whenComplete(() {
+      if (identical(_refreshInFlight, refresh)) {
+        _refreshInFlight = null;
+      }
+    });
+  }
+
+  Future<void> _performRefreshToken() async {
     final refreshToken = await _tokenStorage.getRefreshToken();
     if (refreshToken == null) {
       throw const ApiException(statusCode: 401, message: '저장된 토큰이 없습니다.');
@@ -192,11 +202,7 @@ class AuthService {
         await _apiClient.post('/api/auth/logout', {}, accessToken: accessToken);
       }
     } catch (_) {}
-    await _notifyWillClearTokens(accessToken);
-    try {
-      await UserApi.instance.logout();
-    } catch (_) {}
-    await _tokenStorage.clear();
+    await _clearLocalSession(accessToken);
   }
 
   Future<bool> isLoggedIn() => _tokenStorage.hasToken();
@@ -213,9 +219,15 @@ class AuthService {
       if (e.statusCode != 401) rethrow;
 
       try {
-        await refreshToken();
+        final currentAccessToken = await _tokenStorage.getAccessToken();
+        if (currentAccessToken == null || currentAccessToken == accessToken) {
+          await refreshToken();
+        }
       } catch (_) {
-        await _tokenStorage.clear();
+        final currentAccessToken = await _tokenStorage.getAccessToken();
+        if (currentAccessToken == null || currentAccessToken == accessToken) {
+          await _tokenStorage.clear();
+        }
         rethrow;
       }
 
@@ -257,6 +269,16 @@ class AuthService {
     return token.accessToken;
   }
 
+  String _generateNonce([int length = 32]) {
+    const characters =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(
+      length,
+      (_) => characters[random.nextInt(characters.length)],
+    ).join();
+  }
+
   Future<void> _notifyDidSaveTokens(String accessToken) async {
     try {
       await _tokenLifecycle?.didSaveTokens(accessToken);
@@ -270,6 +292,57 @@ class AuthService {
   }
 }
 
+abstract class AppleSignInGateway {
+  Future<AppleSignInCredential> authorize({required String hashedNonce});
+
+  Future<void> clearLocalState();
+}
+
+class NativeAppleSignInGateway implements AppleSignInGateway {
+  @override
+  Future<AppleSignInCredential> authorize({required String hashedNonce}) async {
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: [AppleIDAuthorizationScopes.fullName],
+      nonce: hashedNonce,
+    );
+    final userIdentifier = credential.userIdentifier;
+    if (userIdentifier == null || userIdentifier.isEmpty) {
+      throw const AppleCredentialRevokedException();
+    }
+    final state = await SignInWithApple.getCredentialState(userIdentifier);
+    if (state != CredentialState.authorized) {
+      throw const AppleCredentialRevokedException();
+    }
+    return AppleSignInCredential(
+      authorizationCode: credential.authorizationCode,
+      identityToken: credential.identityToken,
+      givenName: credential.givenName,
+      familyName: credential.familyName,
+    );
+  }
+
+  @override
+  Future<void> clearLocalState() async {}
+}
+
+class AppleSignInCredential {
+  final String authorizationCode;
+  final String? identityToken;
+  final String? givenName;
+  final String? familyName;
+
+  const AppleSignInCredential({
+    required this.authorizationCode,
+    required this.identityToken,
+    required this.givenName,
+    required this.familyName,
+  });
+}
+
+class AppleCredentialRevokedException implements Exception {
+  const AppleCredentialRevokedException();
+}
+
 abstract class AuthTokenLifecycle {
   Future<void> didSaveTokens(String accessToken);
 
@@ -278,13 +351,11 @@ abstract class AuthTokenLifecycle {
 
 class AuthLoginResult {
   final String status;
-  final String? temporaryToken;
   final String? accessToken;
   final String? refreshToken;
 
   const AuthLoginResult({
     required this.status,
-    required this.temporaryToken,
     required this.accessToken,
     required this.refreshToken,
   });
@@ -295,27 +366,11 @@ class AuthLoginResult {
 
   bool get hasToken => isAuthenticated || isProfileRequired;
 
-  bool get isPhoneVerificationRequired =>
-      status == 'PHONE_VERIFICATION_REQUIRED';
-
   factory AuthLoginResult.fromJson(Map<String, dynamic> json) {
     return AuthLoginResult(
       status: json['status'] as String,
-      temporaryToken: json['temporaryToken'] as String?,
       accessToken: json['accessToken'] as String?,
       refreshToken: json['refreshToken'] as String?,
-    );
-  }
-}
-
-class PhoneVerificationCodeSent {
-  final int expiresInSeconds;
-
-  const PhoneVerificationCodeSent({required this.expiresInSeconds});
-
-  factory PhoneVerificationCodeSent.fromJson(Map<String, dynamic> json) {
-    return PhoneVerificationCodeSent(
-      expiresInSeconds: (json['expiresInSeconds'] as num).toInt(),
     );
   }
 }
@@ -335,34 +390,19 @@ class ProfileImageInput {
 class UserProfile {
   final int id;
   final String nickname;
-  final String? gender;
-  final String? birthDate; // yyyy-MM-dd
   final String? profileImageUrl;
-  final String? phoneNumberMasked;
-  final String? phoneVerifiedAt;
-  final bool phoneVerified;
 
   const UserProfile({
     required this.id,
     required this.nickname,
-    required this.gender,
-    required this.birthDate,
     required this.profileImageUrl,
-    required this.phoneNumberMasked,
-    required this.phoneVerifiedAt,
-    required this.phoneVerified,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       id: (json['id'] as num).toInt(),
       nickname: json['nickname'] as String,
-      gender: json['gender'] as String?,
-      birthDate: json['birthDate'] as String?,
       profileImageUrl: json['profileImageUrl'] as String?,
-      phoneNumberMasked: json['phoneNumberMasked'] as String?,
-      phoneVerifiedAt: json['phoneVerifiedAt'] as String?,
-      phoneVerified: json['phoneVerified'] as bool? ?? false,
     );
   }
 }

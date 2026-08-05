@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'core/widget/app_design.dart';
@@ -16,6 +17,9 @@ import 'features/trip/service/trip_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kReleaseMode) {
+    Env.ensureReleaseConfiguration();
+  }
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp();
@@ -97,11 +101,7 @@ class _TogetherTripAppState extends State<TogetherTripApp> {
       locale: const Locale('ko'),
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [Locale('ko'), Locale('en')],
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.ink),
-        useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white,
-      ),
+      theme: AppTheme.light(),
       home: OnboardingScreen(
         authService: _authService,
         tripService: widget.tripService,

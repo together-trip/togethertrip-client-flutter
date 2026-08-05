@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/widget/app_design.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/network/api_client.dart';
 import '../service/post_service.dart';
+import 'authenticated_attachment_image.dart';
 
 const maxPostAttachmentCount = 10;
 
@@ -39,6 +39,7 @@ class AttachmentInputSection extends StatefulWidget {
   final List<PostAttachment> existingAttachments;
   final bool enabled;
   final ValueChanged<bool>? onChanged;
+  final AuthenticatedAttachmentImageLoader? attachmentImageLoader;
 
   const AttachmentInputSection({
     super.key,
@@ -46,6 +47,7 @@ class AttachmentInputSection extends StatefulWidget {
     this.existingAttachments = const [],
     required this.enabled,
     this.onChanged,
+    this.attachmentImageLoader,
   });
 
   @override
@@ -54,6 +56,23 @@ class AttachmentInputSection extends StatefulWidget {
 
 class _AttachmentInputSectionState extends State<AttachmentInputSection> {
   final _picker = ImagePicker();
+  late AuthenticatedAttachmentImageLoader _attachmentImageLoader;
+
+  @override
+  void initState() {
+    super.initState();
+    _attachmentImageLoader =
+        widget.attachmentImageLoader ?? AuthenticatedAttachmentImageLoader();
+  }
+
+  @override
+  void didUpdateWidget(covariant AttachmentInputSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.attachmentImageLoader != widget.attachmentImageLoader) {
+      _attachmentImageLoader =
+          widget.attachmentImageLoader ?? AuthenticatedAttachmentImageLoader();
+    }
+  }
 
   Future<void> _pickImages() async {
     final remaining =
@@ -120,6 +139,7 @@ class _AttachmentInputSectionState extends State<AttachmentInputSection> {
                 if (index < widget.existingAttachments.length) {
                   return _ExistingAttachmentPreview(
                     attachment: widget.existingAttachments[index],
+                    attachmentImageLoader: _attachmentImageLoader,
                   );
                 }
 
@@ -139,25 +159,27 @@ class _AttachmentInputSectionState extends State<AttachmentInputSection> {
 
 class _ExistingAttachmentPreview extends StatelessWidget {
   final PostAttachment attachment;
+  final AuthenticatedAttachmentImageLoader attachmentImageLoader;
 
-  const _ExistingAttachmentPreview({required this.attachment});
+  const _ExistingAttachmentPreview({
+    required this.attachment,
+    required this.attachmentImageLoader,
+  });
 
   @override
   Widget build(BuildContext context) {
     final rawImageUrl = attachment.thumbnailUrl?.isNotEmpty == true
         ? attachment.thumbnailUrl!
         : attachment.fileUrl;
-    final imageUrl = resolveApiUrl(rawImageUrl);
-
     return _AttachmentFrame(
       child: attachment.attachmentType == 'VIDEO'
           ? const Icon(Icons.play_circle_outline, size: 34)
-          : Image.network(
-              imageUrl,
+          : AuthenticatedAttachmentImage(
+              path: rawImageUrl,
+              loader: attachmentImageLoader,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.image_not_supported_outlined);
-              },
+              errorBuilder: (_) =>
+                  const Icon(Icons.image_not_supported_outlined),
             ),
     );
   }

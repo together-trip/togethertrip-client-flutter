@@ -81,7 +81,10 @@ class _SettlementScreenState extends State<SettlementScreen> {
         reset: reset,
       );
       if (!mounted) return;
-      setState(() => _overview = overview);
+      setState(() {
+        _overview = overview;
+        _selectedTab = _recommendedTab(overview);
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _errorMessage = '정산 정보를 불러오지 못했습니다: $e');
@@ -110,10 +113,15 @@ class _SettlementScreenState extends State<SettlementScreen> {
     });
 
     try {
+      final previousStage = _overview?.stage;
       final overview = await action();
       if (!mounted) return;
       setState(() {
         _overview = overview;
+        if (previousStage != SettlementStage.confirmed &&
+            overview.stage == SettlementStage.confirmed) {
+          _selectedTab = _recommendedTab(overview);
+        }
         _changed = true;
       });
       if (message != null) {
@@ -224,14 +232,14 @@ class _SettlementScreenState extends State<SettlementScreen> {
         _close();
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.background,
           elevation: 0,
           centerTitle: false,
           leading: IconButton(
             onPressed: _close,
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.chevron_left_rounded),
             tooltip: '뒤로',
           ),
           title: const Text(
@@ -246,7 +254,7 @@ class _SettlementScreenState extends State<SettlementScreen> {
                 onPressed: _showExplanation,
                 tooltip: '정산 계산 방법',
                 style: AppIconButtonStyles.neutral(),
-                icon: const Icon(Icons.question_mark, size: 17),
+                icon: const Icon(Icons.help_outline_rounded, size: 20),
               ),
             ),
           ],
@@ -274,16 +282,25 @@ class _SettlementScreenState extends State<SettlementScreen> {
           onPrimaryAction: _handlePrimaryAction,
           onShare: _handleShare,
         ),
+        SettlementMySummaryCard(overview: overview),
         if (widget.showMockCases)
           _MockCaseSelector(
             selectedMockCase: _selectedMockCase,
             onSelect: _selectMockCase,
           ),
-        SettlementMySummaryCard(overview: overview),
         _SettlementTabs(selectedTab: _selectedTab, onSelect: _selectTab),
         Expanded(child: _buildTabBody(overview)),
       ],
     );
+  }
+
+  _SettlementTab _recommendedTab(SettlementOverview overview) {
+    if (overview.stage != SettlementStage.confirmed) {
+      return _SettlementTab.overview;
+    }
+    if (overview.hasPendingReceivedTransfers) return _SettlementTab.received;
+    if (overview.hasPendingSentTransfers) return _SettlementTab.sent;
+    return _SettlementTab.overview;
   }
 
   void _selectTab(_SettlementTab tab) {
@@ -383,35 +400,40 @@ class _SettlementTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 54,
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+      height: 48,
+      color: AppColors.background,
       child: Row(
-        spacing: 8,
         children: _SettlementTab.values.map((tab) {
           final selected = selectedTab == tab;
           return Expanded(
             child: InkWell(
               key: ValueKey('settlementTab${tab.name}'),
               onTap: () => onSelect(tab),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.ink : Colors.white,
-                  border: Border.all(
-                    color: selected ? AppColors.ink : const Color(0xFFE2E2E2),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        tab.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: selected
+                              ? FontWeight.w800
+                              : FontWeight.w500,
+                          color: selected
+                              ? AppColors.brandStrong
+                              : AppColors.textMuted,
+                        ),
+                      ),
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  tab.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                    color: selected ? Colors.white : const Color(0xFF4A4A4A),
+                  Container(
+                    height: 2,
+                    width: selected ? 48 : 0,
+                    color: AppColors.brand,
                   ),
-                ),
+                ],
               ),
             ),
           );

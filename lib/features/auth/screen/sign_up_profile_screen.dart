@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,28 +12,16 @@ import '../service/terms_agreement_service.dart';
 import 'terms_list_screen.dart';
 import '../widget/profile_form_fields.dart';
 import '../widget/profile_image_picker.dart';
-import '../widget/profile_input_formatters.dart';
-
-enum _Gender {
-  male('남자', 'MALE'),
-  female('여자', 'FEMALE');
-
-  final String label;
-  final String apiValue;
-
-  const _Gender(this.label, this.apiValue);
-}
 
 class SignUpProfileScreen extends StatefulWidget {
   final AuthService authService;
   final TripService? tripService;
   final TermsAgreementService? termsAgreementService;
-  final String? temporaryToken;
   final bool restoreExistingTerms;
   final UserProfile? prefillProfile;
   final Set<String>? initialAgreedTermCodes;
 
-  /// 값이 있으면 "개인정보 수정" 모드로 동작하며 기존 내용을 프리필한다.
+  /// 값이 있으면 "프로필 수정" 모드로 동작하며 기존 내용을 프리필한다.
   /// null이면 회원가입 프로필 설정 모드.
   final UserProfile? initialProfile;
 
@@ -44,7 +30,6 @@ class SignUpProfileScreen extends StatefulWidget {
     required this.authService,
     this.tripService,
     this.termsAgreementService,
-    required this.temporaryToken,
     this.initialProfile,
     this.prefillProfile,
     this.restoreExistingTerms = false,
@@ -58,32 +43,20 @@ class SignUpProfileScreen extends StatefulWidget {
 class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nicknameController = TextEditingController();
-  final _birthDateController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _codeController = TextEditingController();
   final _imagePicker = ImagePicker();
 
   late final TermsAgreementService _termsAgreementService;
   Future<List<TermsAgreementItem>>? _termsFuture;
   final Set<String> _agreedTermCodes = {};
-  _Gender _gender = _Gender.male;
-  Timer? _timer;
-  int _remainingSeconds = 0;
-  String? _requestedPhoneNumber;
   ProfileImageInput? _selectedProfileImage;
   String? _checkedNickname;
   String _lastNicknameText = '';
   bool? _isNicknameAvailable;
   String? _nicknameMessage;
   bool _isCheckingNickname = false;
-  bool _isRequestingCode = false;
-  bool _isConfirmingCode = false;
   bool _isSubmitting = false;
-  bool _isPhoneVerified = false;
   String? _errorMessage;
 
-  bool get _isCodeRequested => _remainingSeconds > 0;
-  bool get _requiresPhoneVerification => widget.temporaryToken != null;
   bool get _isEditMode => widget.initialProfile != null;
   UserProfile? get _profileForPrefill =>
       widget.initialProfile ?? widget.prefillProfile;
@@ -103,10 +76,8 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
       _agreedTermCodes.addAll(widget.initialAgreedTermCodes ?? const {});
       _termsFuture = _loadTermsForSignup();
     }
-    _isPhoneVerified = !_requiresPhoneVerification;
     _prefillFromInitialProfile();
     _lastNicknameText = _currentNickname();
-    _phoneController.addListener(_resetVerificationIfPhoneChanged);
   }
 
   void _prefillFromInitialProfile() {
@@ -118,128 +89,12 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     // (공개 중복확인 API는 본인 닉네임도 "사용중"으로 보기 때문)
     _checkedNickname = profile.nickname;
     _isNicknameAvailable = true;
-
-    if (profile.gender == _Gender.female.apiValue) {
-      _gender = _Gender.female;
-    } else if (profile.gender == _Gender.male.apiValue) {
-      _gender = _Gender.male;
-    }
-
-    final birthDate = profile.birthDate;
-    if (birthDate != null && birthDate.isNotEmpty) {
-      _birthDateController.text = _toDisplayBirthDate(birthDate);
-    }
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     _nicknameController.dispose();
-    _birthDateController.dispose();
-    _phoneController.dispose();
-    _codeController.dispose();
     super.dispose();
-  }
-
-  Future<void> _requestCode() async {
-    final temporaryToken = widget.temporaryToken;
-    if (temporaryToken == null) return;
-
-    final phoneError = _validatePhoneNumber(_phoneController.text);
-    if (phoneError != null) {
-      setState(() => _errorMessage = phoneError);
-      return;
-    }
-
-    setState(() {
-      _isRequestingCode = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final requestedPhoneNumber = _toApiPhoneNumber(_phoneController.text);
-      final result = await widget.authService.requestPhoneVerification(
-        temporaryToken: temporaryToken,
-        phoneNumber: requestedPhoneNumber,
-      );
-      if (!mounted) return;
-
-      final currentPhoneNumber = _toApiPhoneNumber(_phoneController.text);
-      if (currentPhoneNumber != requestedPhoneNumber) {
-        setState(() {
-          _requestedPhoneNumber = null;
-          _isPhoneVerified = false;
-          _codeController.clear();
-          _errorMessage = '전화번호가 변경되었습니다. 인증번호를 다시 요청해주세요.';
-        });
-        return;
-      }
-
-      setState(() {
-        _requestedPhoneNumber = requestedPhoneNumber;
-        _isPhoneVerified = false;
-        _codeController.clear();
-      });
-      _startTimer(result.expiresInSeconds);
-    } on ApiException catch (e) {
-      setState(() => _errorMessage = e.message);
-    } catch (e) {
-      setState(() => _errorMessage = '인증번호 요청에 실패했습니다: $e');
-    } finally {
-      if (mounted) setState(() => _isRequestingCode = false);
-    }
-  }
-
-  Future<void> _confirmCode() async {
-    final temporaryToken = widget.temporaryToken;
-    if (temporaryToken == null) return;
-
-    final code = _codeController.text.trim();
-    if (!_isCodeRequested || _requestedPhoneNumber == null) {
-      setState(() => _errorMessage = '인증번호를 먼저 요청해주세요.');
-      return;
-    }
-    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
-      setState(() => _errorMessage = '인증번호 6자리를 입력해주세요.');
-      return;
-    }
-
-    setState(() {
-      _isConfirmingCode = true;
-      _errorMessage = null;
-    });
-
-    final confirmingPhoneNumber = _requestedPhoneNumber!;
-    try {
-      await widget.authService.confirmPhoneVerification(
-        temporaryToken: temporaryToken,
-        phoneNumber: confirmingPhoneNumber,
-        code: code,
-      );
-      if (!mounted) return;
-
-      final currentPhoneNumber = _toApiPhoneNumber(_phoneController.text);
-      if (_requestedPhoneNumber != confirmingPhoneNumber ||
-          currentPhoneNumber != confirmingPhoneNumber) {
-        setState(() {
-          _isPhoneVerified = false;
-          _errorMessage = '전화번호가 변경되었습니다. 인증번호를 다시 요청해주세요.';
-        });
-        return;
-      }
-
-      _timer?.cancel();
-      setState(() {
-        _remainingSeconds = 0;
-        _isPhoneVerified = true;
-      });
-    } on ApiException catch (e) {
-      setState(() => _errorMessage = e.message);
-    } catch (e) {
-      setState(() => _errorMessage = '인증번호 확인에 실패했습니다: $e');
-    } finally {
-      if (mounted) setState(() => _isConfirmingCode = false);
-    }
   }
 
   Future<void> _checkNickname() async {
@@ -321,10 +176,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
 
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
-    if (!_isPhoneVerified) {
-      setState(() => _errorMessage = '전화번호 인증을 완료해주세요.');
-      return;
-    }
 
     if (!_isNicknameConfirmed) {
       setState(() => _nicknameMessage = '닉네임 중복 확인을 완료해주세요.');
@@ -359,8 +210,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
       }
       await widget.authService.updateMyProfile(
         nickname: nickname,
-        gender: _gender.apiValue,
-        birthDate: _toApiBirthDate(_birthDateController.text),
         profileImageUrl: _profileForPrefill?.profileImageUrl,
         profileImage: _selectedProfileImage,
       );
@@ -391,26 +240,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     }
   }
 
-  void _startTimer(int seconds) {
-    _timer?.cancel();
-    setState(() => _remainingSeconds = seconds);
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      if (_remainingSeconds <= 1) {
-        timer.cancel();
-        setState(() => _remainingSeconds = 0);
-        return;
-      }
-
-      setState(() => _remainingSeconds -= 1);
-    });
-  }
-
   void _handleNicknameChanged() {
     final currentNickname = _currentNickname();
     if (currentNickname == _lastNicknameText) return;
@@ -427,28 +256,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
     return _nicknameController.text.trim();
   }
 
-  void _resetVerificationIfPhoneChanged() {
-    if (!_requiresPhoneVerification) return;
-    if (_requestedPhoneNumber == null && !_isPhoneVerified) return;
-
-    final currentPhone = _phoneController.text.trim();
-    if (_toApiPhoneNumber(currentPhone) == _requestedPhoneNumber) return;
-
-    _timer?.cancel();
-    setState(() {
-      _remainingSeconds = 0;
-      _requestedPhoneNumber = null;
-      _isPhoneVerified = false;
-      _codeController.clear();
-    });
-  }
-
-  String _timerText() {
-    final minutes = (_remainingSeconds ~/ 60).toString().padLeft(2, '0');
-    final seconds = (_remainingSeconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-
   bool _hasAgreedAllRequired(List<TermsAgreementItem> terms) {
     final requiredTerms = terms.where((term) => term.required).toList();
     return requiredTerms.isNotEmpty &&
@@ -457,7 +264,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
 
   Future<List<TermsAgreementItem>> _loadTermsForSignup() async {
     final terms = await _termsAgreementService.getTerms();
-    if (_requiresPhoneVerification || !widget.restoreExistingTerms) {
+    if (!widget.restoreExistingTerms) {
       return terms;
     }
 
@@ -519,22 +326,22 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         leading: IconButton(
           tooltip: '뒤로',
           onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.chevron_left, size: 24),
+          icon: const Icon(Icons.chevron_left_rounded, size: 24),
           color: AppColors.ink,
         ),
         title: Text(
-          _isEditMode ? '개인정보 수정' : '프로필 설정',
+          _isEditMode ? '프로필 수정' : '프로필 설정',
           style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
             color: AppColors.ink,
           ),
         ),
@@ -545,21 +352,43 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      LabeledField(
-                        label: '프로필 이미지',
-                        child: ProfileImagePicker(
-                          nickname: _currentNickname(),
-                          currentImageUrl: _profileForPrefill?.profileImageUrl,
-                          selectedImage: _selectedProfileImage,
-                          onPick: _pickProfileImage,
+                      if (!_isEditMode) ...[
+                        const Text(
+                          '가입 정보를 입력해주세요',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                            letterSpacing: -0.5,
+                          ),
                         ),
+                        const SizedBox(height: 7),
+                        const Text(
+                          '닉네임을 설정하면 바로 시작할 수 있어요.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSubtle,
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                      ],
+                      ProfileImagePicker(
+                        nickname: _currentNickname(),
+                        currentImageUrl: _profileForPrefill?.profileImageUrl,
+                        selectedImage: _selectedProfileImage,
+                        onPick: _pickProfileImage,
                       ),
+                      const SizedBox(height: 22),
+                      if (_isEditMode) ...[
+                        const _ProfileSectionHeading(label: '기본 정보'),
+                        const SizedBox(height: 10),
+                      ],
                       LabeledField(
                         label: '닉네임',
                         child: Column(
@@ -572,7 +401,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                   child: TextFormField(
                                     key: const ValueKey('nicknameField'),
                                     controller: _nicknameController,
-                                    decoration: const InputDecoration(
+                                    decoration: AppInputDecorations.filled(
                                       hintText: '2~20자, 한글/영문/숫자',
                                     ),
                                     textInputAction: TextInputAction.next,
@@ -593,8 +422,8 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                     style: AppButtonStyles.outlined().copyWith(
                                       backgroundColor: WidgetStatePropertyAll(
                                         _isNicknameConfirmed
-                                            ? AppColors.surface
-                                            : AppColors.ink,
+                                            ? AppColors.brandSoft
+                                            : AppColors.neutralSoft,
                                       ),
                                       foregroundColor:
                                           WidgetStateProperty.resolveWith((
@@ -606,8 +435,8 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                                               return AppColors.textMuted;
                                             }
                                             return _isNicknameConfirmed
-                                                ? AppColors.ink
-                                                : Colors.white;
+                                                ? AppColors.brandStrong
+                                                : AppColors.ink;
                                           }),
                                     ),
                                     child: Text(
@@ -626,7 +455,7 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                               const Text(
                                 '사용 가능한 닉네임입니다.',
                                 style: TextStyle(
-                                  color: AppColors.ink,
+                                  color: AppColors.success,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -645,167 +474,6 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                           ],
                         ),
                       ),
-                      LabeledField(
-                        label: '성별',
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: GenderButton(
-                                label: _Gender.male.label,
-                                isSelected: _gender == _Gender.male,
-                                onPressed: () =>
-                                    setState(() => _gender = _Gender.male),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: GenderButton(
-                                label: _Gender.female.label,
-                                isSelected: _gender == _Gender.female,
-                                onPressed: () =>
-                                    setState(() => _gender = _Gender.female),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      LabeledField(
-                        label: '생년월일',
-                        child: TextFormField(
-                          key: const ValueKey('birthDateField'),
-                          controller: _birthDateController,
-                          decoration: const InputDecoration(
-                            hintText: 'YYYY.MM.DD',
-                          ),
-                          keyboardType: TextInputType.datetime,
-                          textInputAction: TextInputAction.next,
-                          inputFormatters: const [BirthDateInputFormatter()],
-                          validator: _validateBirthDate,
-                        ),
-                      ),
-                      if (_isEditMode)
-                        LabeledField(
-                          label: '전화번호',
-                          child: _ReadOnlyPhoneInfo(
-                            phoneNumberMasked:
-                                widget.initialProfile?.phoneNumberMasked,
-                            phoneVerified:
-                                widget.initialProfile?.phoneVerified ?? false,
-                          ),
-                        ),
-                      if (_requiresPhoneVerification)
-                        LabeledField(
-                          label: '전화번호',
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      key: const ValueKey('phoneField'),
-                                      controller: _phoneController,
-                                      decoration: const InputDecoration(
-                                        hintText: '010-0000-0000',
-                                      ),
-                                      keyboardType: TextInputType.phone,
-                                      textInputAction: TextInputAction.next,
-                                      inputFormatters: const [
-                                        PhoneNumberInputFormatter(),
-                                      ],
-                                      validator: _validatePhoneNumber,
-                                      enabled: !_isPhoneVerified,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    height: 48,
-                                    child: OutlinedButton(
-                                      key: const ValueKey('requestCodeButton'),
-                                      onPressed:
-                                          _isRequestingCode || _isPhoneVerified
-                                          ? null
-                                          : _requestCode,
-                                      style: AppButtonStyles.outlined()
-                                          .copyWith(
-                                            backgroundColor:
-                                                const WidgetStatePropertyAll(
-                                                  AppColors.ink,
-                                                ),
-                                            foregroundColor:
-                                                WidgetStateProperty.resolveWith(
-                                                  (states) {
-                                                    if (states.contains(
-                                                      WidgetState.disabled,
-                                                    )) {
-                                                      return AppColors
-                                                          .textMuted;
-                                                    }
-                                                    return Colors.white;
-                                                  },
-                                                ),
-                                          ),
-                                      child: Text(
-                                        _isPhoneVerified
-                                            ? '완료'
-                                            : _isRequestingCode
-                                            ? '요청중'
-                                            : _isCodeRequested
-                                            ? '재전송'
-                                            : '인증',
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (_isCodeRequested || _isPhoneVerified) ...[
-                                const SizedBox(height: 8),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        key: const ValueKey('codeField'),
-                                        controller: _codeController,
-                                        decoration: InputDecoration(
-                                          hintText: '인증번호 6자리',
-                                          suffixText: _isPhoneVerified
-                                              ? '인증완료'
-                                              : _timerText(),
-                                        ),
-                                        keyboardType: TextInputType.number,
-                                        enabled: !_isPhoneVerified,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    SizedBox(
-                                      height: 48,
-                                      child: OutlinedButton(
-                                        key: const ValueKey(
-                                          'confirmCodeButton',
-                                        ),
-                                        onPressed:
-                                            _isConfirmingCode ||
-                                                _isPhoneVerified
-                                            ? null
-                                            : _confirmCode,
-                                        style: AppButtonStyles.outlined(),
-                                        child: Text(
-                                          _isPhoneVerified
-                                              ? '확인됨'
-                                              : _isConfirmingCode
-                                              ? '확인중'
-                                              : '확인',
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
                       if (_shouldCollectTerms)
                         _TermsAgreementSection(
                           termsFuture: _termsFuture!,
@@ -817,23 +485,35 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
                         AppErrorText(_errorMessage!),
                         const SizedBox(height: 12),
                       ],
-                      SizedBox(
-                        height: 52,
-                        child: ElevatedButton(
-                          key: const ValueKey('submitButton'),
-                          onPressed: _isSubmitting ? null : _submit,
-                          style: AppButtonStyles.elevatedPrimary(),
-                          child: Text(
-                            _isSubmitting
-                                ? '저장중'
-                                : _isEditMode
-                                ? '저장'
-                                : '완료',
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                      ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+            DecoratedBox(
+              decoration: const BoxDecoration(
+                color: AppColors.background,
+                border: Border(top: BorderSide(color: AppColors.lineSoft)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+                  child: SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      key: const ValueKey('submitButton'),
+                      onPressed: _isSubmitting ? null : _submit,
+                      style: AppButtonStyles.elevatedPrimary(radius: 12),
+                      child: Text(
+                        _isSubmitting
+                            ? '저장중'
+                            : _isEditMode
+                            ? '변경사항 저장'
+                            : '완료',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -842,6 +522,17 @@ class _SignUpProfileScreenState extends State<SignUpProfileScreen> {
         ),
       ),
     );
+  }
+}
+
+class _ProfileSectionHeading extends StatelessWidget {
+  final String label;
+
+  const _ProfileSectionHeading({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(label, style: AppTextStyles.caption);
   }
 }
 
@@ -883,6 +574,7 @@ class _TermsAgreementSection extends StatelessWidget {
             terms.isNotEmpty &&
             terms.every((term) => agreedCodes.contains(term.code));
         final requiredTerms = terms.where((term) => term.required).toList();
+        final optionalTerms = terms.where((term) => !term.required).toList();
         final agreedRequired =
             requiredTerms.isNotEmpty &&
             requiredTerms.every((term) => agreedCodes.contains(term.code));
@@ -904,42 +596,29 @@ class _TermsAgreementSection extends StatelessWidget {
                 onChanged: (checked) => onToggleAll(terms, checked),
                 emphasized: true,
               ),
-              const SizedBox(height: 10),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: AppRadii.controlRadius,
-                  border: Border.all(color: AppColors.lineSoft),
-                ),
-                child: Column(
-                  children: [
-                    for (var index = 0; index < terms.length; index++) ...[
-                      _TermsCheckboxRow(
-                        key: ValueKey('termsCheckbox_${terms[index].code}'),
-                        title: terms[index].title,
-                        subtitle: '버전 ${terms[index].version}',
-                        value: agreedCodes.contains(terms[index].code),
-                        onChanged: (checked) =>
-                            onToggleTerm(terms[index], checked),
-                        onView: () => showTermsDetailSheet(
-                          context: context,
-                          term: terms[index],
-                        ),
-                        required: terms[index].required,
-                      ),
-                      if (index < terms.length - 1)
-                        const Divider(height: 1, color: AppColors.lineSoft),
-                    ],
-                  ],
-                ),
+              const SizedBox(height: 14),
+              _TermsGroup(
+                label: '필수 약관',
+                terms: requiredTerms,
+                agreedCodes: agreedCodes,
+                onToggleTerm: onToggleTerm,
               ),
+              if (optionalTerms.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                _TermsGroup(
+                  label: '선택 약관',
+                  terms: optionalTerms,
+                  agreedCodes: agreedCodes,
+                  onToggleTerm: onToggleTerm,
+                ),
+              ],
               const SizedBox(height: 8),
               Text(
                 agreedRequired ? '필수 약관 동의 완료' : '필수 약관에 모두 동의해야 가입할 수 있어요.',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: agreedRequired ? AppColors.ink : AppColors.danger,
+                  color: agreedRequired ? AppColors.success : AppColors.danger,
                 ),
               ),
             ],
@@ -950,9 +629,60 @@ class _TermsAgreementSection extends StatelessWidget {
   }
 }
 
+class _TermsGroup extends StatelessWidget {
+  final String label;
+  final List<TermsAgreementItem> terms;
+  final Set<String> agreedCodes;
+  final void Function(TermsAgreementItem term, bool? checked) onToggleTerm;
+
+  const _TermsGroup({
+    required this.label,
+    required this.terms,
+    required this.agreedCodes,
+    required this.onToggleTerm,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppTextStyles.caption),
+        const SizedBox(height: 6),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadii.controlRadius,
+            border: Border.all(color: AppColors.lineSoft),
+          ),
+          child: Column(
+            children: [
+              for (var index = 0; index < terms.length; index++) ...[
+                _TermsCheckboxRow(
+                  key: ValueKey('termsCheckbox_${terms[index].code}'),
+                  title: terms[index].title,
+                  value: agreedCodes.contains(terms[index].code),
+                  onChanged: (checked) => onToggleTerm(terms[index], checked),
+                  onView: () => showTermsDetailSheet(
+                    context: context,
+                    term: terms[index],
+                  ),
+                  required: terms[index].required,
+                ),
+                if (index < terms.length - 1)
+                  const Divider(height: 1, color: AppColors.lineSoft),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _TermsCheckboxRow extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final bool value;
   final ValueChanged<bool?> onChanged;
   final VoidCallback? onView;
@@ -962,7 +692,7 @@ class _TermsCheckboxRow extends StatelessWidget {
   const _TermsCheckboxRow({
     super.key,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.value,
     required this.onChanged,
     this.onView,
@@ -973,7 +703,7 @@ class _TermsCheckboxRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backgroundColor = emphasized && value
-        ? const Color(0xFFF4F7F4)
+        ? AppColors.brandSoft
         : AppColors.surface;
 
     return Material(
@@ -1017,16 +747,18 @@ class _TermsCheckboxRow extends StatelessWidget {
                         color: AppColors.ink,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSubtle,
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSubtle,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -1036,7 +768,7 @@ class _TermsCheckboxRow extends StatelessWidget {
                   key: ValueKey('termsDetailButton_$title'),
                   tooltip: '약관 보기',
                   onPressed: onView,
-                  icon: const Icon(Icons.chevron_right, size: 20),
+                  icon: const Icon(Icons.chevron_right_rounded, size: 20),
                   color: AppColors.textSubtle,
                 ),
               ],
@@ -1060,7 +792,7 @@ class _InlineRequirementBadge extends StatelessWidget {
       height: 24,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: required ? AppColors.ink : Colors.white,
+        color: required ? AppColors.brandSoft : AppColors.neutralSoft,
         borderRadius: BorderRadius.circular(6),
         border: required ? null : Border.all(color: AppColors.lineSoft),
       ),
@@ -1069,56 +801,8 @@ class _InlineRequirementBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
-          color: required ? Colors.white : AppColors.textSubtle,
+          color: required ? AppColors.brandStrong : AppColors.textSubtle,
         ),
-      ),
-    );
-  }
-}
-
-class _ReadOnlyPhoneInfo extends StatelessWidget {
-  final String? phoneNumberMasked;
-  final bool phoneVerified;
-
-  const _ReadOnlyPhoneInfo({
-    required this.phoneNumberMasked,
-    required this.phoneVerified,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final phoneText = phoneNumberMasked != null && phoneNumberMasked!.isNotEmpty
-        ? phoneNumberMasked!
-        : '인증된 전화번호 없음';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F8F8),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              phoneText,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink,
-              ),
-            ),
-          ),
-          Text(
-            phoneVerified ? '인증 완료' : '미인증',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: phoneVerified ? AppColors.ink : AppColors.textMuted,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1132,66 +816,6 @@ String? _validateNickname(String? value) {
   }
   if (!RegExp(r'^[가-힣a-zA-Z0-9]+$').hasMatch(nickname)) {
     return '닉네임은 한글, 영문, 숫자만 사용할 수 있습니다.';
-  }
-  return null;
-}
-
-String? _validateBirthDate(String? value) {
-  final birthDate = value?.trim() ?? '';
-  if (birthDate.isEmpty) return '생년월일을 입력해주세요.';
-  if (!RegExp(r'^\d{4}\.\d{2}\.\d{2}$').hasMatch(birthDate)) {
-    return '생년월일은 YYYY.MM.DD 형식으로 입력해주세요.';
-  }
-  final parsed = _parseDisplayBirthDate(birthDate);
-  if (parsed == null) {
-    return '올바른 생년월일을 입력해주세요.';
-  }
-  final today = DateTime.now();
-  final todayOnly = DateTime(today.year, today.month, today.day);
-  if (parsed.isAfter(todayOnly)) {
-    return '생년월일은 오늘 또는 이전 날짜로 입력해주세요.';
-  }
-  return null;
-}
-
-DateTime? _parseDisplayBirthDate(String value) {
-  final parts = value.split('.');
-  if (parts.length != 3) return null;
-
-  final year = int.tryParse(parts[0]);
-  final month = int.tryParse(parts[1]);
-  final day = int.tryParse(parts[2]);
-  if (year == null || month == null || day == null) return null;
-  if (year < 1900 || month < 1 || month > 12 || day < 1) return null;
-
-  final parsed = DateTime(year, month, day);
-  if (parsed.year != year || parsed.month != month || parsed.day != day) {
-    return null;
-  }
-  return parsed;
-}
-
-String _toApiBirthDate(String value) {
-  final digits = digitsOnly(value);
-  if (digits.length != 8) return value.trim().replaceAll('.', '-');
-  return '${digits.substring(0, 4)}-${digits.substring(4, 6)}-${digits.substring(6, 8)}';
-}
-
-String _toDisplayBirthDate(String value) {
-  final digits = digitsOnly(value);
-  if (digits.length != 8) return value.trim().replaceAll('-', '.');
-  return '${digits.substring(0, 4)}.${digits.substring(4, 6)}.${digits.substring(6, 8)}';
-}
-
-String _toApiPhoneNumber(String value) {
-  return digitsOnly(value);
-}
-
-String? _validatePhoneNumber(String? value) {
-  final phoneNumber = value?.trim() ?? '';
-  if (phoneNumber.isEmpty) return '전화번호를 입력해주세요.';
-  if (!RegExp(r'^010-?\d{4}-?\d{4}$').hasMatch(phoneNumber)) {
-    return '전화번호는 010-0000-0000 형식으로 입력해주세요.';
   }
   return null;
 }

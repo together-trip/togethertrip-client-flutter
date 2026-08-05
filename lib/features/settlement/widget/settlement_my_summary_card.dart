@@ -18,22 +18,44 @@ class SettlementMySummaryCard extends StatelessWidget {
     final receivedDone = overview.receivedTransfers
         .where((item) => item.receiverConfirmed)
         .length;
+    final pendingReceived = overview.receivedTransfers
+        .where((item) => !item.isCompleted && !item.receiverConfirmed)
+        .length;
+    final pendingSent = overview.sentTransfers
+        .where((item) => !item.isCompleted && !item.senderConfirmed)
+        .length;
+    final canConfirmTransfers = overview.stage == SettlementStage.confirmed;
+    final hasReceiveTask = canConfirmTransfers && pendingReceived > 0;
+    final hasSendTask = canConfirmTransfers && pendingSent > 0;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.ink, width: 2),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.brandSoft,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '내 정산 요약',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          Text(
+            hasReceiveTask
+                ? '받을 돈을 확인해주세요'
+                : hasSendTask
+                ? '보낼 돈을 확인해주세요'
+                : '내 정산 현황',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 5),
+          Text(
+            hasReceiveTask
+                ? '수금 확인 $pendingReceived건이 남아 있어요.'
+                : hasSendTask
+                ? '송금 확인 $pendingSent건이 남아 있어요.'
+                : '보낼 돈과 받을 돈을 한눈에 확인하세요.',
+            style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -82,12 +104,16 @@ class _SummaryMetric extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 11, color: AppColors.textSubtle),
+          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 5),
         Text(
           value,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: AppColors.ink,
+          ),
         ),
       ],
     );

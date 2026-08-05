@@ -23,7 +23,12 @@ class SettlementStatusSummary extends StatelessWidget {
     final primaryLabel = _primaryLabel;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        color: AppColors.neutralSoft,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -149,8 +154,8 @@ class _SettlementProgress extends StatelessWidget {
           child: LinearProgressIndicator(
             minHeight: 7,
             value: overview.overallConfirmationProgress.clamp(0, 1).toDouble(),
-            backgroundColor: const Color(0xFFEDEDED),
-            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.ink),
+            backgroundColor: AppColors.line,
+            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.brand),
           ),
         ),
         const SizedBox(height: 7),

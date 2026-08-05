@@ -39,6 +39,7 @@ void main() {
                   'tripId': 10,
                   'transactionId': null,
                   'authorParticipantId': 100,
+                  'authorUserId': 1,
                   'authorDisplayName': '재완',
                   'postType': 'RECORD',
                   'title': '첫날',
@@ -74,6 +75,7 @@ void main() {
       expect(capturedUrl!.queryParameters['size'], '20');
       expect(capturedAuth, 'Bearer access-token');
       expect(page.items.single.title, '첫날');
+      expect(page.items.single.authorUserId, 1);
       expect(page.hasNext, true);
     });
 
