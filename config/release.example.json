@@ -1,0 +1,11 @@
+{
+  "API_BASE_URL": "https://api.togethertrip.co.kr",
+  "SUPPORT_EMAIL": "support@togethertrip.co.kr",
+  "KAKAO_NATIVE_APP_KEY": "REPLACE_WITH_PRODUCTION_KAKAO_KEY",
+  "GOOGLE_MAPS_API_KEY": "REPLACE_WITH_RESTRICTED_GOOGLE_MAPS_KEY",
+  "PRIVACY_POLICY_URL": "https://togethertrip.co.kr/privacy",
+  "TERMS_OF_SERVICE_URL": "https://togethertrip.co.kr/terms",
+  "COMMUNITY_POLICY_URL": "https://togethertrip.co.kr/community-policy",
+  "CUSTOMER_SUPPORT_URL": "https://togethertrip.co.kr/support",
+  "ACCOUNT_DELETION_URL": "https://togethertrip.co.kr/account-deletion"
+}

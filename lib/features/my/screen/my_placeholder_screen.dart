@@ -259,12 +259,6 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
     }
   }
 
-  void _showPreparingMessage(String featureName) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('$featureName 기능은 아직 준비 중입니다.')));
-  }
-
   Future<void> _withdraw() async {
     setState(() {
       _isWithdrawing = true;
@@ -351,11 +345,6 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
             child: Text('설정', style: AppTextStyles.caption),
           ),
           MyMenuRow(
-            icon: Icons.notifications_outlined,
-            label: '알림 설정',
-            onTap: () => _showPreparingMessage('알림 설정'),
-          ),
-          MyMenuRow(
             icon: Icons.description_outlined,
             label: '약관 및 동의 관리',
             onTap: _openTerms,
@@ -399,6 +388,15 @@ class _MyPlaceholderScreenState extends State<MyPlaceholderScreen> {
           const Padding(
             padding: EdgeInsets.fromLTRB(20, 22, 20, 6),
             child: Text('계정', style: AppTextStyles.caption),
+          ),
+          MyMenuRow(
+            key: const ValueKey('accountDeletionLink'),
+            icon: Icons.person_remove_outlined,
+            label: '계정 삭제 안내',
+            onTap: () => _openPublicSite(
+              PublicSitePage.accountDeletion,
+              '계정 삭제 안내',
+            ),
           ),
           MyMenuRow(icon: Icons.logout, label: '로그아웃', onTap: _confirmLogout),
           Padding(
