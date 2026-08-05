@@ -56,7 +56,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(fixture.gateway.backgroundHandler, isNotNull);
+      expect(
+        fixture.gateway.backgroundHandler,
+        firebaseMessagingBackgroundHandler,
+      );
       expect(fixture.service.readIds, [103]);
       expect(fixture.openedTargets.single.tripId, 10);
       expect(find.text('notification-target'), findsOneWidget);
