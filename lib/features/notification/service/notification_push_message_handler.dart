@@ -9,7 +9,14 @@ import '../../trip/screen/trip_detail_screen.dart';
 import '../../trip/screen/trip_recap_screen.dart';
 import '../../trip/service/trip_service.dart';
 import '../screen/notification_list_screen.dart';
+import 'notification_messaging_gateway.dart';
 import 'notification_service.dart';
+
+typedef NotificationRouteFactory =
+    Route<void> Function(
+      NotificationDeepLinkTarget target,
+      NavigatorState navigator,
+    );
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -24,7 +31,8 @@ class NotificationPushMessageHandler {
   final GlobalKey<NavigatorState> _navigatorKey;
   final NotificationService _notificationService;
   final TripService _tripService;
-  final FirebaseMessaging? _messaging;
+  final NotificationMessagingGateway _messagingGateway;
+  final NotificationRouteFactory? _routeFactory;
   StreamSubscription<RemoteMessage>? _foregroundSubscription;
   StreamSubscription<RemoteMessage>? _openedSubscription;
   bool _initialized = false;
@@ -33,29 +41,28 @@ class NotificationPushMessageHandler {
     required GlobalKey<NavigatorState> navigatorKey,
     NotificationService? notificationService,
     TripService? tripService,
-    FirebaseMessaging? messaging,
+    NotificationMessagingGateway? messagingGateway,
+    NotificationRouteFactory? routeFactory,
   }) : _navigatorKey = navigatorKey,
        _notificationService = notificationService ?? NotificationService(),
        _tripService = tripService ?? TripService(),
-       _messaging = messaging;
+       _messagingGateway =
+           messagingGateway ?? FirebaseNotificationMessagingGateway(),
+       _routeFactory = routeFactory;
 
   Future<void> initialize() async {
     if (_initialized) return;
     _initialized = true;
 
     try {
-      if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
-      }
-      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-      _foregroundSubscription = FirebaseMessaging.onMessage.listen(
+      await _messagingGateway.initialize(firebaseMessagingBackgroundHandler);
+      _foregroundSubscription = _messagingGateway.foregroundMessages.listen(
         _handleForegroundMessage,
       );
-      _openedSubscription = FirebaseMessaging.onMessageOpenedApp.listen(
+      _openedSubscription = _messagingGateway.openedMessages.listen(
         _openFromRemoteMessage,
       );
-      final initialMessage = await (_messaging ?? FirebaseMessaging.instance)
-          .getInitialMessage();
+      final initialMessage = await _messagingGateway.getInitialMessage();
       if (initialMessage != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _openFromRemoteMessage(initialMessage);
@@ -116,21 +123,22 @@ class NotificationPushMessageHandler {
     final navigator = _navigatorKey.currentState;
     if (navigator == null) return;
 
-    await navigator.push(
-      MaterialPageRoute<void>(
-        builder: (_) => target.isRecap
-            ? TripRecapScreen(
-                tripId: target.tripId,
-                tripRecapId: target.recapId,
-                tripService: _tripService,
-              )
-            : TripDetailScreen(
-                tripId: target.tripId,
-                tripService: _tripService,
-                onClose: (_) => navigator.pop(),
-              ),
-      ),
-    );
+    final route =
+        _routeFactory?.call(target, navigator) ??
+        MaterialPageRoute<void>(
+          builder: (_) => target.isRecap
+              ? TripRecapScreen(
+                  tripId: target.tripId,
+                  tripRecapId: target.recapId,
+                  tripService: _tripService,
+                )
+              : TripDetailScreen(
+                  tripId: target.tripId,
+                  tripService: _tripService,
+                  onClose: (_) => navigator.pop(),
+                ),
+        );
+    await navigator.push(route);
   }
 }
 
