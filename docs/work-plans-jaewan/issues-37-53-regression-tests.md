@@ -49,4 +49,3 @@
 - `flutter analyze`
 - `flutter test`
 - `dart run tool/verify_release_config.dart --platform-only`
-
