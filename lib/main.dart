@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'core/widget/app_design.dart';
@@ -16,6 +17,9 @@ import 'features/trip/service/trip_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kReleaseMode) {
+    Env.ensureReleaseConfiguration();
+  }
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp();
