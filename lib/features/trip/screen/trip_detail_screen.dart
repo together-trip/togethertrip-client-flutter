@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/env/env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widget/app_design.dart';
 import '../../notification/screen/notification_list_screen.dart';
@@ -184,6 +185,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<TripRecapStatus?> _loadRecapStatusSilently() async {
+    if (!Env.tripRecapEnabled) return null;
     try {
       return await _tripService.getRecapStatus(widget.tripId);
     } catch (_) {
@@ -192,6 +194,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _reloadRecapStatus() async {
+    if (!Env.tripRecapEnabled) return;
     setState(() {
       _isLoadingRecapStatus = true;
       _errorMessage = null;
@@ -1486,13 +1489,14 @@ class _TripFeedHeader extends StatelessWidget {
               ),
             ),
           ),
-          _TripRecapAction(
-            status: recapStatus,
-            isLoading: isLoadingRecapStatus,
-            isSubmitting: isSubmittingRecap,
-            onTap: onRecapTap,
-            onRetry: onRecapStatusRetry,
-          ),
+          if (Env.tripRecapEnabled)
+            _TripRecapAction(
+              status: recapStatus,
+              isLoading: isLoadingRecapStatus,
+              isSubmitting: isSubmittingRecap,
+              onTap: onRecapTap,
+              onRetry: onRecapStatusRetry,
+            ),
         ],
       ),
     );

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class Env {
   static const kakaoNativeAppKey = String.fromEnvironment(
     'KAKAO_NATIVE_APP_KEY',
@@ -31,6 +33,18 @@ class Env {
     'ACCOUNT_DELETION_URL',
     defaultValue: 'https://togethertrip.co.kr/account-deletion',
   );
+
+  /// 여행 Recap 기능 노출 여부. 1차 출시에서는 비활성화한다.
+  static const _tripRecapEnabledFromEnvironment = bool.fromEnvironment(
+    'TRIP_RECAP_ENABLED',
+    defaultValue: false,
+  );
+
+  @visibleForTesting
+  static bool? tripRecapEnabledOverride;
+
+  static bool get tripRecapEnabled =>
+      tripRecapEnabledOverride ?? _tripRecapEnabledFromEnvironment;
 
   static void ensureReleaseConfiguration() {
     const requiredValues = {
