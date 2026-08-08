@@ -7,5 +7,6 @@
   "TERMS_OF_SERVICE_URL": "https://togethertrip.co.kr/terms",
   "COMMUNITY_POLICY_URL": "https://togethertrip.co.kr/community-policy",
   "CUSTOMER_SUPPORT_URL": "https://togethertrip.co.kr/support",
-  "ACCOUNT_DELETION_URL": "https://togethertrip.co.kr/account-deletion"
+  "ACCOUNT_DELETION_URL": "https://togethertrip.co.kr/account-deletion",
+  "SETTLEMENT_SHARE_BASE_URL": "https://togethertrip.co.kr/settlements/share"
 }

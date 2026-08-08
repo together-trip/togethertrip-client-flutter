@@ -34,6 +34,12 @@ class Env {
     defaultValue: 'https://togethertrip.co.kr/account-deletion',
   );
 
+  /// 정산 공유 링크의 기준 주소. 뒤에 `?token=...`을 붙여 사용한다.
+  static const settlementShareBaseUrl = String.fromEnvironment(
+    'SETTLEMENT_SHARE_BASE_URL',
+    defaultValue: 'https://togethertrip.co.kr/settlements/share',
+  );
+
   /// 여행 Recap 기능 노출 여부. 1차 출시에서는 비활성화한다.
   static const _tripRecapEnabledFromEnvironment = bool.fromEnvironment(
     'TRIP_RECAP_ENABLED',
@@ -56,6 +62,7 @@ class Env {
       'COMMUNITY_POLICY_URL': communityPolicyUrl,
       'CUSTOMER_SUPPORT_URL': customerSupportUrl,
       'ACCOUNT_DELETION_URL': accountDeletionUrl,
+      'SETTLEMENT_SHARE_BASE_URL': settlementShareBaseUrl,
     };
     final missing = requiredValues.entries
         .where((entry) => entry.value.trim().isEmpty)
@@ -72,6 +79,7 @@ class Env {
       'COMMUNITY_POLICY_URL': communityPolicyUrl,
       'CUSTOMER_SUPPORT_URL': customerSupportUrl,
       'ACCOUNT_DELETION_URL': accountDeletionUrl,
+      'SETTLEMENT_SHARE_BASE_URL': settlementShareBaseUrl,
     };
     final invalidUrls = urlValues.entries
         .where((entry) {

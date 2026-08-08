@@ -69,7 +69,7 @@ class SettlementStatusSummary extends StatelessWidget {
                 OutlinedButton(
                   key: const ValueKey('shareSettlementButton'),
                   onPressed: isBusy ? null : onShare,
-                  child: Text(overview.shareToken == null ? '공유' : '공유됨'),
+                  child: Text(overview.shareToken == null ? '공유' : '링크 보기'),
                 )
               else if (overview.isOwner && primaryLabel != null)
                 ElevatedButton(

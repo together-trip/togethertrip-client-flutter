@@ -164,6 +164,15 @@ void main() {
             if (path.endsWith('/settlements')) {
               return _jsonResponse(_apiResponse(_settlementData()), 200);
             }
+            if (path.endsWith('/share-tokens/rotation')) {
+              return _jsonResponse(
+                _apiResponse({
+                  'settlementId': 901,
+                  'shareToken': 'rotated-token',
+                }),
+                200,
+              );
+            }
             if (path.endsWith('/share-tokens')) {
               return _jsonResponse(
                 _apiResponse({
@@ -200,6 +209,23 @@ void main() {
 
       final shared = await service.createShareToken();
       expect(shared.shareToken, 'share-token');
+      expect(
+        SettlementService.shareLinkOf(shared),
+        'https://togethertrip.co.kr/settlements/share?token=share-token',
+      );
+
+      final rotated = await service.rotateShareToken();
+      expect(rotated.shareToken, 'rotated-token');
+      expect(
+        SettlementService.shareLinkOf(rotated),
+        'https://togethertrip.co.kr/settlements/share?token=rotated-token',
+      );
+      expect(
+        requested,
+        contains(
+          'POST /api/trips/10/settlements/901/share-tokens/rotation',
+        ),
+      );
 
       final transferConfirmed = await service.confirmTransferAsReceiver(1);
       expect(transferConfirmed.receivedTransfers.single.isCompleted, isTrue);

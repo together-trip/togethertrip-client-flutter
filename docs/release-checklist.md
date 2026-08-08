@@ -25,6 +25,7 @@
 - [ ] Firebase Android/iOS 앱 ID, package/bundle이 운영 앱과 일치한다.
 - [ ] Apple App ID에 Sign in with Apple과 Push Notifications capability가 활성화되어 있다.
 - [ ] 공개 개인정보처리방침·약관·운영정책·지원·계정 삭제 URL이 모두 HTTPS 200을 반환한다.
+- [ ] `SETTLEMENT_SHARE_BASE_URL`이 배포된 웹 공유 페이지를 가리키고 HTTPS 200을 반환한다.
 
 커밋 전에는 다음 명령으로 추적 여부를 확인한다.
 

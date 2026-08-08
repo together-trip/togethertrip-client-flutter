@@ -1,3 +1,4 @@
+import '../../../core/env/env.dart';
 import '../../../core/network/api_client.dart';
 import '../../auth/service/auth_service.dart';
 import '../model/settlement_models.dart';
@@ -112,6 +113,15 @@ class SettlementService {
   }
 
   Future<SettlementOverview> createShareToken() async {
+    return _requestShareToken('share-tokens');
+  }
+
+  /// 새 공유 토큰을 발급해 기존 링크를 무효화한다.
+  Future<SettlementOverview> rotateShareToken() async {
+    return _requestShareToken('share-tokens/rotation');
+  }
+
+  Future<SettlementOverview> _requestShareToken(String pathSuffix) async {
     final current = _requireOverview();
     final settlementId = current.settlementId;
     if (settlementId == null) {
@@ -120,7 +130,7 @@ class SettlementService {
 
     final accessToken = await _requireAccessToken();
     final data = await _apiClient.post(
-      '/api/trips/${current.tripId}/settlements/$settlementId/share-tokens',
+      '/api/trips/${current.tripId}/settlements/$settlementId/$pathSuffix',
       {},
       accessToken: accessToken,
     );
@@ -130,6 +140,16 @@ class SettlementService {
 
     _overview = current.copyWith(shareToken: data['shareToken'] as String?);
     return _overview!;
+  }
+
+  /// 공유 토큰을 웹에서 열 수 있는 링크로 만든다.
+  static String? shareLinkOf(SettlementOverview overview) {
+    final token = overview.shareToken;
+    if (token == null || token.isEmpty) {
+      return null;
+    }
+
+    return '${Env.settlementShareBaseUrl}?token=${Uri.encodeQueryComponent(token)}';
   }
 
   Future<SettlementOverview> confirmTransferAsSender(int transferId) async {
@@ -270,6 +290,15 @@ class SettlementMockService extends SettlementService {
   Future<SettlementOverview> createShareToken() async {
     final current = _requireMockOverview();
     _mockOverview = current.copyWith(shareToken: 'mock-share-token');
+    return _mockOverview!;
+  }
+
+  @override
+  Future<SettlementOverview> rotateShareToken() async {
+    final current = _requireMockOverview();
+    _mockOverview = current.copyWith(
+      shareToken: 'mock-share-token-rotated',
+    );
     return _mockOverview!;
   }
 

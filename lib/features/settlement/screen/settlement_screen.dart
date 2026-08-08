@@ -6,6 +6,7 @@ import '../service/settlement_service.dart';
 import '../widget/settlement_balance_card.dart';
 import '../widget/settlement_explanation_sheet.dart';
 import '../widget/settlement_my_summary_card.dart';
+import '../widget/settlement_share_sheet.dart';
 import '../widget/settlement_status_summary.dart';
 import '../widget/settlement_transfer_card.dart';
 
@@ -188,9 +189,41 @@ class _SettlementScreenState extends State<SettlementScreen> {
   }
 
   Future<void> _handleShare() async {
+    await _runAction(_settlementService.createShareToken);
+    if (!mounted) return;
+    await _openShareSheet();
+  }
+
+  Future<void> _handleRotateShare() async {
     await _runAction(
-      _settlementService.createShareToken,
-      message: '공유 링크가 준비됐어요.',
+      _settlementService.rotateShareToken,
+      message: '새 공유 링크를 발급했어요. 이전 링크는 더 이상 열리지 않아요.',
+    );
+    if (!mounted) return;
+    await _openShareSheet();
+  }
+
+  Future<void> _openShareSheet() async {
+    final overview = _overview;
+    if (overview == null) return;
+
+    final shareLink = SettlementService.shareLinkOf(overview);
+    if (shareLink == null) {
+      setState(() {
+        _errorMessage = '공유 링크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.';
+      });
+      return;
+    }
+
+    await showAppBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => SettlementShareSheet(
+        shareLink: shareLink,
+        isBusy: _isBusy,
+        onRotate: _handleRotateShare,
+      ),
     );
   }
 

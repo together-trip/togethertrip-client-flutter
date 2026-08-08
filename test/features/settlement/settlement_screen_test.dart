@@ -122,7 +122,63 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('공유됨'), findsOneWidget);
+    expect(find.text('링크 보기'), findsOneWidget);
     expect(find.text('정산 완료'), findsOneWidget);
+  });
+
+  testWidgets('확정 정산에서 공유를 누르면 링크와 재발급 수단을 보여준다', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettlementScreen(
+          tripId: 1,
+          tripTitle: '오사카 여행',
+          isOwner: true,
+          currentParticipantId: 11,
+          settlementService: SettlementMockService(),
+          showMockCases: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('settlementPrimaryButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('settlementPrimaryButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('confirmSettlementButton')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('shareSettlementButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('정산 공유 링크'), findsOneWidget);
+    expect(
+      find.text(
+        'https://togethertrip.co.kr/settlements/share?token=mock-share-token',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('copySettlementShareLinkButton')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('rotateSettlementShareLinkButton')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('지금 링크는 더 이상 열리지 않아요. 계속할까요?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('confirmRotateShareLinkButton')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'https://togethertrip.co.kr/settlements/share?token=mock-share-token-rotated',
+      ),
+      findsOneWidget,
+    );
   });
 }
